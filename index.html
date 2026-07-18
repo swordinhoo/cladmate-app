@@ -727,14 +727,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const rTop = (p.pipeOD != null ? p.pipeOD + 2*(p.insulation+(p.cladGap||0)) : p.roundOD) / 2;
     const H = p.height, ox = p.offsetX || 0, oy = p.offsetY || 0, N = p.round || 24;
     const corners = [[w/2, dpt/2, 0], [-w/2, dpt/2, 0], [-w/2, -dpt/2, 0], [w/2, -dpt/2, 0]];
-    const circ = k => { const a = 2*Math.PI*k/N; return [ox + rTop*Math.cos(a), oy + rTop*Math.sin(a), H]; };
+    const seam = ((p.seamFromThroat || 0) % 360 + 360) % 360;
+    // angle list: N steps from the seam, with exact corner angles inserted
+    const angs = []; for (let k = 0; k <= N; k++) angs.push(seam + 360*k/N);
+    for (let c = Math.ceil(seam/90); c*90 < seam + 360; c++) { const a = c*90; if (angs.every(x => Math.abs(x-a) > 1e-6)) angs.push(a); }
+    angs.sort((a,b) => a-b);
+    const topAt = a => { const r2 = a*Math.PI/180; return [ox + rTop*Math.cos(r2), oy + rTop*Math.sin(r2), H]; };
+    const cornOf = a => corners[Math.floor((((a % 360) + 360) % 360) / 90) % 4];
     const B = [], T = [];
-    for (let k = 0; k <= N; k++) {
-      const deg = 360*k/N, top = circ(k), onmid = Math.abs(deg % 90) < 1e-6;
-      if (onmid && k > 0 && k < N) {
-        B.push(corners[(Math.round(deg/90)-1+4)%4]); T.push(top);
-        B.push(corners[Math.round(deg/90)%4]);       T.push(top);
-      } else { B.push(corners[Math.floor(deg/90)%4]); T.push(top); }
+    for (let i = 0; i < angs.length; i++) {
+      const a = angs[i], top = topAt(a), onC = Math.abs(a % 90) < 1e-6;
+      if (onC && i > 0 && i < angs.length - 1) {
+        B.push(cornOf(a - 1e-4)); T.push(top);
+        B.push(cornOf(a + 1e-4)); T.push(top);
+      } else { B.push(cornOf(a + (i === angs.length-1 ? -1e-4 : 1e-4))); T.push(top); }
     }
     const { b2, t2 } = developLoops(B, T);
     return packDeveloped({
@@ -1197,13 +1203,15 @@ const F={
   build:s=>FP.swanNeck(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Joint '+c.alpha.toFixed(1)+'°','Offset '+c.S+'mm'],
   note:'This pattern is the MIDDLE piece. The two end pipes get a plain mitre at half the joint angle — the cover sheet tells you the exact figure.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
-  defaults:{swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
-  build:s=>FP.squareToRound(s), stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H]},
+  defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  build:s=>FP.squareToRound(s), stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
+  note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
-  defaults:{swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('offsetX','Top offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
-  build:s=>FP.squareToRound(s), stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox]},
+  defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('offsetX','Top offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  build:s=>FP.squareToRound(s), stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox],
+  note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  flatback:{name:'Flat Back Cone',sub:'Eccentric reducer',icon:I.econe,
   defaults:{swage:3,seamFromThroat:180,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -1217,8 +1225,8 @@ const F={
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('offset','Offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'oblique'})), stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  inctee:{name:'Inclined Tee',sub:'Angled branch',icon:I.inctee,
-  defaults:{mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),DIVS],
+  defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
+  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'})), stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Angle '+c.angle+'°','Saddle '+c.saddle.toFixed(0)]},
  trunnion:{name:'Trunnion on Bend',sub:'Support stub under a lobster',icon:I.trunb,
   defaults:{trunnionPipeOD:114.3,bendPipeOD:219.1,insulation:25,centreRadius:305,segments:4,offset:200,minLen:200,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12,seamFromThroat:0},
@@ -1226,8 +1234,8 @@ const F={
   build:s=>FP.trunnionOnBend(s), stats:c=>['Trun Ø'+c.tOD.toFixed(0),'Bend Ø'+c.bOD.toFixed(0),'S '+c.S.toFixed(0),'o12 '+c.o12.join(',')],
   note:'Trunnion sitting under a segmented bend. Wavy edge scribes to the bend cladding; set Bend segments to match the lobster you actually made. Check the first one against the metal before cutting a batch.'},
  teereducer:{name:'Tee Reducer',sub:'Small branch tee',icon:I.teered,
-  defaults:{mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),DIVS],
+  defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
+  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90})), stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)]},
  teehole:{name:'Tee Hole Cut Out',sub:'Hole in the main',icon:I.hole,
   defaults:{mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:90},
