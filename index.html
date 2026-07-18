@@ -548,19 +548,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const lapEach = p.lapTotal / 2;
 
     const half = theta / 2;
+    const sw = p.swage || 0;
+    const SRe = SR + sw, Sre = Math.max(2, Sr - sw);
     const pol = (s, phi) => [s * Math.sin(phi), -s * Math.cos(phi)];
     const prim = [], holes = [], ticks = [];
     const N = 240;
     const outer = [], inner = [];
-    for (let i = 0; i <= N; i++) { const phi = -half + theta * i / N; outer.push(pol(SR, phi)); inner.push(pol(Sr, phi)); }
+    for (let i = 0; i <= N; i++) { const phi = -half + theta * i / N; outer.push(pol(SRe, phi)); inner.push(pol(Sre, phi)); }
     prim.push({ style: 'cut', pts: outer.concat(inner.slice().reverse(), [outer[0]]) });
-    prim.push({ style: 'centre', pts: [pol(Sr, 0), pol(SR, 0)] });
+    if (sw > 0) { const fo=[], fi=[]; for (let i = 0; i <= 72; i++) { const phi = -half + theta*i/72; fo.push(pol(SR,phi)); fi.push(pol(Sr,phi)); }
+      prim.push({ style:'fold', pts: fo }); prim.push({ style:'fold', pts: fi }); }
+    prim.push({ style: 'centre', pts: [pol(Sre, 0), pol(SRe, 0)] });
 
     const dlap = lapEach / SR;
     [-1, 1].forEach(sgn => {
       const edge = sgn * half, lap = sgn * (half + dlap);
-      prim.push({ style: 'lap',  pts: [pol(Sr, lap),  pol(SR, lap)] });
-      prim.push({ style: 'fold', pts: [pol(Sr, edge), pol(SR, edge)] });
+      prim.push({ style: 'lap',  pts: [pol(Sre, lap),  pol(SRe, lap)] });
+      prim.push({ style: 'fold', pts: [pol(Sre, edge), pol(SRe, edge)] });
       // holes ON the seam (fold) line -> rolls to the correct diameter
       const start = Sr + p.holeEndGap, end = SR - p.holeEndGap, span = end - start;
       const nH = Math.max(1, Math.round(span / p.holePitch));
@@ -570,7 +574,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let i = 0; i <= ND; i++) {
       const phi = -half + theta * i / ND;
       [SR, Sr].forEach(s => prim.push({ style: 'centre', pts: [pol(s - 6, phi), pol(s + 6, phi)] }));
-      const t = pol(SR + 14, phi); ticks.push({ x: t[0], y: t[1], label: String(i + 1 > ND ? 1 : i + 1) });
+      const t = pol(SRe + 14, phi); ticks.push({ x: t[0], y: t[1], label: String(i + 1 > ND ? 1 : i + 1) });
     }
     return {
       kind: 'Reducer',
@@ -578,7 +582,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       meta: [
         `Bare pipe ${p.bigPipeOD}→${p.smallPipeOD} mm OD  +  insulation ${p.insulation} mm`,
         `Cladding worked to ${bigOD.toFixed(0)}→${smallOD.toFixed(0)} mm OD   height ${p.height} mm`,
-        `Lap ${p.lapTotal} mm (${lapEach} each edge)   ordinates ${ND}`,
+        `Lap ${p.lapTotal} mm (${lapEach} each edge)   swage ${p.swage||0} mm each end   ordinates ${ND}`,
         `Big radius ${SR.toFixed(1)}  small radius ${Sr.toFixed(1)}  angle ${(theta*180/Math.PI).toFixed(1)}°`
       ],
       calc: { SR, Sr, theta: theta * 180 / Math.PI, bigOD, smallOD },
@@ -652,16 +656,25 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // build a developed-pattern object (cut outline, elements, seam lap, holes)
   function packDeveloped(o) {
     const b2 = o.b2, t2 = o.t2, n = b2.length;
+    const sw = o.swage || 0;
+    const offCurve = (cur, other, d) => cur.map((pt, i) => {
+      const a = cur[Math.max(0, i-1)], b = cur[Math.min(cur.length-1, i+1)];
+      let nx = -(b[1]-a[1]), ny = b[0]-a[0]; const L = Math.hypot(nx, ny) || 1; nx/=L; ny/=L;
+      if (nx*(pt[0]-other[i][0]) + ny*(pt[1]-other[i][1]) < 0) { nx=-nx; ny=-ny; }
+      return [pt[0]+nx*d, pt[1]+ny*d];
+    });
+    const b2x = sw ? offCurve(b2, t2, sw) : b2, t2x = sw ? offCurve(t2, b2, sw) : t2;
     const prim = [], holes = [], ticks = [];
     // element (ordinate) reference lines
     const skip = Math.max(1, Math.round(n / 40));
     for (let i = 0; i < n; i += skip) prim.push({ style: 'ord', pts: [b2[i], t2[i]] });
-    // cut outline
-    prim.push({ style: 'cut', pts: b2.concat(t2.slice().reverse(), [b2[0]]) });
+    // cut outline (swage-extended); dashed folds mark the true edges
+    prim.push({ style: 'cut', pts: b2x.concat(t2x.slice().reverse(), [b2x[0]]) });
+    if (sw) { prim.push({ style: 'fold', pts: b2 }); prim.push({ style: 'fold', pts: t2 }); }
     // centroid for outward normals
     let cx = 0, cy = 0, m = 0; b2.concat(t2).forEach(p => { cx += p[0]; cy += p[1]; m++; }); cx /= m; cy /= m;
     const lapEach = o.lapEach || 0;
-    [[b2[0], t2[0]], [b2[n-1], t2[n-1]]].forEach(edge => {
+    [[b2x[0], t2x[0]], [b2x[n-1], t2x[n-1]]].forEach(edge => {
       const [P, Q] = edge; const mx = (P[0]+Q[0])/2, my = (P[1]+Q[1])/2;
       let nxv = -(Q[1]-P[1]), nyv = (Q[0]-P[0]); const L = Math.hypot(nxv, nyv) || 1; nxv /= L; nyv /= L;
       if ((mx-cx)*nxv + (my-cy)*nyv < 0) { nxv = -nxv; nyv = -nyv; }   // point outward
@@ -700,7 +713,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${(p.lapTotal/2)} each edge)   developed by triangulation`
       ],
       calc: { bigOD, smallOD, offset: off, H },
-      b2, t2, lapEach: p.lapTotal/2, holePitch: p.holePitch, holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: p.holePitch, holeEndGap: p.holeEndGap
     });
   }
 
@@ -728,7 +741,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${p.lapTotal/2} each edge)   developed by triangulation`
       ],
       calc: { w, dpt, roundOD: 2*rTop, H, ox, oy },
-      b2, t2, lapEach: p.lapTotal/2, holePitch: p.holePitch, holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: p.holePitch, holeEndGap: p.holeEndGap
     });
   }
 
@@ -744,18 +757,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const seamRad = seamEffE * Math.PI/180;
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
     const yTop = th => minLen + A*(1 - Math.cos(th));   // throat=minLen, back=minLen+2A
+    const swE = p.swage || 0;
     const prim = [], holes = [], ticks = [];
-    const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [];
-    for (let i = 0; i <= steps; i++) { const x = xLo + (xHi-xLo)*i/steps; top.push([x, yTop(phiAt(x))]); }
-    prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
+    const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [], topT = [];
+    for (let i = 0; i <= steps; i++) { const x = xLo + (xHi-xLo)*i/steps; top.push([x, yTop(phiAt(x)) + swE]); topT.push([x, yTop(phiAt(x))]); }
+    prim.push({ style: 'cut', pts: [[xLo,-swE]].concat(top, [[xHi,-swE]], [[xLo,-swE]]) });
+    if (swE > 0) { prim.push({ style: 'fold', pts: topT }); prim.push({ style: 'fold', pts: [[xLo,0],[xHi,0]] }); }
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
-    [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, yTop(phiAt(xf))]] }));
+    [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,-swE],[xf, yTop(phiAt(xf)) + swE]] }));
     [0, circ].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, h=yTop(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     return { kind:'elbow', title:'Mitred Elbow  -  1:1 Template',
       meta:[`Bare pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD`,
             `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha*180/Math.PI).toFixed(1)}°  circ ${circ.toFixed(1)} mm`,
-            `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  min length ${minLen} mm  CUT ${pieces} OFF`],
+            `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.swage||0} mm  min length ${minLen} mm  CUT ${pieces} OFF`],
       calc:{cladOD, alpha:alpha*180/Math.PI, A, circ, pieces},
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:`CUT ${pieces} OFF` };
   }
@@ -1098,42 +1113,42 @@ const DIVS=segd('nDiv','Ordinate divisions',[12,24]);
 
 const F={
  reducer:{name:'Reducer',sub:'Concentric taper',icon:I.cone,free:true,
-  defaults:{bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20,seamClock:6,nDiv:12},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),DIVS],
+  defaults:{swage:3,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20,seamClock:6,nDiv:12},
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),DIVS],
   build:s=>FP.reducer(s), stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,bendDeg:90,segments:4,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),num('jointAllow','Joint allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.lobster(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Cut × segments'],
   note:'Back fastener = seam on the back of the bend (point 7). Side fastener = seam on the side (point 4). Or tap any division on the circle for a custom seam. Holes sit on the dashed seam line so it rolls to the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2 / N-piece',icon:I.elbow,free:true,
-  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('pieces','Pieces'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  defaults:{swage:3,bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('pieces','Pieces'),num('minLen','Min length (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.elbow(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut '+c.pieces+' off']},
  swanneck:{name:'Offset',sub:'Swan neck / jog',icon:I.swan,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,offset:100,middleLen:400,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('offset','Offset (mm)'),num('middleLen','Middle length (mm)'),num('jointAllow','Joint allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('offset','Offset (mm)'),num('middleLen','Middle length (mm)'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.swanNeck(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Joint '+c.alpha.toFixed(1)+'°','Offset '+c.S+'mm'],
   note:'This pattern is the MIDDLE piece. The two end pipes get a plain mitre at half the joint angle — the cover sheet tells you the exact figure.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
-  defaults:{pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
+  defaults:{swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
   build:s=>FP.squareToRound(s), stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H]},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
-  defaults:{pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('offsetX','Top offset (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
+  defaults:{swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('offsetX','Top offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
   build:s=>FP.squareToRound(s), stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox]},
  flatback:{name:'Flat Back Cone',sub:'Eccentric reducer',icon:I.econe,
-  defaults:{seamFromThroat:180,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  defaults:{swage:3,seamFromThroat:180,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'flatback'})), stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  frustri:{name:'Frustum Triangular',sub:'Cone by triangulation',icon:I.frustri,
-  defaults:{bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
+  defaults:{swage:3,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'tri'})), stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Concentric']},
  oblique:{name:'Oblique Cone',sub:'Offset-apex cone',icon:I.obl,
-  defaults:{seamFromThroat:180,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:70,lapTotal:50,holePitch:40,holeEndGap:20},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('offset','Offset (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  defaults:{swage:3,seamFromThroat:180,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:70,lapTotal:50,holePitch:40,holeEndGap:20},
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('offset','Offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'oblique'})), stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  inctee:{name:'Inclined Tee',sub:'Angled branch',icon:I.inctee,
   defaults:{mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
