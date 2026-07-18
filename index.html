@@ -1005,7 +1005,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.setTextColor(0); doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
     doc.text(pat.title, 14, 16);
     if (o.brand) { doc.setFontSize(9); doc.setTextColor(90); doc.text(String(o.brand), o.W - 14, 12, { align: 'right' }); doc.setTextColor(0); }
-    doc.setFontSize(7); doc.setTextColor(150); doc.text('Made with CladMate', o.W - 14, o.H - 6, { align: 'right' }); doc.setTextColor(0);
+    doc.setFontSize(7); doc.setTextColor(150); doc.text('CladMate · developed by Craig Sword · Phat Stax', o.W - 14, o.H - 6, { align: 'right' }); doc.setTextColor(0);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     let y = 26; pat.meta.forEach(l => { doc.text(l, 14, y); y += 5.5; });
     if (pat.calc.o12) { doc.setFont('helvetica', 'bold'); doc.text('Ordinates 12-div (mm): ', 14, y + 2); doc.setFont('helvetica', 'normal'); doc.text(pat.calc.o12.map((v, i) => (i + 1) + ':' + v).join('  '), 14, y + 7); y += 12; }
@@ -1564,7 +1564,16 @@ function settingsPage(){
     <label>Company name on PDF templates</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. C. Sword Insulations Ltd" ${PRO?'':'disabled'}></div>
    <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ CladMate Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
      :`<button class="btn gold" id="sUp">Unlock CladMate Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
-   <div class="hint">CladMate v1.0 · patterns verified against trade references · always check the 100&nbsp;mm bar before cutting</div>`;
+   <div class="card" style="text-align:center">
+    <div style="width:52px;height:52px;border-radius:14px;margin:2px auto 10px;background:linear-gradient(135deg,#ffd254,#fcb700);display:grid;place-items:center;box-shadow:0 2px 10px rgba(252,183,0,.4)">
+      <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#171310"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#171310" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#171310"/></svg></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v1.4</span></div>
+    <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
+    <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
+      <a href="mailto:swordy@phatstax.co.uk" style="color:#b78400;font-weight:700;text-decoration:none">swordy@phatstax.co.uk</a></div>
+    <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
+   </div>
+   <div class="hint">© Craig Sword · Phat Stax · all rights reserved</div>`;
   const save=()=>{ SET.insulation=+document.getElementById('sIns').value||SET.insulation;
     SET.lapTotal=+document.getElementById('sLap').value||SET.lapTotal;
     SET.holePitch=+document.getElementById('sHole').value||SET.holePitch;
