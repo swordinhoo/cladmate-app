@@ -1240,7 +1240,7 @@ function diagBend(va, k, seamDeg, hand){
   parts.push(_pl(sp,SEAMST)); sp.forEach(p=>all.push(p));
   return _svgWrap(parts,all,160);
 }
-function diagCone(bigW,smallW,h,mode,off){
+function diagCone(bigW,smallW,h,mode,off,seamDeg){
   const W=120, sc=W/Math.max(bigW,smallW,1); let b=bigW*sc/2, sm=smallW*sc/2, H=Math.max(34,Math.min(110,(h||100)*sc));
   let cT=0;
   if(mode==='flatback') cT=b-sm; else if(mode==='oblique'||mode==='obliqueround') cT=(off||0)*sc;
@@ -1249,6 +1249,9 @@ function diagCone(bigW,smallW,h,mode,off){
   else parts.push(`<ellipse cx="0" cy="0" rx="${b.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
   parts.push(`<ellipse cx="${cT.toFixed(1)}" cy="${(-H).toFixed(1)}" rx="${sm.toFixed(1)}" ry="${ryT.toFixed(1)}" fill="none" ${INKST}/>`);
   parts.push(_ln([-b,0],[cT-sm,-H],INKST), _ln([b,0],[cT+sm,-H],INKST));
+  if(seamDeg!=null){ const c=Math.cos(seamDeg*Math.PI/180);
+    const xb=-b*c, xt=cT-sm*c, yb=ry*Math.sqrt(Math.max(0,1-Math.min(1,(xb/b)*(xb/b))));
+    parts.push(_ln([xb,yb],[xt,-H],SEAMST)); all.push([xb,yb+3]); }
   return _svgWrap(parts,all,130);
 }
 function diagTee(mainOD,brOD,ang){
@@ -1289,8 +1292,8 @@ function fittingDiagram(kind,s){
       return diagBend(va,0.55,s.seamFromThroat,s.bendHand); }
     if(kind==='swanneck') return diagOffset(s.offset,s.middleLen,s.bendHand);
     if(kind==='reducer'||kind==='frustri') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'con');
-    if(kind==='flatback') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'flatback');
-    if(kind==='oblique') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'oblique',s.offset);
+    if(kind==='flatback') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'flatback',0,s.seamFromThroat);
+    if(kind==='oblique') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'oblique',s.offset,s.seamFromThroat);
     if(kind==='sqround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'sqround');
     if(kind==='obliqueround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'obliqueround',s.offsetX);
     if(kind==='inctee'||kind==='trunnion'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
