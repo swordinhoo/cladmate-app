@@ -4,8 +4,8 @@
   "description": "1:1 printable flat patterns for industrial insulation cladding. Reducers, lobster backs, tees, trunnions and more — sized over the lagging, tiled across A3/A4.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#eef2f7",
-  "theme_color": "#0b1526",
+  "background_color": "#f7f5f0",
+  "theme_color": "#0d0b08",
   "orientation": "portrait",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
