@@ -938,6 +938,50 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim, holes, ticks, bbox:bboxOf(prim), cutNote:'CUT 1 OFF (middle piece)' };
   }
 
+
+  // ================= DOUBLE BEND (bend onto bend) ==========================
+  // The shared segment where one lobster finishes and the next starts:
+  // a cylinder with bend-1's mitre on one end and bend-2's on the other.
+  // direction: 'opposite' = S-bend (like an offset), 'same' = continuing bend.
+  // twist: bend 2's plane rolled about the pipe axis, -90..+90 deg.
+  function bendOnBend(p) {
+    const cladOD = p.pipeOD + 2*(p.insulation + (p.cladGap||0));
+    const r = cladOD/2, circ = Math.PI*cladOD, lapEach = p.lapTotal/2;
+    const g1 = (p.bendDeg1*Math.PI/180)/(2*p.segments1), g2 = (p.bendDeg2*Math.PI/180)/(2*p.segments2);
+    const A1 = r*Math.tan(g1), A2 = r*Math.tan(g2);
+    const C1 = p.centreRadius1*g1 + (p.jointAllow||0), C2 = p.centreRadius2*g2 + (p.jointAllow||0);
+    const L0 = C1 + C2;
+    const hand = p.bendHand === 'B';
+    let seam = p.seamFromThroat == null ? 0 : p.seamFromThroat;
+    let twist = p.twist || 0;
+    if (hand) { seam = (360 - seam) % 360; twist = -twist; }
+    const th2 = ((p.direction === 'same' ? 0 : 180) + twist) * Math.PI/180;
+    const seamRad = seam * Math.PI/180;
+    const phiAt = x => seamRad + (x/circ)*2*Math.PI;
+    const yB = th => A1*Math.cos(th);                       // bend-1 cut (throat at 0)
+    const yT = th => L0 - A2*Math.cos(th - th2);            // bend-2 cut
+    if (L0 - A1 - A2 < 5) throw new Error('Bends too tight - the shared segment pinches out. Increase radius or segments.');
+    const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, top=[], bot=[];
+    for (let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, th=phiAt(x); top.push([x,yT(th)]); bot.push([x,yB(th)]); }
+    prim.push({ style:'cut', pts: top.concat([[xHi, yB(phiAt(xHi))]], bot.slice().reverse(), [top[0]]) });
+    prim.push({ style:'centre', pts: [[xLo, L0/2],[xHi, L0/2]] });
+    [0, circ].forEach(xf => { const th=phiAt(xf); prim.push({ style:'fold', pts: [[xf, yB(th)],[xf, yT(th)]] }); });
+    [0, circ].forEach(xl => { const th=phiAt(xl), b=yB(th)+p.holeEndGap, t=yT(th)-p.holeEndGap, span=t-b;
+      const nH=Math.max(1, Math.round(span/p.holePitch));
+      for (let k=0;k<=nH;k++) holes.push([xl, b + span*k/nH]); });
+    const ND = p.nDiv || 12;
+    for (let k=0;k<=ND;k++){ const x=k*circ/ND, th=phiAt(x); prim.push({ style:'ord', pts: [[x,yB(th)],[x,yT(th)]] });
+      ticks.push({ x, y: yT(th), label: (yT(th)-yB(th)).toFixed(0) }); }
+    const oT = []; for (let k=0;k<=6;k++){ const th=seamRad + 2*Math.PI*k/12; oT.push(Math.round(yT(th)-yB(th))); }
+    return { kind:'bendonbend', title:'Double Bend - Shared Segment 1:1',
+      meta:[`Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD   circ ${circ.toFixed(1)}`,
+            `Bend 1: ${p.bendDeg1}° / ${p.segments1} seg / CR ${p.centreRadius1}    Bend 2: ${p.bendDeg2}° / ${p.segments2} seg / CR ${p.centreRadius2}`,
+            `${p.direction==='same'?'Same-way bend':'S-bend (opposite)'}   twist ${p.twist||0}°   Type ${p.bendHand||'A'}   lap ${p.lapTotal} (${lapEach} each end)`,
+            `This piece finishes bend 1 AND starts bend 2. Cut the other gores with Lobster Back: ${p.segments1-1} off at bend-1 settings, ${p.segments2-1} off at bend-2 settings.`],
+      calc:{ cladOD, circ, A1, A2, L0, oT },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF (shared segment)' };
+  }
+
   // ================= AREA / WEIGHT / SHEET FIT =============================
   function patternArea(pat) {                    // mm^2, shoelace on the cut outline
     const cut = pat.prim.find(pr => pr.style === 'cut'); if (!cut) return 0;
@@ -1115,7 +1159,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, swanNeck, patternArea, materialStats, toDXF, makePDF, svgPreview };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, patternArea, materialStats, toDXF, makePDF, svgPreview };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1197,11 +1241,16 @@ const F={
   defaults:{swage:3,bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('pieces','Pieces'),num('minLen','Min length (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.elbow(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut '+c.pieces+' off']},
- swanneck:{name:'Offset',sub:'Swan neck / jog',icon:I.swan,
-  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,offset:100,middleLen:400,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('offset','Offset (mm)'),num('middleLen','Middle length (mm)'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
-  build:s=>FP.swanNeck(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Joint '+c.alpha.toFixed(1)+'°','Offset '+c.S+'mm'],
-  note:'This pattern is the MIDDLE piece. The two end pipes get a plain mitre at half the joint angle — the cover sheet tells you the exact figure.'},
+ bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
+  defaults:{pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,direction:'opposite',twist:0,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,bendHand:'A',nDiv:12},
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
+    num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
+    num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
+    sego('direction','Direction',[{v:'opposite',label:'S-bend (opposite)'},{v:'same',label:'Same way'}]),
+    num('twist','Twist (°, -90 to +90)'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  build:s=>FP.bendOnBend(s),
+  stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'Cut 1 off'],
+  note:'This is the SHARED segment — it finishes bend 1 and starts bend 2 in one piece. Twist rolls bend 2 out of plane (0 = flat S like the drawing, ±90 = second bend goes up/down out of the page). Cut the remaining gores with Lobster Back.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -1246,8 +1295,8 @@ const F={
   fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Trunnion pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)')],
   build:s=>FP.branchHole(Object.assign({},s,{mode:'trunnionhole'})), stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Trunnion Ø'+c.brOD.toFixed(0),'Hole '+c.holeW.toFixed(0)+'×'+c.holeL.toFixed(0)]}
 };
-const ORDER=['elbow','lobster','swanneck','inctee','trunnion','teereducer','teehole','trunnionhole','reducer','flatback','frustri','oblique','sqround','obliqueround'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','swanneck']},{t:'Tees & Branches',k:['inctee','trunnion','teereducer','teehole','trunnionhole']},{t:'Reducers & Cones',k:['reducer','flatback','frustri','oblique']},{t:'Transitions',k:['sqround','obliqueround']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','teehole','trunnionhole','reducer','flatback','frustri','oblique','sqround','obliqueround'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','trunnion','teereducer','teehole','trunnionhole']},{t:'Reducers & Cones',k:['reducer','flatback','frustri','oblique']},{t:'Transitions',k:['sqround','obliqueround']}];
 const states={};
 function freshState(k){ const s=Object.assign({},F[k].defaults);
   ['insulation','lapTotal','holePitch'].forEach(key=>{ if(key in s && SET[key]!=null) s[key]=SET[key]; }); return s; }
@@ -1380,7 +1429,7 @@ function fittingDiagram(kind,s){
     if(kind==='elbow'){ const p=Math.max(2,Math.round(s.pieces||2)), phi=s.bendDeg||90;
       const va=[90]; for(let j=1;j<p;j++) va.push(90-(j-0.5)*phi/(p-1)); va.push(90-phi);
       return diagBend(va,0.55,s.seamFromThroat,s.bendHand); }
-    if(kind==='swanneck') return diagOffset(s.offset,s.middleLen,s.bendHand);
+    if(kind==='bendonbend'){ if(s.direction==='same'){ const n=Math.max(2,Math.round((s.segments1||4))+Math.round((s.segments2||4))), phi=(s.bendDeg1||90)/2+(s.bendDeg2||90)/2+((s.bendDeg1||90)+(s.bendDeg2||90))/2*0; const tot=Math.min(178,(+s.bendDeg1||90)+(+s.bendDeg2||90)); const va=[]; for(let i=0;i<=n;i++) va.push(90-i*tot/n); return diagBend(va,0.5,s.seamFromThroat,s.bendHand); } return diagOffset(60,200,s.bendHand); }
     if(kind==='reducer'||kind==='frustri') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'con');
     if(kind==='flatback') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'flatback',0,s.seamFromThroat);
     if(kind==='oblique') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'oblique',s.offset,s.seamFromThroat);
@@ -1460,7 +1509,7 @@ function form(kind, presetParams){
   app.querySelectorAll('input').forEach(i=>i.oninput=refresh);
   app.querySelectorAll('[data-seg]').forEach(el=>{ const k=el.dataset.seg; el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-    if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else s[k]=parseFloat(b.dataset.v); refresh(); }); });
+    if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; } refresh(); }); });
   { const bEl=app.querySelector('[data-xdbasis]'); if(bEl) bEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ bEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
     const xEl=app.querySelector('[data-xd]'); if(xEl) xEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const m=parseFloat(b.dataset.m); const be=app.querySelector('[data-xdbasis] button.on'); const basis=be?be.dataset.b:'dn'; const e=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD); const D=basis==='dn'?(e?e.dn:s.pipeOD):s.pipeOD; s.centreRadius=Math.round(m*D*10)/10; const inp=app.querySelector('[data-k="centreRadius"]'); if(inp) inp.value=s.centreRadius; refresh(); }); }
 
@@ -1538,7 +1587,8 @@ function jobDetail(id){
     <button class="x" data-di="${i}">✕</button></div>`).join('')}</div>
     <div class="hint">Tap a fitting to open it with its saved sizes, then print or export.</div>`;
   app.querySelectorAll('[data-i]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.di) return;
-    const it=job.items[+r.dataset.i]; TAB='fit'; repage(()=>form(it.kind, it.params)); });
+    const it=job.items[+r.dataset.i]; if(!F[it.kind]){ toast('That fitting type is no longer in the app'); return; }
+    TAB='fit'; repage(()=>form(it.kind, it.params)); });
   app.querySelectorAll('[data-di]').forEach(b=>b.onclick=()=>{ job.items.splice(+b.dataset.di,1); saveJobs(); repage(()=>jobDetail(id)); });
 }
 function describe(it){ const p=it.params;
