@@ -1441,6 +1441,48 @@ function diagOffset(S,d,hand){
   const parts=[_pl(o,INKST),_pl(u,INKST),_ln(o[0],u[0],INKST),_ln(o[3],u[3],INKST),_ln(o[1],u[1],INKST),_ln(o[2],u[2],INKST)];
   return _svgWrap(parts,o.concat(u),160);
 }
+
+function diagDouble(st){
+  const rad=a=>a*Math.PI/180, sgn=st.bendHand==='B'?-1:1;
+  const Rc1=44, cl=(st.pipeOD+2*(st.insulation||0))/2;
+  const sc=Rc1/Math.max(st.centreRadius1||229, cl+5);
+  const r=Math.max(7,Math.min(cl*sc, Rc1*0.62));
+  const Rc2=Math.max(r+5,(st.centreRadius2||229)*sc);
+  const n1=Math.max(1,Math.round(st.segments1||4)), n2=Math.max(1,Math.round(st.segments2||4));
+  const phi1=+st.bendDeg1||90, phi2=+st.bendDeg2||90, opp=(st.direction!=='same');
+  const C1=[0,0];
+  const pt=(C,R,t)=>[C[0]+R*Math.cos(rad(t)), C[1]-R*Math.sin(rad(t))];
+  const mx=p=>[sgn*p[0],p[1]];
+  const tJ=90-phi1, radial=[Math.cos(rad(tJ)),-Math.sin(rad(tJ))];
+  const M=[C1[0]+Rc1*radial[0], C1[1]+Rc1*radial[1]];
+  const C2=opp?[M[0]+Rc2*radial[0],M[1]+Rc2*radial[1]]:[M[0]-Rc2*radial[0],M[1]-Rc2*radial[1]];
+  // vertex angle lists
+  const va1=[]; for(let i=0;i<=n1;i++) va1.push(90-i*phi1/n1);
+  const base2=opp?tJ+180:tJ;
+  const va2=[]; for(let j=0;j<=n2;j++) va2.push(opp? base2+j*phi2/n2 : base2-j*phi2/n2);
+  const segPoly=(C,Ri,Ro,t0,t1)=>[pt(C,Ri,t0),pt(C,Ri,t1),pt(C,Ro,t1),pt(C,Ro,t0)];
+  const parts=[], all=[];
+  const emit=(poly,hi)=>{ const pl=poly.map(mx); pl.forEach(p=>all.push(p));
+    parts.push(`<polygon points="${pl.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${hi?'#ffd254':'none'}" ${hi?'stroke="#b78400" stroke-width="2.6"':INKST} stroke-linejoin="round"/>`); };
+  // bend 1 segments (last one = shared, drawn later so it sits on top)
+  for(let i=0;i<n1-1;i++) emit(segPoly(C1,Rc1-r,Rc1+r,va1[i],va1[i+1]),false);
+  // bend 2 segments (first one = shared)
+  const R2i=Rc2-r, R2o=Rc2+r;
+  for(let j=1;j<n2;j++) emit(segPoly(C2,R2i,R2o,va2[j],va2[j+1]),false);
+  // shared pieces highlighted
+  if(n1>0) emit(segPoly(C1,Rc1-r,Rc1+r,va1[n1-1],va1[n1]),true);
+  if(n2>0) emit(segPoly(C2,R2i,R2o,va2[0],va2[1]),true);
+  // end stubs
+  const stub=(C,t,dirSign,R)=>{ const i0=pt(C,R-r,t),o0=pt(C,R+r,t);
+    const tang=[Math.sin(rad(t))*dirSign, Math.cos(rad(t))*dirSign], L=r*1.1;
+    const i1=[i0[0]+tang[0]*L,i0[1]+tang[1]*L], o1=[o0[0]+tang[0]*L,o0[1]+tang[1]*L];
+    [i1,o1].forEach(p=>all.push(mx(p)));
+    parts.push(_ln(mx(i0),mx(i1),INKST),_ln(mx(o0),mx(o1),INKST),_ln(mx(i1),mx(o1),INKST)); };
+  stub(C1,90,1,Rc1);
+  stub(C2,va2[n2],opp?1:-1,Rc2);
+  return _svgWrap(parts,all,160);
+}
+
 function fittingDiagram(kind,s){
   try{
     const clad=x=>x+2*(s.insulation||0);
@@ -1451,7 +1493,7 @@ function fittingDiagram(kind,s){
     if(kind==='elbow'){ const p=Math.max(2,Math.round(s.pieces||2)), phi=s.bendDeg||90;
       const va=[90]; for(let j=1;j<p;j++) va.push(90-(j-0.5)*phi/(p-1)); va.push(90-phi);
       return diagBend(va,0.55,s.seamFromThroat,s.bendHand); }
-    if(kind==='bendonbend'){ if(s.direction==='same'){ const n=Math.max(2,Math.round((s.segments1||4))+Math.round((s.segments2||4))), phi=(s.bendDeg1||90)/2+(s.bendDeg2||90)/2+((s.bendDeg1||90)+(s.bendDeg2||90))/2*0; const tot=Math.min(178,(+s.bendDeg1||90)+(+s.bendDeg2||90)); const va=[]; for(let i=0;i<=n;i++) va.push(90-i*tot/n); return diagBend(va,0.5,s.seamFromThroat,s.bendHand); } return diagOffset(60,200,s.bendHand); }
+    if(kind==='bendonbend') return diagDouble(s);
     if(kind==='reducer'||kind==='frustri') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'con');
     if(kind==='flatback') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'flatback',0,s.seamFromThroat);
     if(kind==='oblique') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'oblique',s.offset,s.seamFromThroat);
