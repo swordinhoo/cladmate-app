@@ -1020,29 +1020,44 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   // ================= TILED PDF ============================================
-  function makePDF(JsPDF, pattern, opts) {
-    opts = opts || {};
+  function _planPage(pattern, opts) {
     const PM = opts.printMargin != null ? opts.printMargin : 10;
     const OV = opts.overlap != null ? opts.overlap : 20;
     const [pw0, ph0] = PAGES[opts.page || 'a3'];
     const bb = pattern.bbox, pw = bb.w, ph = bb.h;
-
     function count(W, H) { const uw = W - 2 * PM, uh = H - 2 * PM, sx = uw - OV, sy = uh - OV; return { n: Math.ceil(pw / sx) * Math.ceil(ph / sy), uw, uh, sx, sy }; }
     let cands = opts.orient === 'portrait' ? [[pw0, ph0]] : opts.orient === 'landscape' ? [[ph0, pw0]] : [[pw0, ph0], [ph0, pw0]];
     let best = cands[0], bestN = Infinity;
     cands.forEach(c => { const n = count(c[0], c[1]).n; if (n < bestN) { bestN = n; best = c; } });
-    const [W, H] = best, { uw, uh, sx, sy } = count(W, H);
-    const nCols = Math.ceil(pw / sx), nRows = Math.ceil(ph / sy);
-
-    const doc = new JsPDF({ unit: 'mm', format: [W, H], orientation: W > H ? 'landscape' : 'portrait' });
+    const [W, H] = best, r = count(W, H);
+    return { W, H, PM, OV, uw: r.uw, uh: r.uh, sx: r.sx, sy: r.sy,
+             nCols: Math.ceil(pw / r.sx), nRows: Math.ceil(ph / r.sy), pw, ph, bb };
+  }
+  function _renderPattern(doc, pattern, opts, plan, first) {
+    const { W, H, PM, OV, uw, uh, sx, sy, nCols, nRows, pw, ph, bb } = plan;
     const nx = x => x - bb.x0, ny = y => y - bb.y0;
-
+    const orient = W > H ? 'landscape' : 'portrait';
+    if (!first) doc.addPage([W, H], orient);
     drawCover(doc, pattern, { W, H, nCols, nRows, pw, ph, nx, ny, brand: opts.brand });
     for (let row = 0; row < nRows; row++) for (let col = 0; col < nCols; col++) {
-      doc.addPage([W, H], W > H ? 'landscape' : 'portrait');
+      doc.addPage([W, H], orient);
       drawTile(doc, pattern, { W, H, uw, uh, sx, sy, col, row, nCols, nRows, PM, OV, nx, ny });
     }
-    return { doc, nCols, nRows, sheets: nCols * nRows, orient: W > H ? 'landscape' : 'portrait', W, H };
+  }
+  function makePDF(JsPDF, pattern, opts) {
+    opts = opts || {};
+    const plan = _planPage(pattern, opts);
+    const doc = new JsPDF({ unit: 'mm', format: [plan.W, plan.H], orientation: plan.W > plan.H ? 'landscape' : 'portrait' });
+    _renderPattern(doc, pattern, opts, plan, true);
+    return { doc, nCols: plan.nCols, nRows: plan.nRows, sheets: plan.nCols * plan.nRows, orient: plan.W > plan.H ? 'landscape' : 'portrait', W: plan.W, H: plan.H };
+  }
+  function makeKitPDF(JsPDF, patterns, opts) {
+    opts = opts || {};
+    const plans = patterns.map(p => _planPage(p, opts));
+    const doc = new JsPDF({ unit: 'mm', format: [plans[0].W, plans[0].H], orientation: plans[0].W > plans[0].H ? 'landscape' : 'portrait' });
+    let sheets = 0;
+    patterns.forEach((p, i) => { _renderPattern(doc, p, opts, plans[i], i === 0); sheets += plans[i].nCols * plans[i].nRows; });
+    return { doc, sheets, pieces: patterns.length };
   }
 
   function drawCover(doc, pat, o) {
@@ -1159,7 +1174,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, patternArea, materialStats, toDXF, makePDF, svgPreview };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1249,8 +1264,15 @@ const F={
     sego('direction','Direction',[{v:'opposite',label:'S-bend (opposite)'},{v:'same',label:'Same way'}]),
     num('twist','Twist (°, -90 to +90)'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.bendOnBend(s),
+  kit:s=>{ const shared=FP.bendOnBend(s);
+    const lob=(n,cr,deg,tag,cnt)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:s.jointAllow,lapTotal:s.lapTotal,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:s.seamFromThroat,bendHand:s.bendHand});
+      p.title='Double Bend - '+tag+' Gores 1:1'; p.meta.push('For this double bend cut '+cnt+' off - the shared segment replaces one gore.'); return p; };
+    const out=[shared];
+    if(s.segments1>1) out.push(lob(s.segments1,s.centreRadius1,s.bendDeg1,'Bend 1',s.segments1-1));
+    if(s.segments2>1) out.push(lob(s.segments2,s.centreRadius2,s.bendDeg2,'Bend 2',s.segments2-1));
+    return out; },
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'Cut 1 off'],
-  note:'This is the SHARED segment — it finishes bend 1 and starts bend 2 in one piece. Twist rolls bend 2 out of plane (0 = flat S like the drawing, ±90 = second bend goes up/down out of the page). Cut the remaining gores with Lobster Back.'},
+  note:'Radius bend onto radius bend. The preview shows the SHARED segment (finishes bend 1, starts bend 2 in one piece). Twist rolls bend 2 out of plane: 0 = flat S, ±90 = second bend goes up/down out of the page. Generate prints the FULL KIT: shared piece + all gores for both bends.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -1525,6 +1547,8 @@ function form(kind, presetParams){
       upd(); } }
   const lb=document.getElementById('lockBtn'); if(lb) lb.onclick=showUnlock;
   const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{
+    if(fit.kit){ const pats=fit.kit(s); const out=FP.makeKitPDF(window.jspdf.jsPDF, pats, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
+      out.doc.save('CladMate_'+kind+'_kit_'+SET.page+'.pdf'); toast('Full kit PDF — '+out.pieces+' patterns, '+out.sheets+' sheets'); return; }
     const out=FP.makePDF(window.jspdf.jsPDF, form._pat, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
     out.doc.save('CladMate_'+kind+'_'+SET.page+'.pdf'); toast('PDF ready — '+out.sheets+' sheet'+(out.sheets>1?'s':'')); };
   const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!PRO) return showUnlock();
