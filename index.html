@@ -553,17 +553,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const pol = (s, phi) => [s * Math.sin(phi), -s * Math.cos(phi)];
     const prim = [], holes = [], ticks = [];
     const N = 240;
+    const dlapC = (lapEach / SR);
+    const halfL = half + dlapC;                       // pattern continues through the lap
     const outer = [], inner = [];
-    for (let i = 0; i <= N; i++) { const phi = -half + theta * i / N; outer.push(pol(SRe, phi)); inner.push(pol(Sre, phi)); }
+    for (let i = 0; i <= N; i++) { const phi = -halfL + 2*halfL * i / N; outer.push(pol(SRe, phi)); inner.push(pol(Sre, phi)); }
     prim.push({ style: 'cut', pts: outer.concat(inner.slice().reverse(), [outer[0]]) });
-    if (sw > 0) { const fo=[], fi=[]; for (let i = 0; i <= 72; i++) { const phi = -half + theta*i/72; fo.push(pol(SR,phi)); fi.push(pol(Sr,phi)); }
+    if (sw > 0) { const fo=[], fi=[]; for (let i = 0; i <= 72; i++) { const phi = -halfL + 2*halfL*i/72; fo.push(pol(SR,phi)); fi.push(pol(Sr,phi)); }
       prim.push({ style:'fold', pts: fo }); prim.push({ style:'fold', pts: fi }); }
     prim.push({ style: 'centre', pts: [pol(Sre, 0), pol(SRe, 0)] });
 
-    const dlap = lapEach / SR;
     [-1, 1].forEach(sgn => {
-      const edge = sgn * half, lap = sgn * (half + dlap);
-      prim.push({ style: 'lap',  pts: [pol(Sre, lap),  pol(SRe, lap)] });
+      const edge = sgn * half;
       prim.push({ style: 'fold', pts: [pol(Sre, edge), pol(SRe, edge)] });
       // holes ON the seam (fold) line -> rolls to the correct diameter
       const start = Sr + p.holeEndGap, end = SR - p.holeEndGap, span = end - start;
@@ -664,24 +664,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       return [pt[0]+nx*d, pt[1]+ny*d];
     });
     const b2x = sw ? offCurve(b2, t2, sw) : b2, t2x = sw ? offCurve(t2, b2, sw) : t2;
+    const nn = b2x.length;
+    // outward normals of the two seam edges (for the lap tabs)
+    let cx0 = 0, cy0 = 0, mm = 0; b2x.concat(t2x).forEach(pp => { cx0 += pp[0]; cy0 += pp[1]; mm++; }); cx0 /= mm; cy0 /= mm;
+    const edgeN = (P, Q) => { let nx = -(Q[1]-P[1]), ny = Q[0]-P[0]; const L = Math.hypot(nx,ny)||1; nx/=L; ny/=L;
+      const mx=(P[0]+Q[0])/2, my=(P[1]+Q[1])/2; if ((mx-cx0)*nx + (my-cy0)*ny < 0) { nx=-nx; ny=-ny; } return [nx,ny]; };
+    const lapE = o.lapEach || 0;
+    const nL = edgeN(b2x[0], t2x[0]), nR = edgeN(b2x[nn-1], t2x[nn-1]);
+    const tab = (P, nv) => [P[0]+nv[0]*lapE, P[1]+nv[1]*lapE];
     const prim = [], holes = [], ticks = [];
     // element (ordinate) reference lines
     const skip = Math.max(1, Math.round(n / 40));
     for (let i = 0; i < n; i += skip) prim.push({ style: 'ord', pts: [b2[i], t2[i]] });
-    // cut outline (swage-extended); dashed folds mark the true edges
-    prim.push({ style: 'cut', pts: b2x.concat(t2x.slice().reverse(), [b2x[0]]) });
+    // cut outline including the lap tabs at both seam edges
+    const outline = lapE > 0
+      ? [tab(b2x[0],nL)].concat(b2x, [tab(b2x[nn-1],nR), tab(t2x[nn-1],nR)], t2x.slice().reverse(), [tab(t2x[0],nL), tab(b2x[0],nL)])
+      : b2x.concat(t2x.slice().reverse(), [b2x[0]]);
+    prim.push({ style: 'cut', pts: outline });
     if (sw) { prim.push({ style: 'fold', pts: b2 }); prim.push({ style: 'fold', pts: t2 }); }
-    // centroid for outward normals
-    let cx = 0, cy = 0, m = 0; b2.concat(t2).forEach(p => { cx += p[0]; cy += p[1]; m++; }); cx /= m; cy /= m;
-    const lapEach = o.lapEach || 0;
-    [[b2x[0], t2x[0]], [b2x[n-1], t2x[n-1]]].forEach(edge => {
-      const [P, Q] = edge; const mx = (P[0]+Q[0])/2, my = (P[1]+Q[1])/2;
-      let nxv = -(Q[1]-P[1]), nyv = (Q[0]-P[0]); const L = Math.hypot(nxv, nyv) || 1; nxv /= L; nyv /= L;
-      if ((mx-cx)*nxv + (my-cy)*nyv < 0) { nxv = -nxv; nyv = -nyv; }   // point outward
-      prim.push({ style: 'fold', pts: [P, Q] });
-      if (lapEach > 0) {
-        const P2 = [P[0]+nxv*lapEach, P[1]+nyv*lapEach], Q2 = [Q[0]+nxv*lapEach, Q[1]+nyv*lapEach];
-        prim.push({ style: 'lap', pts: [P2, Q2] });
+    [[b2x[0], t2x[0]], [b2x[nn-1], t2x[nn-1]]].forEach(edge => {
+      const [P, Q] = edge;
+      prim.push({ style: 'fold', pts: [P, Q] });        // seam line (dashed)
+      if (lapE > 0) {
         // holes ON the seam (fold) line -> rolls to the correct size
         const seam = Math.hypot(Q[0]-P[0], Q[1]-P[1]);
         const g = o.holeEndGap, span = seam - 2*g;
