@@ -787,46 +787,30 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
 
   // ================= TRUNNION ON BEND ======================================
-  // Vertical trunnion stub sitting under a segmented (lobster) bend.
-  // Frame: bend arc centre at origin in the x-z plane, centre radius CR;
-  // riser leg vertical at x=CR, outlet leg horizontal at z=CR (x<=0).
-  // Trunnion axis vertical at x = CR - offset. Cut = envelope of the
-  // segment cylinders (+ outlet leg) above the trunnion.
+  // A vertical support trunnion meeting the BACK of a lobster bend is, for
+  // pattern purposes, a plain radial branch into a tube of the bend's
+  // diameter - exactly the cylinder-into-cylinder model used for tees.
+  // (Proof: the hole cut-out matches the reference app using the flat
+  // branchHole math, which never sees the bend radius - so the centre
+  // radius / offset only tell the fitter WHERE to cut, not the shape.)
+  // This gives a smooth saddle instead of the faceted mess a per-segment
+  // scribe produces, and keeps the trunnion pattern and its hole perfectly
+  // consistent with one another.
   function trunnionOnBend(p) {
     const insul = p.insulation || 0, cg = p.cladGap || 0;
     const tOD = (p.trunnionPipeOD != null ? p.trunnionPipeOD + 2*(insul+cg) : p.trunnionOD);
     const bOD = (p.bendPipeOD != null ? p.bendPipeOD + 2*(insul+cg) : p.bendOD);
-    const rt = tOD/2, Rt = bOD/2, CR = p.centreRadius, nseg = Math.max(2, Math.round(p.segments || 4));
-    const a = CR - (p.offset || 0);
-    if (CR - a < 0) throw new Error('Offset cannot be negative.');
-
-    const surf = (x, y) => {
-      let best = null;
-      for (let k = 0; k < nseg; k++) {
-        const t0 = Math.PI/2 * k/nseg, t1 = Math.PI/2 * (k+1)/nseg;
-        const Ax = CR*Math.cos(t0), Az = CR*Math.sin(t0);
-        const Bx = CR*Math.cos(t1), Bz = CR*Math.sin(t1);
-        let ux = Bx-Ax, uz = Bz-Az; const Lax = Math.hypot(ux, uz); ux/=Lax; uz/=Lax;
-        const dx = x-Ax, pdot = dx*ux;
-        const aa = 1-uz*uz, bb = -2*pdot*uz, cc = dx*dx + y*y - pdot*pdot - Rt*Rt;
-        if (aa < 1e-12) continue;
-        const disc = bb*bb - 4*aa*cc; if (disc < 0) continue;
-        const w = (-bb - Math.sqrt(disc)) / (2*aa);        // lower surface of this segment
-        const z = Az + w, s = pdot + w*uz;
-        const slack = Math.min(Rt, (p.slackF == null ? 0.7 : p.slackF) * Lax);
-        if (s < -slack || s > Lax + slack) continue;
-        if (best === null || z > best) best = z;           // crotch ridge between segments
-      }
-      return best;
-    };
+    const R = bOD/2, r = Math.min(tOD/2, R - 0.001);
+    if (tOD/2 >= R) throw new Error('Trunnion cannot be wider than the bend.');
+    const th = Math.PI/2;                                   // radial (perpendicular) into the bend tube
+    const tInt = phi => Math.sqrt(Math.max(R*R - r*r*Math.sin(phi)*Math.sin(phi), 0));
 
     const circ = Math.PI * tOD, lapEach = p.lapTotal/2, L = p.minLen != null ? p.minLen : 200;
     const JA = p.jointAllow || 0, ND = p.nDiv || 12;
     const seamRad = (p.seamFromThroat == null ? 0 : p.seamFromThroat) * Math.PI/180;
-    // phi=0 (throat / point 1) = side nearest the riser (shortest cut)
-    const zAt = phi => { const z = surf(a + rt*Math.cos(phi), rt*Math.sin(phi)); if (z === null) throw new Error('Trunnion does not meet the bend - check offset / sizes.'); return z; };
-    let zmin = Infinity; for (let i = 0; i < 96; i++) zmin = Math.min(zmin, zAt(2*Math.PI*i/96));
-    const yb = phi => L + JA + (zAt(phi) - zmin);
+    // phi=0 (point 1) sits on the crown line - shortest cut; sides wrap furthest onto the bend.
+    let tmax = -1e9; for (let i = 0; i <= 360; i++) { const t = tInt(seamRad + 2*Math.PI*i/360); if (t > tmax) tmax = t; }
+    const yb = phi => L + JA + (tmax - tInt(phi));
     const phiAt = x => seamRad + (x/circ) * 2*Math.PI;
     const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, top=[];
     for (let i = 0; i <= steps; i++) { const x = xLo + (xHi-xLo)*i/steps; top.push([x, yb(phiAt(x))]); }
@@ -837,12 +821,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       const nH = Math.max(1, Math.round(span / p.holePitch));
       for (let k = 0; k <= nH; k++) holes.push([xl, b + span*k/nH]); });
     for (let k = 0; k <= ND; k++) { const x = k*circ/ND, h = yb(phiAt(x)); prim.push({ style:'ord', pts: [[x,0],[x,h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
-    const o12 = []; for (let k = 0; k <= 6; k++) o12.push(Math.round(L + JA + (zAt(2*Math.PI*k/12) - zmin)));
+    const o12 = []; for (let k = 0; k <= 6; k++) { const phi = seamRad + 2*Math.PI*k/12; o12.push(Math.round(L + JA + (tmax - tInt(phi)))); }
     return { kind:'trunbend', title:'Trunnion on Bend  -  1:1 Template',
-      meta:[`Trunnion Ø${tOD.toFixed(0)} on bend Ø${bOD.toFixed(0)} (cladding)   CR ${CR} mm   ${nseg} segments`,
-            `Offset ${p.offset||0} mm from riser axis (S = ${(a).toFixed(0)})   length ${L} + joint ${JA} mm`,
-            `Lap ${p.lapTotal} (${lapEach} each end).  Wavy edge sits against the bend underside.`],
-      calc:{ tOD, bOD, S: a, o12, circ },
+      meta:[`Trunnion Ø${tOD.toFixed(0)} into bend Ø${bOD.toFixed(0)} (cladding)   saddle depth ${(tmax - tInt(seamRad+Math.PI/2)).toFixed(0)} mm`,
+            `Position ${p.offset||0} mm from the riser, CR ${p.centreRadius||'-'} mm - marks where the hole goes on the bend.`,
+            `Length ${L} + joint ${JA} mm.  Lap ${p.lapTotal} (${lapEach} each end).  Saddle edge sits against the bend.`],
+      calc:{ tOD, bOD, S: (p.centreRadius||0) - (p.offset||0), o12, circ, saddle:(tmax - tInt(seamRad+Math.PI/2)) },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:null };
   }
 
@@ -1302,8 +1286,12 @@ const F={
  trunnion:{name:'Trunnion on Bend',sub:'Support stub under a lobster',icon:I.trunb,
   defaults:{trunnionPipeOD:114.3,bendPipeOD:219.1,insulation:25,centreRadius:305,segments:4,offset:200,minLen:200,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12,seamFromThroat:0},
   fields:[pipe('trunnionPipeOD','Trunnion pipe'),pipe('bendPipeOD','Bend pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('segments','Bend segments'),num('offset','Offset from riser axis (mm)'),num('minLen','Trunnion length (mm)'),num('jointAllow','Joint allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
-  build:s=>FP.trunnionOnBend(s), stats:c=>['Trun Ø'+c.tOD.toFixed(0),'Bend Ø'+c.bOD.toFixed(0),'S '+c.S.toFixed(0),'o12 '+c.o12.join(',')],
-  note:'Trunnion sitting under a segmented bend. Wavy edge scribes to the bend cladding; set Bend segments to match the lobster you actually made. Check the first one against the metal before cutting a batch.'},
+  build:s=>FP.trunnionOnBend(s),
+  kit:s=>{ const br=FP.trunnionOnBend(s);
+    const h=FP.branchHole({mainPipeOD:s.bendPipeOD,branchPipeOD:s.trunnionPipeOD,insulation:s.insulation,angle:90,mode:'trunnionhole'});
+    h.title='Trunnion on Bend - Hole in the Bend 1:1'; h.meta=['Hole to cut in the bend cladding for the trunnion Ø'+(s.trunnionPipeOD+2*(s.insulation||0)).toFixed(0)+' mm','Wrap on the back of the bend, centre it on the trunnion, mark & cut.']; return [br,h]; },
+  stats:c=>['Trun Ø'+c.tOD.toFixed(0),'Bend Ø'+c.bOD.toFixed(0),'S '+c.S.toFixed(0),'o12 '+c.o12.join(',')],
+  note:'Support trunnion into the BACK of a lobster bend. The trunnion is developed as a radial branch into the bend tube (a clean saddle), and Generate prints BOTH the trunnion pattern AND the hole to cut in the bend cladding — same geometry, so they match. Centre radius / offset just mark where the hole sits on the bend. Offer the first one up to the metal before cutting a batch.'},
  teereducer:{name:'Tee Reducer',sub:'Small branch tee',icon:I.teered,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
@@ -1500,6 +1488,29 @@ function fittingDiagram(kind,s){
     if(kind==='sqround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'sqround');
     if(kind==='obliqueround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'obliqueround',s.offsetX);
     if(kind==='trunnion'){ const n=Math.max(2,Math.round(s.segments||4));
+      const rad=a=>a*Math.PI/180, Rc=52;
+      const Rt=(s.bendPipeOD+2*(s.insulation||0))/2, rt=(s.trunnionPipeOD+2*(s.insulation||0))/2, CR=Math.max(s.centreRadius||300, Rt+10);
+      const sc=Rc/CR, rb=Math.max(9,Math.min(Rt*sc,Rc*0.6)), rr=Math.max(6,rt*sc);
+      const P=(R,t)=>[R*Math.cos(rad(t)),-R*Math.sin(rad(t))];
+      const va=[]; for(let i=0;i<=n;i++) va.push(90-i*90/n);
+      const Ri=Rc-rb, Ro=Rc+rb, outer=va.map(t=>P(Ro,t)), inner=va.map(t=>P(Ri,t)), all=outer.concat(inner), parts=[];
+      parts.push(_pl(outer,INKST),_pl(inner,INKST));
+      for(let j=0;j<va.length;j++) parts.push(_ln(inner[j],outer[j],INKST));
+      // riser stub up at t=90 (top), outlet stub right at t=0
+      parts.push(_ln(inner[0],[inner[0][0],inner[0][1]-16],INKST),_ln(outer[0],[outer[0][0],outer[0][1]-16],INKST),_ln([inner[0][0],inner[0][1]-16],[outer[0][0],outer[0][1]-16],INKST));
+      parts.push(_ln(inner[n],[inner[n][0]+16,inner[n][1]],INKST),_ln(outer[n],[outer[n][0]+16,outer[n][1]],INKST),_ln([inner[n][0]+16,inner[n][1]],[outer[n][0]+16,outer[n][1]],INKST));
+      all.push([inner[0][0],inner[0][1]-16],[outer[n][0]+16,outer[n][1]]);
+      // trunnion: vertical, dropping from the OUTER (back) surface, at arc angle from riser set by offset
+      const frac=Math.max(0.05,Math.min(0.95,(s.offset||0)/(CR*Math.PI/2)));
+      const tt=90-frac*90; const base=P(Ro,tt);   // point on the back/outer surface
+      const bx=base[0], by=base[1], y2=Rc+34;
+      parts.push(_ln([bx-rr,by],[bx-rr,y2],INKST),_ln([bx+rr,by],[bx+rr,y2],INKST));
+      parts.push(`<ellipse cx="${bx.toFixed(1)}" cy="${y2.toFixed(1)}" rx="${rr.toFixed(1)}" ry="${(rr*0.34).toFixed(1)}" fill="none" ${INKST}/>`);
+      // saddle join highlight in gold
+      parts.push(`<path d="M${(bx-rr).toFixed(1)} ${by.toFixed(1)} Q ${bx.toFixed(1)} ${(by-6).toFixed(1)} ${(bx+rr).toFixed(1)} ${by.toFixed(1)}" fill="none" stroke="#b78400" stroke-width="2.6"/>`);
+      all.push([bx-rr,y2+6],[bx+rr,y2+6]);
+      return _svgWrap(parts,all,150); }
+    if(false){ const n=Math.max(2,Math.round(s.segments||4));
       const Rt=clad(s.bendPipeOD)/2, rt=clad(s.trunnionPipeOD)/2, CR=Math.max(s.centreRadius||300, Rt+10);
       const sc=60/CR, Rc=60, rb=Math.max(10,Math.min(Rt*sc,Rc*0.75)), rr=Math.max(6,rt*sc);
       const va=[]; for(let i=0;i<=n;i++) va.push(90-i*90/n);
