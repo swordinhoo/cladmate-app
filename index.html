@@ -1287,10 +1287,6 @@ const F={
   defaults:{swage:3,seamFromThroat:180,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'flatback'})), stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
- frustri:{name:'Frustum Triangular',sub:'Cone by triangulation',icon:I.frustri,
-  defaults:{swage:3,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)')],
-  build:s=>FP.offsetReducer(Object.assign({},s,{mode:'tri'})), stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Concentric']},
  oblique:{name:'Oblique Cone',sub:'Offset-apex cone',icon:I.obl,
   defaults:{swage:3,seamFromThroat:180,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:70,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('offset','Offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -1298,7 +1294,11 @@ const F={
  inctee:{name:'Inclined Tee',sub:'Angled branch',icon:I.inctee,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
-  build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'})), stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Angle '+c.angle+'°','Saddle '+c.saddle.toFixed(0)]},
+  build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'})),
+  kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'}));
+    const h=FP.branchHole(Object.assign({},s,{mode:'teehole'})); h.title='Inclined Tee - Hole in the Main 1:1'; return [br,h]; },
+  stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Angle '+c.angle+'°','Saddle '+c.saddle.toFixed(0)],
+  note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  trunnion:{name:'Trunnion on Bend',sub:'Support stub under a lobster',icon:I.trunb,
   defaults:{trunnionPipeOD:114.3,bendPipeOD:219.1,insulation:25,centreRadius:305,segments:4,offset:200,minLen:200,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12,seamFromThroat:0},
   fields:[pipe('trunnionPipeOD','Trunnion pipe'),pipe('bendPipeOD','Bend pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('segments','Bend segments'),num('offset','Offset from riser axis (mm)'),num('minLen','Trunnion length (mm)'),num('jointAllow','Joint allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
@@ -1307,18 +1307,14 @@ const F={
  teereducer:{name:'Tee Reducer',sub:'Small branch tee',icon:I.teered,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
-  build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90})), stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)]},
- teehole:{name:'Tee Hole Cut Out',sub:'Hole in the main',icon:I.hole,
-  defaults:{mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:90},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)')],
-  build:s=>FP.branchHole(Object.assign({},s,{mode:'teehole'})), stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Hole '+c.holeW.toFixed(0)+'×'+c.holeL.toFixed(0)]},
- trunnionhole:{name:'Trunnion Hole',sub:'Hole in the main',icon:I.hole2,
-  defaults:{mainPipeOD:219.1,branchPipeOD:219.1,insulation:25,angle:90},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Trunnion pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)')],
-  build:s=>FP.branchHole(Object.assign({},s,{mode:'trunnionhole'})), stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Trunnion Ø'+c.brOD.toFixed(0),'Hole '+c.holeW.toFixed(0)+'×'+c.holeL.toFixed(0)]}
+  build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90})),
+  kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90}));
+    const h=FP.branchHole(Object.assign({},s,{mode:'teehole',angle:90})); h.title='Tee - Hole in the Main 1:1'; return [br,h]; },
+  stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
+  note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
 };
-const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','teehole','trunnionhole','reducer','flatback','frustri','oblique','sqround','obliqueround'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','trunnion','teereducer','teehole','trunnionhole']},{t:'Reducers & Cones',k:['reducer','flatback','frustri','oblique']},{t:'Transitions',k:['sqround','obliqueround']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','trunnion','teereducer']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']}];
 const states={};
 function freshState(k){ const s=Object.assign({},F[k].defaults);
   ['insulation','lapTotal','holePitch'].forEach(key=>{ if(key in s && SET[key]!=null) s[key]=SET[key]; }); return s; }
