@@ -1223,8 +1223,11 @@ function form(kind, presetParams){
   const s=states[kind];
   const locked=!unlocked(kind);
   setView(fit.name,fit.sub,true);
-  let html=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div></div><div class="card">`;
-  html+=fit.fields.map(f=>fieldHTML(f,s)).join('');
+  const seamF=fit.fields.find(f=>f.type==='seam');
+  let html=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div></div>`;
+  if(seamF) html+=`<div class="card">${fieldHTML(seamF,s)}</div>`;
+  html+=`<div class="card">`;
+  html+=fit.fields.filter(f=>f.type!=='seam').map(f=>fieldHTML(f,s)).join('');
   if(fit.note) html+=`<div class="note">${fit.note}</div>`;
   html+=`<label>Paper size</label><div class="seg" data-seg="__page"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">Preview is live — Pro unlocks the printable PDF, DXF and Jobs.</div>`;
