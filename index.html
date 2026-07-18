@@ -561,9 +561,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       const edge = sgn * half, lap = sgn * (half + dlap);
       prim.push({ style: 'lap',  pts: [pol(Sr, lap),  pol(SR, lap)] });
       prim.push({ style: 'fold', pts: [pol(Sr, edge), pol(SR, edge)] });
-      const holePhi = sgn * (half + dlap / 2), seamLen = SR - Sr;
-      const nH = Math.max(1, Math.floor((seamLen - 2 * p.holeEndGap) / p.holePitch));
-      for (let k = 0; k <= nH; k++) { const s = Sr + p.holeEndGap + k * p.holePitch; if (s <= SR - p.holeEndGap + 0.1) holes.push(pol(s, holePhi)); }
+      // holes ON the seam (fold) line -> rolls to the correct diameter
+      const start = Sr + p.holeEndGap, end = SR - p.holeEndGap, span = end - start;
+      const nH = Math.max(1, Math.round(span / p.holePitch));
+      for (let k = 0; k <= nH; k++) holes.push(pol(start + span * k / nH, edge));
     });
     const ND = p.nDiv || 12;
     for (let i = 0; i <= ND; i++) {
@@ -577,7 +578,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       meta: [
         `Bare pipe ${p.bigPipeOD}→${p.smallPipeOD} mm OD  +  insulation ${p.insulation} mm`,
         `Cladding worked to ${bigOD.toFixed(0)}→${smallOD.toFixed(0)} mm OD   height ${p.height} mm`,
-        `Lap ${p.lapTotal} mm (${lapEach} each edge)   seam ${p.seamClock} o'clock   ordinates ${ND}`,
+        `Lap ${p.lapTotal} mm (${lapEach} each edge)   ordinates ${ND}`,
         `Big radius ${SR.toFixed(1)}  small radius ${Sr.toFixed(1)}  angle ${(theta*180/Math.PI).toFixed(1)}°`
       ],
       calc: { SR, Sr, theta: theta * 180 / Math.PI, bigOD, smallOD },
@@ -1085,8 +1086,8 @@ const DIVS=segd('nDiv','Ordinate divisions',[12,24]);
 const F={
  reducer:{name:'Reducer',sub:'Concentric taper',icon:I.cone,free:true,
   defaults:{bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20,seamClock:6,nDiv:12},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),num('seamClock',"Seam (o'clock)"),DIVS],
-  build:s=>FP.reducer(s), stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0),'Radii '+c.SR.toFixed(0)+'/'+c.Sr.toFixed(0),'Angle '+c.theta.toFixed(1)+'°']},
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),DIVS],
+  build:s=>FP.reducer(s), stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{pipeOD:168.3,insulation:25,centreRadius:229,bendDeg:90,segments:4,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),num('jointAllow','Joint allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
@@ -1270,7 +1271,6 @@ function form(kind, presetParams){
     document.getElementById('pvsheets').textContent=pl.n+' × '+SET.page.toUpperCase()+' ('+(pl.c[0]>pl.c[1]?'landscape':'portrait')+')';
     const ms=FP.materialStats(pat,SET);
     const chips=fit.stats(pat.calc).slice();
-    chips.push('Pattern '+pat.bbox.w.toFixed(0)+'×'+pat.bbox.h.toFixed(0));
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
       +`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.kg.toFixed(2)} kg · ${ms.perSheet}/sheet</span>`;
   }
