@@ -950,7 +950,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const g1 = (p.bendDeg1*Math.PI/180)/(2*p.segments1), g2 = (p.bendDeg2*Math.PI/180)/(2*p.segments2);
     const A1 = r*Math.tan(g1), A2 = r*Math.tan(g2);
     const C1 = p.centreRadius1*g1 + (p.jointAllow||0), C2 = p.centreRadius2*g2 + (p.jointAllow||0);
-    const L0 = C1 + C2;
+    const L0 = C1 + C2 + (p.midLen || 0);
     const hand = p.bendHand === 'B';
     let seam = p.seamFromThroat == null ? 0 : p.seamFromThroat;
     let twist = p.twist || 0;
@@ -976,7 +976,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { kind:'bendonbend', title:'Double Bend - Shared Segment 1:1',
       meta:[`Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD   circ ${circ.toFixed(1)}`,
             `Bend 1: ${p.bendDeg1}° / ${p.segments1} seg / CR ${p.centreRadius1}    Bend 2: ${p.bendDeg2}° / ${p.segments2} seg / CR ${p.centreRadius2}`,
-            `${p.direction==='same'?'Same-way bend':'S-bend (opposite)'}   twist ${p.twist||0}°   Type ${p.bendHand||'A'}   lap ${p.lapTotal} (${lapEach} each end)`,
+            `${p.direction==='same'?'Same-way bend':'S-bend (opposite)'}   straight between bends ${p.midLen||0} mm   twist ${p.twist||0}°   Type ${p.bendHand||'A'}   lap ${p.lapTotal} (${lapEach} each end)`,
             `This piece finishes bend 1 AND starts bend 2. Cut the other gores with Lobster Back: ${p.segments1-1} off at bend-1 settings, ${p.segments2-1} off at bend-2 settings.`],
       calc:{ cladOD, circ, A1, A2, L0, oT },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF (shared segment)' };
@@ -1257,11 +1257,11 @@ const F={
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('pieces','Pieces'),num('minLen','Min length (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.elbow(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut '+c.pieces+' off']},
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
-  defaults:{pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,direction:'opposite',twist:0,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,bendHand:'A',nDiv:12},
+  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,direction:'opposite',twist:0,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
     num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
     num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
-    sego('direction','Direction',[{v:'opposite',label:'S-bend (opposite)'},{v:'same',label:'Same way'}]),
+    sego('direction','Direction',[{v:'opposite',label:'S-bend (opposite)'},{v:'same',label:'Same way'}]),num('midLen','Straight between bends (mm)'),
     num('twist','Twist (°, -90 to +90)'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.bendOnBend(s),
   kit:s=>{ const shared=FP.bendOnBend(s);
@@ -1272,7 +1272,7 @@ const F={
     if(s.segments2>1) out.push(lob(s.segments2,s.centreRadius2,s.bendDeg2,'Bend 2',s.segments2-1));
     return out; },
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'Cut 1 off'],
-  note:'Radius bend onto radius bend. The preview shows the SHARED segment (finishes bend 1, starts bend 2 in one piece). Twist rolls bend 2 out of plane: 0 = flat S, ±90 = second bend goes up/down out of the page. Generate prints the FULL KIT: shared piece + all gores for both bends.'},
+  note:'Radius bend onto radius bend. The preview shows the SHARED segment (finishes bend 1, starts bend 2 in one piece). Twist rolls bend 2 out of plane: 0 = flat S, ±90 = second bend goes up/down out of the page. Add a straight length between the bends if the job has one — it becomes part of the shared piece. Generate prints the FULL KIT: shared piece + all gores for both bends.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -1455,7 +1455,10 @@ function diagDouble(st){
   const mx=p=>[sgn*p[0],p[1]];
   const tJ=90-phi1, radial=[Math.cos(rad(tJ)),-Math.sin(rad(tJ))];
   const M=[C1[0]+Rc1*radial[0], C1[1]+Rc1*radial[1]];
-  const C2=opp?[M[0]+Rc2*radial[0],M[1]+Rc2*radial[1]]:[M[0]-Rc2*radial[0],M[1]-Rc2*radial[1]];
+  const tang=[Math.sin(rad(tJ)), Math.cos(rad(tJ))];
+  const Ls=Math.min(46, Math.max(0,(+st.midLen||0))*sc);
+  const M2=[M[0]+tang[0]*Ls, M[1]+tang[1]*Ls];
+  const C2=opp?[M2[0]+Rc2*radial[0],M2[1]+Rc2*radial[1]]:[M2[0]-Rc2*radial[0],M2[1]-Rc2*radial[1]];
   // vertex angle lists
   const va1=[]; for(let i=0;i<=n1;i++) va1.push(90-i*phi1/n1);
   const base2=opp?tJ+180:tJ;
@@ -1469,8 +1472,9 @@ function diagDouble(st){
   // bend 2 segments (first one = shared)
   const R2i=Rc2-r, R2o=Rc2+r;
   for(let j=1;j<n2;j++) emit(segPoly(C2,R2i,R2o,va2[j],va2[j+1]),false);
-  // shared pieces highlighted
+  // shared pieces highlighted (last gore + straight spool + first gore = one piece)
   if(n1>0) emit(segPoly(C1,Rc1-r,Rc1+r,va1[n1-1],va1[n1]),true);
+  if(Ls>0.5){ const q=[[M[0]-radial[0]*r,M[1]-radial[1]*r],[M2[0]-radial[0]*r,M2[1]-radial[1]*r],[M2[0]+radial[0]*r,M2[1]+radial[1]*r],[M[0]+radial[0]*r,M[1]+radial[1]*r]]; emit(q,true); }
   if(n2>0) emit(segPoly(C2,R2i,R2o,va2[0],va2[1]),true);
   // end stubs
   const stub=(C,t,dirSign,R)=>{ const i0=pt(C,R-r,t),o0=pt(C,R+r,t);
