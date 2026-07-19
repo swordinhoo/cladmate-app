@@ -616,7 +616,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const circ = Math.PI * cladOD;
     const lapEach = p.lapTotal / 2;
     const ND = p.nDiv || 12;
-    const seamEff = (p.bendHand === 'B') ? ((360 - (p.seamFromThroat || 0)) % 360) : (p.seamFromThroat || 0);
+    const seamEff = (p.bendHand === 'B' || p.bendHand === 'D') ? ((360 - (p.seamFromThroat || 0)) % 360) : (p.seamFromThroat || 0);
     const seamRad = seamEff * Math.PI / 180;
     const phiAt = x => seamRad + (x / circ) * 2 * Math.PI;
     const hAt   = th => C - A * Math.cos(th);                   // mitre edge height from baseline
@@ -800,7 +800,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const alpha = (p.bendDeg * Math.PI/180) / (2*(pieces-1));   // mitre half-angle per joint
     const A = r * Math.tan(alpha), minLen = p.minLen != null ? p.minLen : 25;
     const ND = p.nDiv || 12;
-    const seamEffE = (p.bendHand === 'B') ? ((360 - (p.seamFromThroat==null?180:p.seamFromThroat)) % 360) : (p.seamFromThroat==null?180:p.seamFromThroat);
+    const seamEffE = (p.bendHand === 'B' || p.bendHand === 'D') ? ((360 - (p.seamFromThroat==null?180:p.seamFromThroat)) % 360) : (p.seamFromThroat==null?180:p.seamFromThroat);
     const seamRad = seamEffE * Math.PI/180;
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
     const yTop = th => minLen + A*(1 - Math.cos(th));   // throat=minLen, back=minLen+2A
@@ -942,7 +942,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const alpha = Math.asin(S/d);                 // tilt of middle piece
     const A = r*Math.tan(alpha/2), C = d/2 + (p.jointAllow||0);
     const ND = p.nDiv || 12;
-    const seamEffS = (p.bendHand === 'B') ? ((360 - (p.seamFromThroat==null?90:p.seamFromThroat)) % 360) : (p.seamFromThroat==null?90:p.seamFromThroat);
+    const seamEffS = (p.bendHand === 'B' || p.bendHand === 'D') ? ((360 - (p.seamFromThroat==null?90:p.seamFromThroat)) % 360) : (p.seamFromThroat==null?90:p.seamFromThroat);
     const seamRad = seamEffS*Math.PI/180;
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
     const hAt = th => C - A*Math.cos(th);
@@ -975,7 +975,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const A1 = r*Math.tan(g1), A2 = r*Math.tan(g2);
     const C1 = p.centreRadius1*g1 + (p.jointAllow||0), C2 = p.centreRadius2*g2 + (p.jointAllow||0);
     const L0 = C1 + C2 + (p.midLen || 0);
-    const hand = p.bendHand === 'B';
+    const hand = p.bendHand === 'B' || p.bendHand === 'D';
     let seam = p.seamFromThroat == null ? 0 : p.seamFromThroat;
     let twist = p.twist || 0;
     if (hand) { seam = (360 - seam) % 360; twist = -twist; }
@@ -1298,7 +1298,7 @@ const F={
   kit:s=>{ const shared=FP.bendOnBend({...s,jointAllow:SET.swage});
     // seams: bend-1 gores measure from bend 1's throat; end-bend gores must measure
     // from BEND 2's OWN throat, which is rolled round by direction + twist.
-    const hand=s.bendHand==='B';
+    const hand=s.bendHand==='B'||s.bendHand==='D';
     const seamE=hand?((360-(s.seamFromThroat||0))%360):((s.seamFromThroat||0)%360);
     const twistE=hand?-(s.twist||0):(s.twist||0);
     const th2=(s.direction==='same'?0:180)+twistE;
@@ -1439,8 +1439,9 @@ const SEAMST='stroke="#d93025" stroke-width="2" stroke-dasharray="5 4" stroke-li
 
 function diagBend(va, k, seamDeg, hand){
   const Rc=60, r=Math.max(8,Math.min(Rc*k,Rc*0.8)), Ri=Rc-r, Ro=Rc+r;
-  const sgn=hand==='B'?1:-1, rad=a=>a*Math.PI/180;   // A = r shape, B = backwards r
-  const P=(R,t)=>[sgn*R*Math.cos(rad(t)),-R*Math.sin(rad(t))];
+  const mir=(hand==='B'||hand==='D'), rot=(hand==='C'||hand==='D');
+  const sgn=(mir?1:-1)*(rot?-1:1), ym=rot?-1:1, rad=a=>a*Math.PI/180;   // A=r  B=mirror  C=180  D=mirror+180
+  const P=(R,t)=>[sgn*R*Math.cos(rad(t)),-ym*R*Math.sin(rad(t))];
   const outer=va.map(t=>P(Ro,t)), inner=va.map(t=>P(Ri,t));
   const all=outer.concat(inner), parts=[];
   const stub=(t,first)=>{ const d=first?[P(Rc,t+4),P(Rc,t)]:[P(Rc,t-4),P(Rc,t)];
@@ -1461,7 +1462,9 @@ function diagBend(va, k, seamDeg, hand){
 }
 function diagElbow(phi,seamDeg,hand){
   // true 2-piece mitred elbow: two straight tubes butted on the bisecting mitre plane
-  const rad=a=>a*Math.PI/180, sgn=hand==='B'?-1:1, f=rad(phi||90);
+  const rad=a=>a*Math.PI/180, f=rad(phi||90);
+  const mir=(hand==='B'||hand==='D'), rot=(hand==='C'||hand==='D');
+  const sgn=(mir?-1:1)*(rot?-1:1), ym=rot?-1:1;
   const r=17, L=52;
   const u1=[0,-1], u2=[Math.sin(f),-Math.cos(f)];               // piece axes (1 = inlet, vertical)
   const p1=[1,0], p2=[Math.cos(f),Math.sin(f)];                 // inside-of-bend perpendiculars
@@ -1471,7 +1474,7 @@ function diagElbow(phi,seamDeg,hand){
   const E1=[-u1[0]*L,-u1[1]*L], E2=[u2[0]*L,u2[1]*L];
   const A=(P,e,pp)=>[P[0]+e*pp[0],P[1]+e*pp[1]];
   const Mt=isect([r*p1[0],r*p1[1]],u1), Mb=isect([-r*p1[0],-r*p1[1]],u1);   // throat & back mitre corners
-  const mx=p=>[sgn*p[0],p[1]];
+  const mx=p=>[sgn*p[0],ym*p[1]];
   const parts=[], all=[];
   const poly=P=>{ const pl=P.map(mx); pl.forEach(q=>all.push(q));
     parts.push(`<polygon points="${pl.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="#ffffff" ${INKST} stroke-linejoin="round"/>`); };
@@ -1526,7 +1529,9 @@ function diagOffset(S,d,hand){
 
 function diagDouble(st){
   // True 3D tube model, orthographic isometric-ish projection, painter's algorithm.
-  const rad=a=>a*Math.PI/180, sgn=st.bendHand==='B'?1:-1;
+  const rad=a=>a*Math.PI/180;
+  const mir=(st.bendHand==='B'||st.bendHand==='D'), rot=(st.bendHand==='C'||st.bendHand==='D');
+  const sgn=(mir?1:-1)*(rot?-1:1), ym=rot?-1:1;
   const cl=(st.pipeOD+2*(st.insulation||0))/2;
   const R1=44, sc=R1/Math.max(st.centreRadius1||229, cl+5);
   const r=Math.max(7,Math.min(cl*sc, R1*0.62));
@@ -1580,7 +1585,7 @@ function diagDouble(st){
   const NS=26, vb=rad(24), va=rad(15);
   const proj=p=>{ const x1=p[0]*Math.cos(vb)-p[2]*Math.sin(vb), z1=p[0]*Math.sin(vb)+p[2]*Math.cos(vb);
     const y1=p[1]*Math.cos(va)+z1*Math.sin(va), z2=-p[1]*Math.sin(va)+z1*Math.cos(va);
-    return {p:[sgn*x1,y1], z:z2}; };
+    return {p:[sgn*x1,ym*y1], z:z2}; };
   const vd=(()=>{ // view direction in model space (unit, toward viewer)
     const b=vb, a=va; return nrm([Math.sin(b)*Math.cos(a), -Math.sin(a), Math.cos(b)*Math.cos(a)]); })();
   S.forEach(s=>{ let e1=nrm(sub(s.th,mul(s.u,dot(s.th,s.u)))); const e2=nrm(crs(s.u,e1));
@@ -1716,7 +1721,7 @@ function fieldHTML(f,s){
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}">${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
     const handHtml = f.noHand ? '' : `<label>Bend type</label><div class="seg" data-hand="1">
-      <button data-h="A" ${(s.bendHand||'A')==='A'?'class="on"':''}>Type A</button><button data-h="B" ${s.bendHand==='B'?'class="on"':''}>Type B</button></div>
+      <button data-h="A" ${(s.bendHand||'A')==='A'?'class="on"':''}>A</button><button data-h="B" ${s.bendHand==='B'?'class="on"':''}>B</button><button data-h="C" ${s.bendHand==='C'?'class="on"':''}>C</button><button data-h="D" ${s.bendHand==='D'?'class="on"':''}>D</button></div>
       <label style="margin-top:12px">HANDLABEL</label>`;
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
@@ -1740,7 +1745,7 @@ function form(kind, presetParams){
   const seamF=fit.fields.find(f=>f.type==='seam');
   let html=`<div class="workspace"><div class="pane-left">`;
   html+=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div></div>`;
-  if(seamF) html+=`<div class="card">${fieldHTML(seamF,s)}</div>`;
+  if(seamF) html+=`<div class="card">${fieldHTML(seamF,s)}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else html+=`<div class="card" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   html+=`</div><div class="pane-right">`;
   html+=`<div class="card"><div class="grid2">`;
@@ -1814,6 +1819,11 @@ function form(kind, presetParams){
     document.getElementById('pvsheets').textContent=pl.n+' × '+SET.page.toUpperCase()+' ('+(pl.c[0]>pl.c[1]?'landscape':'portrait')+')';
     const ms=FP.materialStats(pat,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,s);
+    const ds=document.getElementById('dbseam');
+    if(ds){ const sm=(+s.seamFromThroat||0), tw2=(+s.twist||0), d2=(s.direction==='same'?0:180)+tw2;
+      const s2=(((sm-d2)%360)+360)%360;
+      const ptTxt=v=>{ const n=v/30+1; return Math.abs(n-Math.round(n))<0.01?('point '+Math.round(n)):(v.toFixed(0)+'° from throat'); };
+      ds.innerHTML='Seam runs: <b>first bend '+ptTxt(sm)+'</b> &nbsp;→&nbsp; twister carries it through &nbsp;→&nbsp; <b>end bend '+ptTxt(s2)+'</b> (auto-rolled for the '+(s.direction==='same'?'same-way bend':'S')+(tw2?' + '+tw2+'° twist':'')+')'; }
     const basic=!SET.detail && fit.mini;
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
