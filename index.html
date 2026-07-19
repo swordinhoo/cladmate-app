@@ -1459,6 +1459,30 @@ function diagBend(va, k, seamDeg, hand){
   parts.push(_pl(sp,SEAMST)); sp.forEach(p=>all.push(p));
   return _svgWrap(parts,all,160);
 }
+function diagElbow(phi,seamDeg,hand){
+  // true 2-piece mitred elbow: two straight tubes butted on the bisecting mitre plane
+  const rad=a=>a*Math.PI/180, sgn=hand==='B'?-1:1, f=rad(phi||90);
+  const r=17, L=52;
+  const u1=[0,-1], u2=[Math.sin(f),-Math.cos(f)];               // piece axes (1 = inlet, vertical)
+  const p1=[1,0], p2=[Math.cos(f),Math.sin(f)];                 // inside-of-bend perpendiculars
+  let dm=[u1[0]-u2[0],u1[1]-u2[1]]; const dl=Math.hypot(dm[0],dm[1])||1; dm=[dm[0]/dl,dm[1]/dl];  // mitre line dir (bisects the joint)
+  const isect=(P0,u)=>{ const d=u[0]*(-dm[1])-(-dm[0])*u[1];
+    const s=((-P0[0])*(-dm[1])-(-dm[0])*(-P0[1]))/d; return [P0[0]+s*u[0],P0[1]+s*u[1]]; };
+  const E1=[-u1[0]*L,-u1[1]*L], E2=[u2[0]*L,u2[1]*L];
+  const A=(P,e,pp)=>[P[0]+e*pp[0],P[1]+e*pp[1]];
+  const Mt=isect([r*p1[0],r*p1[1]],u1), Mb=isect([-r*p1[0],-r*p1[1]],u1);   // throat & back mitre corners
+  const mx=p=>[sgn*p[0],p[1]];
+  const parts=[], all=[];
+  const poly=P=>{ const pl=P.map(mx); pl.forEach(q=>all.push(q));
+    parts.push(`<polygon points="${pl.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="#ffffff" ${INKST} stroke-linejoin="round"/>`); };
+  poly([A(E1,r,p1),Mt,Mb,A(E1,-r,p1)]);                          // inlet piece
+  poly([Mt,A(E2,r,p2),A(E2,-r,p2),Mb]);                          // outlet piece
+  parts.push(_ln(mx(Mt),mx(Mb),INKST));                          // the mitre joint
+  const e=r*Math.cos(rad(seamDeg==null?180:seamDeg));            // seam offset: throat=+r, back=-r, side=centre
+  const Ms=isect([e*p1[0],e*p1[1]],u1);
+  parts.push(_pl([mx(A(E1,e,p1)),mx(Ms),mx(A(E2,e,p2))],SEAMST));
+  return _svgWrap(parts,all,150);
+}
 function diagCone(bigW,smallW,h,mode,off,seamDeg){
   const W=120, sc=W/Math.max(bigW,smallW,1); let b=bigW*sc/2, sm=smallW*sc/2, H=Math.max(34,Math.min(110,(h||100)*sc));
   let cT=0;
@@ -1574,9 +1598,7 @@ function fittingDiagram(kind,s){
       // half starter + (N-1) full middles + half finisher: joints at (j-0.5)*phi/N
       const va=[90]; for(let j=1;j<=N;j++) va.push(90-(j-0.5)*phi/N); va.push(90-phi);
       return diagBend(va,k,s.seamFromThroat,s.bendHand); }
-    if(kind==='elbow'){ const p=Math.max(2,Math.round(s.pieces||2)), phi=s.bendDeg||90;
-      const va=[90]; for(let j=1;j<p;j++) va.push(90-(j-0.5)*phi/(p-1)); va.push(90-phi);
-      return diagBend(va,0.55,s.seamFromThroat,s.bendHand); }
+    if(kind==='elbow') return diagElbow(s.bendDeg,s.seamFromThroat,s.bendHand);
     if(kind==='bendonbend') return diagDouble(s);
     if(kind==='reducer'||kind==='frustri') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'con');
     if(kind==='flatback') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'flatback',0,s.seamFromThroat);
