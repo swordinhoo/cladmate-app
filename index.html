@@ -875,18 +875,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     let tmax = -1e9; for (let i=0;i<=360;i++){ const t=tInt(seamRad + 2*Math.PI*i/360); if(t>tmax)tmax=t; }
     const yb = phi => minLen + (tmax - tInt(phi));
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
-    const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, bot=[];
-    for(let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps; bot.push([x, yb(phiAt(x))]); }
-    prim.push({style:'cut', pts:[[xLo,0]].concat(bot,[[xHi,0]],[[xLo,0]])});
+    const fl = p.flange || 0;                // flat flange rolled out on the saddle edge (folds against the main)
+    const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, bot=[], flg=[];
+    for(let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, y=yb(phiAt(x)); bot.push([x, y]); flg.push([x, y+fl]); }
+    prim.push({style:'cut', pts:[[xLo,0]].concat(fl>0?flg:bot,[[xHi,0]],[[xLo,0]])});
+    if(fl>0) prim.push({style:'fold', pts:bot});   // saddle line - bend the flange out flat here
     prim.push({style:'centre', pts:[[xLo,0],[xHi,0]]});
-    [0,circ].forEach(xf=>prim.push({style:'fold', pts:[[xf,0],[xf,yb(phiAt(xf))]]}));
+    [0,circ].forEach(xf=>prim.push({style:'fold', pts:[[xf,0],[xf,yb(phiAt(xf))+fl]]}));
     [0, circ].forEach(xl=>{ const h=yb(phiAt(xl)),top=h-p.holeEndGap,b=p.holeEndGap,span=top-b; const nH=Math.max(1,Math.round(span/p.holePitch)); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
     for(let k=0;k<=ND;k++){ const x=k*circ/ND, h=yb(phiAt(x)); prim.push({style:'ord', pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     const names={inctee:'Inclined Tee',trunnion:'Trunnion',teereducer:'Tee Reducer'};
     return { kind:p.mode||'branch', title:(names[p.mode]||'Branch')+'  -  1:1 Template',
       meta:[`Main Ø${g.mainOD.toFixed(0)}  branch Ø${g.brOD.toFixed(0)} mm (cladding)   angle ${(p.angle||90)}°`,
-            `Branch pattern, saddle cut to fit main.  Lap ${p.lapTotal} (${lapEach} each end)  min length ${minLen} mm`],
-      calc:{mainOD:g.mainOD, brOD:g.brOD, angle:p.angle||90, circ, saddle:(tmax-tInt(seamRad+Math.PI/2))},
+            `Branch pattern, saddle cut to fit main.  Lap ${p.lapTotal} (${lapEach} each end)  min length ${minLen} mm`
+            + (fl>0 ? `   flat flange ${fl} mm on the saddle (fold on the dashed saddle line, rivet to the main)` : '')],
+      calc:{mainOD:g.mainOD, brOD:g.brOD, angle:p.angle||90, circ, saddle:(tmax-tInt(seamRad+Math.PI/2)), flange:fl},
       prim, holes, ticks, bbox:bboxOf(prim), cutNote:null };
   }
   // hole cut-out on the MAIN (Tee/Trunnion Hole Cut Out)
@@ -1198,7 +1201,7 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
-let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3',
+let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:10,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'' }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
 const OWNER = false;   // build flag: owner edition has Pro permanently on
@@ -1259,26 +1262,26 @@ const F={
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),DIVS],
   build:s=>FP.reducer(s), stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
-  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,bendDeg:90,segments:4,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
-  build:s=>FP.lobster({...s,gore:'end'}),
-  kit:s=>FP.lobsterKit(s),
+  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:225,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  build:s=>FP.lobster({...s,gore:'end',jointAllow:SET.swage}),
+  kit:s=>FP.lobsterKit({...s,jointAllow:SET.swage}),
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'2 ends + '+c.nMid+' mid'],
   note:'Segments = 2 half gores (starter + finisher) + the middle gores. So 4 segments = a starter, a finisher and 3 middles. The preview shows the STARTER / FINISHER (the half gore that butts the straight pipe); Generate prints the full kit — cut 2 of these + '+'the middle gore (cut N-1, twice the height, wavy both edges). Back fastener = seam on the back (point 7), side fastener = point 4, or tap any division for a custom seam. Holes sit on the dashed seam line so it rolls to the exact diameter.'},
- elbow:{name:'Mitred Elbow',sub:'2 / N-piece',icon:I.elbow,free:true,
-  defaults:{swage:3,bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('pieces','Pieces'),num('minLen','Min length (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
-  build:s=>FP.elbow(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut '+c.pieces+' off']},
+ elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
+  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
   defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,direction:'opposite',twist:0,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
     num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
     num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
     sego('direction','Direction',[{v:'opposite',label:'S-bend (opposite)'},{v:'same',label:'Same way'}]),num('midLen','Straight between bends (mm)'),
-    num('twist','Twist (°, -90 to +90)'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
-  build:s=>FP.bendOnBend(s),
-  kit:s=>{ const shared=FP.bendOnBend(s);
-    const gore=(n,cr,deg,g,tag,cnt,extra)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:s.jointAllow,lapTotal:s.lapTotal,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:s.seamFromThroat,bendHand:s.bendHand,gore:g});
+    num('twist','Twist (°, -90 to +90)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  build:s=>FP.bendOnBend({...s,jointAllow:SET.swage}),
+  kit:s=>{ const shared=FP.bendOnBend({...s,jointAllow:SET.swage});
+    const gore=(n,cr,deg,g,tag,cnt,extra)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:SET.swage,lapTotal:s.lapTotal,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:s.seamFromThroat,bendHand:s.bendHand,gore:g});
       p.title='Double Bend - '+tag+' 1:1'; p.meta.push(extra); return p; };
     const out=[shared];
     // bend 1: starter (half) + (seg1-1) middle gores
@@ -1590,7 +1593,8 @@ function fieldHTML(f,s){
     return `${f.noHand?`<label>${f.label}</label>`:handHtml.replace('HANDLABEL',f.label)}<div class="seg" data-seammode="1">
       <button data-sv="180">Back fastener</button><button data-sv="90">Side fastener</button><button data-sv="custom">Custom</button></div>
       <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><svg data-seamsvg="1" viewBox="0 0 160 160" style="width:150px;height:150px"><circle cx="80" cy="80" r="55" fill="none" stroke="#e2e8f0" stroke-width="2.5"/><text x="80" y="84" font-size="9.5" fill="#94a3b8" text-anchor="middle">1 = throat · 7 = back</text>${dots}</svg><div id="fitdiag"></div></div>`; }
-  if(f.type==='xd') return `<label>${f.label}</label><div class="seg" data-xd="1">${[1,1.5,2,3,5].map(m=>`<button data-m="${m}">${m}D</button>`).join('')}</div><div class="seg" data-xdbasis="1" style="margin-top:6px"><button data-b="dn" class="on">Nominal</button><button data-b="od">OD</button></div>`;
+  if(f.type==='xd'){ const cur=s._xd, basis=s._xdbasis||'dn';
+    return `<label>${f.label}</label><div class="seg" data-xd="1">${[1,1.5,2,3,5].map(m=>`<button data-m="${m}" ${cur==m?'class="on"':''}>${m}D</button>`).join('')}</div><div class="seg" data-xdbasis="1" style="margin-top:6px"><button data-b="dn" ${basis==='dn'?'class="on"':''}>Nominal</button><button data-b="od" ${basis==='od'?'class="on"':''}>OD</button></div>`; }
   return '';
 }
 function form(kind, presetParams){
@@ -1614,13 +1618,18 @@ function form(kind, presetParams){
     <div class="hint">Prints 1:1 across multiple sheets — tape on the red crosshairs, check the 100&nbsp;mm bar, then mark out.</div>`;
   app.innerHTML=html;
 
-  app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); refresh(); });
+  app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(sel.dataset.pipe==='pipeOD'&&s._xd){ readAll(); applyXd(s._xd); } refresh(); });
   app.querySelectorAll('input').forEach(i=>i.oninput=refresh);
   app.querySelectorAll('[data-seg]').forEach(el=>{ const k=el.dataset.seg; el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; } refresh(); }); });
-  { const bEl=app.querySelector('[data-xdbasis]'); if(bEl) bEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ bEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
-    const xEl=app.querySelector('[data-xd]'); if(xEl) xEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const m=parseFloat(b.dataset.m); const be=app.querySelector('[data-xdbasis] button.on'); const basis=be?be.dataset.b:'dn'; const e=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD); const D=basis==='dn'?(e?e.dn:s.pipeOD):s.pipeOD; s.centreRadius=Math.round(m*D*10)/10; const inp=app.querySelector('[data-k="centreRadius"]'); if(inp) inp.value=s.centreRadius; refresh(); }); }
+  const applyXd=m=>{ const basis=s._xdbasis||'dn'; const e=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD); const D=basis==='dn'?(e?e.dn:s.pipeOD):s.pipeOD;
+    s._xd=m; s.centreRadius=Math.round(m*D*10)/10; const inp=app.querySelector('[data-k="centreRadius"]'); if(inp) inp.value=s.centreRadius;
+    const xEl=app.querySelector('[data-xd]'); if(xEl) xEl.querySelectorAll('button').forEach(x=>x.classList.toggle('on', parseFloat(x.dataset.m)===m)); };
+  { const bEl=app.querySelector('[data-xdbasis]'); if(bEl) bEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ bEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); s._xdbasis=b.dataset.b; if(s._xd) applyXd(s._xd); refresh(); });
+    const xEl=app.querySelector('[data-xd]'); if(xEl) xEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ applyXd(parseFloat(b.dataset.m)); refresh(); });
+    // manual centre-radius edit clears the ×D highlight
+    const cr=app.querySelector('[data-k="centreRadius"]'); if(cr) cr.addEventListener('input',()=>{ s._xd=null; const xe=app.querySelector('[data-xd]'); if(xe) xe.querySelectorAll('button').forEach(x=>x.classList.remove('on')); }); }
 
   { const hEl=app.querySelector('[data-hand]');
     if(hEl) hEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ hEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); s.bendHand=b.dataset.h; refresh(); }); }
@@ -1650,7 +1659,9 @@ function form(kind, presetParams){
       if(sel.value==='custom'){ const c=app.querySelector(`[data-cus="${f.k}"]`); const v=parseFloat(c.value); if(!isNaN(v))s[f.k]=v; } else s[f.k]=parseFloat(sel.value); });
   }
   function refresh(){
-    readAll(); let pat;
+    readAll();
+    if(kind==='inctee'||kind==='teereducer') s.flange=SET.flange;   // flat flange rollout from settings
+    let pat;
     try{ pat=fit.build(s); }catch(e){ document.getElementById('pv').innerHTML='<div class="hint" style="padding:30px">'+e.message+'</div>'; return; }
     form._pat=pat;
     document.getElementById('pv').innerHTML=FP.svgPreview(pat,600);
@@ -1716,7 +1727,10 @@ function settingsPage(){
     <div class="row"><div><label>Insulation (mm)</label><input type="number" id="sIns" value="${SET.insulation}"></div>
     <div><label>Seam lap total (mm)</label><input type="number" id="sLap" value="${SET.lapTotal}"></div></div>
     <div class="row"><div><label>Hole pitch (mm)</label><input type="number" id="sHole" value="${SET.holePitch}"></div>
-    <div><label>Paper</label><div class="seg" id="sPage"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div></div></div>
+    <div><label>Paper</label><div class="seg" id="sPage"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div></div>
+    <div class="row"><div><label>Bend swage allowance (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
+    <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
+    <div class="hint" style="text-align:left">Swage is added at every bend/lobster joint. The tee flange is a flat lip rolled out on the branch saddle to rivet onto the main (used instead of a swage).</div></div>
    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Material &amp; sheet</h3>
     <label>Material</label><select id="sMat"><option value="aluminium" ${SET.material==='aluminium'?'selected':''}>Aluminium (2.70)</option><option value="galv" ${SET.material==='galv'?'selected':''}>Galv / mild steel (7.85)</option><option value="stainless" ${SET.material==='stainless'?'selected':''}>Stainless (7.90)</option></select>
     <div class="row"><div><label>Thickness (mm)</label><input type="number" step="0.1" id="sThk" value="${SET.thickness}"></div>
@@ -1742,6 +1756,8 @@ function settingsPage(){
     SET.thickness=+document.getElementById('sThk').value||SET.thickness;
     SET.sheetW=+document.getElementById('sSW').value||SET.sheetW;
     SET.sheetH=+document.getElementById('sSH').value||SET.sheetH;
+    SET.swage=(v=>isNaN(v)?SET.swage:v)(parseFloat(document.getElementById('sSwage').value));
+    SET.flange=(v=>isNaN(v)?SET.flange:v)(parseFloat(document.getElementById('sFlange').value));
     const b=document.getElementById('sBrand'); if(b&&!b.disabled) SET.brand=b.value;
     saveSet(); ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); }); };
   app.querySelectorAll('input,select').forEach(e=>e.onchange=save);
