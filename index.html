@@ -997,13 +997,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, th=phiAt(x); prim.push({ style:'ord', pts: [[x,yB(th)],[x,yT(th)]] });
       ticks.push({ x, y: yT(th), label: (yT(th)-yB(th)).toFixed(0) }); }
     const oT = []; for (let k=0;k<=6;k++){ const th=seamRad + 2*Math.PI*k/12; oT.push(Math.round(yT(th)-yB(th))); }
-    return { kind:'bendonbend', title:'Double Bend - Shared Segment 1:1',
+    return { kind:'bendonbend', title:'Double Bend - The Twister 1:1',
       meta:[`Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD   circ ${circ.toFixed(1)}`,
             `Bend 1: ${p.bendDeg1}° / ${p.segments1} seg / CR ${p.centreRadius1}    Bend 2: ${p.bendDeg2}° / ${p.segments2} seg / CR ${p.centreRadius2}`,
             `${p.direction==='same'?'Same-way bend':'S-bend (opposite)'}   straight between bends ${p.midLen||0} mm   twist ${p.twist||0}°   Type ${p.bendHand||'A'}   lap ${p.lapTotal} (${lapEach} each end)`,
-            `This piece finishes bend 1 AND starts bend 2 in one gore. Generate prints the full kit: this + a starter + a finisher (half gores) + ${p.segments1-1} bend-1 middle${p.segments1-1===1?'':'s'} + ${p.segments2-1} bend-2 middle${p.segments2-1===1?'':'s'}.`],
+            `THE TWISTER - finishes bend 1, straight (if any), starts bend 2, with the twist rolled into the top cut. One edge mates the first-bend gores, the other mates the end-bend gores.`],
       calc:{ cladOD, circ, A1, A2, L0, oT },
-      prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF (shared segment)' };
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF (the twister)' };
   }
 
   // ================= AREA / WEIGHT / SHEET FIT =============================
@@ -1296,19 +1296,28 @@ const F={
     num('twist','Twist (°, -90 to +90)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.bendOnBend({...s,jointAllow:SET.swage}),
   kit:s=>{ const shared=FP.bendOnBend({...s,jointAllow:SET.swage});
-    const gore=(n,cr,deg,g,tag,cnt,extra)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:SET.swage,lapTotal:s.lapTotal,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:s.seamFromThroat,bendHand:s.bendHand,gore:g});
+    // seams: bend-1 gores measure from bend 1's throat; end-bend gores must measure
+    // from BEND 2's OWN throat, which is rolled round by direction + twist.
+    const hand=s.bendHand==='B';
+    const seamE=hand?((360-(s.seamFromThroat||0))%360):((s.seamFromThroat||0)%360);
+    const twistE=hand?-(s.twist||0):(s.twist||0);
+    const th2=(s.direction==='same'?0:180)+twistE;
+    const seam2=(((seamE-th2)%360)+360)%360;
+    const gore=(n,cr,deg,g,seamDeg,tag,extra)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:SET.swage,lapTotal:s.lapTotal,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:seamDeg,bendHand:'A',gore:g});
       p.title='Double Bend - '+tag+' 1:1'; p.meta.push(extra); return p; };
-    const out=[shared];
-    // bend 1: starter (half) + (seg1-1) middle gores
-    out.push(gore(s.segments1,s.centreRadius1,s.bendDeg1,'end','Bend 1 Starter','Half gore that butts the straight pipe at the bend-1 end. Cut 1 off.'));
-    if(s.segments1>1) out.push(gore(s.segments1,s.centreRadius1,s.bendDeg1,'mid','Bend 1 Middle Gores','Full middle gore, wavy both edges. Cut '+(s.segments1-1)+' off.'));
-    // bend 2: (seg2-1) middle gores + finisher (half)
-    if(s.segments2>1) out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'mid','Bend 2 Middle Gores','Full middle gore, wavy both edges. Cut '+(s.segments2-1)+' off.'));
-    out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'end','Bend 2 Finisher','Half gore that butts the straight pipe at the bend-2 end. Cut 1 off.'));
+    const out=[];
+    // 1) FIRST BEND: starter + middles
+    out.push(gore(s.segments1,s.centreRadius1,s.bendDeg1,'end',seamE,'First Bend Starter','Half gore that butts the straight pipe. Cut 1 off.'));
+    if(s.segments1>1) out.push(gore(s.segments1,s.centreRadius1,s.bendDeg1,'mid',seamE,'First Bend Middle Gores','Full gore, wavy both edges. Cut '+(s.segments1-1)+' off.'));
+    // 2) THE TWISTER
+    out.push(shared);
+    // 3) END BEND: middles + finisher (seam pre-rolled for direction + twist)
+    if(s.segments2>1) out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'mid',seam2,'End Bend Middle Gores','Full gore, wavy both edges. Cut '+(s.segments2-1)+' off. Seam already rolled for the S/twist - it lines up with the first bend when fitted.'));
+    out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'end',seam2,'End Bend Finisher','Half gore that butts the straight pipe. Cut 1 off. Seam already rolled for the S/twist.'));
     return out; },
-  mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Shared piece - cut 1'],
-  stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'Cut 1 off'],
-  note:'Radius bend onto radius bend. The preview shows the SHARED segment (finishes bend 1, starts bend 2 in one piece). Twist rolls bend 2 out of plane: 0 = flat S, ±90 = second bend goes up/down out of the page. Add a straight length between the bends if the job has one — it becomes part of the shared piece. Generate prints the FULL KIT: the shared piece + a starter and finisher (half gores that butt the straight pipe) + the middle gores for both bends.'},
+  mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'The Twister - cut 1'],
+  stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'The Twister - cut 1'],
+  note:'Three patterns, printed in fitting order: the FIRST BEND (starter + middles), the TWISTER (one gore that finishes bend 1, takes in any straight, and starts bend 2 with the twist rolled into it), then the END BEND (middles + finisher). Twist rolls bend 2 out of plane: 0 = flat S, ±90 = up/down out of the page. The end-bend seam is automatically rolled round to match, so the seam line runs true along the whole fitting.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -1492,13 +1501,15 @@ function diagOffset(S,d,hand){
 }
 
 function diagDouble(st){
-  const rad=a=>a*Math.PI/180, sgn=st.bendHand==='B'?-1:1;
+  const rad=a=>a*Math.PI/180, sgn=st.bendHand==='B'?1:-1;    // A = r shape, matches single bends
   const Rc1=44, cl=(st.pipeOD+2*(st.insulation||0))/2;
   const sc=Rc1/Math.max(st.centreRadius1||229, cl+5);
   const r=Math.max(7,Math.min(cl*sc, Rc1*0.62));
   const Rc2=Math.max(r+5,(st.centreRadius2||229)*sc);
   const n1=Math.max(1,Math.round(st.segments1||4)), n2=Math.max(1,Math.round(st.segments2||4));
   const phi1=+st.bendDeg1||90, phi2=+st.bendDeg2||90, opp=(st.direction!=='same');
+  const twist=+st.twist||0, ct=Math.cos(rad(twist));
+  const seam=(+st.seamFromThroat||0), th2=(opp?180:0)+twist, seam2=seam-th2;
   const C1=[0,0];
   const pt=(C,R,t)=>[C[0]+R*Math.cos(rad(t)), C[1]-R*Math.sin(rad(t))];
   const mx=p=>[sgn*p[0],p[1]];
@@ -1508,32 +1519,51 @@ function diagDouble(st){
   const Ls=Math.min(46, Math.max(0,(+st.midLen||0))*sc);
   const M2=[M[0]+tang[0]*Ls, M[1]+tang[1]*Ls];
   const C2=opp?[M2[0]+Rc2*radial[0],M2[1]+Rc2*radial[1]]:[M2[0]-Rc2*radial[0],M2[1]-Rc2*radial[1]];
-  // vertex angle lists
-  const va1=[]; for(let i=0;i<=n1;i++) va1.push(90-i*phi1/n1);
-  const base2=opp?tJ+180:tJ;
-  const va2=[]; for(let j=0;j<=n2;j++) va2.push(opp? base2+j*phi2/n2 : base2-j*phi2/n2);
-  const segPoly=(C,Ri,Ro,t0,t1)=>[pt(C,Ri,t0),pt(C,Ri,t1),pt(C,Ro,t1),pt(C,Ro,t0)];
+  // twist: bend 2's plane rotates about the spool axis -> foreshorten its
+  // radial ordinate by cos(twist) about M2 (the spool itself doesn't move)
+  const tw=q=>{ const dx=q[0]-M2[0], dy=q[1]-M2[1];
+    const u=dx*tang[0]+dy*tang[1], v=(dx*radial[0]+dy*radial[1])*ct;
+    return [M2[0]+u*tang[0]+v*radial[0], M2[1]+u*tang[1]+v*radial[1]]; };
+  // half-gore joints: starter/finisher are half segments
+  const j1=[90]; for(let k=1;k<=n1;k++) j1.push(90-(k-0.5)*phi1/n1); j1.push(90-phi1);
+  const base2=opp?tJ+180:tJ, s2=opp?1:-1;
+  const j2=[base2]; for(let k=1;k<=n2;k++) j2.push(base2+s2*(k-0.5)*phi2/n2); j2.push(base2+s2*phi2);
+  const arcPoly=(C,Ri,Ro,t0,t1,xf)=>{ const P=[],N=6;
+    for(let i=0;i<=N;i++) P.push(pt(C,Ri,t0+(t1-t0)*i/N));
+    for(let i=N;i>=0;i--) P.push(pt(C,Ro,t0+(t1-t0)*i/N));
+    return xf?P.map(xf):P; };
   const parts=[], all=[];
-  const emit=(poly,hi)=>{ const pl=poly.map(mx); pl.forEach(p=>all.push(p));
-    parts.push(`<polygon points="${pl.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${hi?'#ffd254':'none'}" ${hi?'stroke="#b78400" stroke-width="2.6"':INKST} stroke-linejoin="round"/>`); };
-  // bend 1 segments (last one = shared, drawn later so it sits on top)
-  for(let i=0;i<n1-1;i++) emit(segPoly(C1,Rc1-r,Rc1+r,va1[i],va1[i+1]),false);
-  // bend 2 segments (first one = shared)
-  const R2i=Rc2-r, R2o=Rc2+r;
-  for(let j=1;j<n2;j++) emit(segPoly(C2,R2i,R2o,va2[j],va2[j+1]),false);
-  // shared pieces highlighted (last gore + straight spool + first gore = one piece)
-  if(n1>0) emit(segPoly(C1,Rc1-r,Rc1+r,va1[n1-1],va1[n1]),true);
-  if(Ls>0.5){ const q=[[M[0]-radial[0]*r,M[1]-radial[1]*r],[M2[0]-radial[0]*r,M2[1]-radial[1]*r],[M2[0]+radial[0]*r,M2[1]+radial[1]*r],[M[0]+radial[0]*r,M[1]+radial[1]*r]]; emit(q,true); }
-  if(n2>0) emit(segPoly(C2,R2i,R2o,va2[0],va2[1]),true);
-  // end stubs
-  const stub=(C,t,dirSign,R)=>{ const i0=pt(C,R-r,t),o0=pt(C,R+r,t);
-    const tang=[Math.sin(rad(t))*dirSign, Math.cos(rad(t))*dirSign], L=r*1.1;
-    const i1=[i0[0]+tang[0]*L,i0[1]+tang[1]*L], o1=[o0[0]+tang[0]*L,o0[1]+tang[1]*L];
+  const emit=(poly,fill,st2)=>{ const pl=poly.map(mx); pl.forEach(p=>all.push(p));
+    parts.push(`<polygon points="${pl.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${fill}" ${st2||INKST} stroke-linejoin="round"/>`); };
+  const GOLDST='stroke="#b78400" stroke-width="2.6"';
+  // FIRST BEND gores (white) - starter merges with its stub visually
+  for(let i=0;i<n1;i++) emit(arcPoly(C1,Rc1-r,Rc1+r,j1[i],j1[i+1]),'#ffffff');
+  // END BEND gores (light tan, twisted projection)
+  for(let k=1;k<=n2;k++) emit(arcPoly(C2,Rc2-r,Rc2+r,j2[k],j2[k+1],tw),'#f3ead2');
+  // THE TWISTER (gold, on top): last half of bend 1 + spool + first half of bend 2
+  emit(arcPoly(C1,Rc1-r,Rc1+r,j1[n1],j1[n1+1]),'#ffd254',GOLDST);
+  if(Ls>0.5) emit([[M[0]-radial[0]*r,M[1]-radial[1]*r],[M2[0]-radial[0]*r,M2[1]-radial[1]*r],[M2[0]+radial[0]*r,M2[1]+radial[1]*r],[M[0]+radial[0]*r,M[1]+radial[1]*r]],'#ffd254',GOLDST);
+  emit(arcPoly(C2,Rc2-r,Rc2+r,j2[0],j2[1],tw),'#ffd254',GOLDST);
+  // end stubs (bend-2 stub follows the twisted projection)
+  const stub=(C,t,dirSign,xf)=>{ const i0=pt(C,(C===C1?Rc1:Rc2)-r,t),o0=pt(C,(C===C1?Rc1:Rc2)+r,t);
+    const tg=[Math.sin(rad(t))*dirSign, Math.cos(rad(t))*dirSign], L=r*1.1;
+    let i1=[i0[0]+tg[0]*L,i0[1]+tg[1]*L], o1=[o0[0]+tg[0]*L,o0[1]+tg[1]*L];
+    let a0=i0,b0=o0; if(xf){ a0=xf(i0); b0=xf(o0); i1=xf(i1); o1=xf(o1); }
     [i1,o1].forEach(p=>all.push(mx(p)));
-    parts.push(_ln(mx(i0),mx(i1),INKST),_ln(mx(o0),mx(o1),INKST),_ln(mx(i1),mx(o1),INKST)); };
-  stub(C1,90,1,Rc1);
-  stub(C2,va2[n2],opp?1:-1,Rc2);
-  return _svgWrap(parts,all,160);
+    parts.push(_ln(mx(a0),mx(i1),INKST),_ln(mx(b0),mx(o1),INKST),_ln(mx(i1),mx(o1),INKST)); };
+  stub(C1,90,1);
+  stub(C2,j2[n2+1],opp?1:-1,tw);
+  // seam line: bend 1 at its own throat angle, end bend rolled by direction+twist
+  const seamArc=(C,Rs,t0,t1,xf)=>{ const P=[]; for(let i=0;i<=20;i++){ let q=pt(C,Rs,t0+(t1-t0)*i/20); if(xf)q=xf(q); P.push(mx(q)); all.push(P[P.length-1]); } parts.push(_pl(P,SEAMST)); };
+  seamArc(C1,Rc1-r*Math.cos(rad(seam)),90,90-phi1);
+  seamArc(C2,Rc2-r*Math.cos(rad(seam2)),j2[0],j2[n2+1],tw);
+  // labels
+  const label=(q,txt)=>{ const p=mx(q); all.push([p[0],p[1]-6]);
+    parts.push(`<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" font-size="9" font-weight="800" fill="#8a5a00" text-anchor="middle">${txt}</text>`); };
+  label(pt(C1,Rc1+r+9,90-phi1*0.35),'1');
+  label(tw(pt(C2,Rc2+r+9,base2+s2*phi2*0.65)),'2');
+  if(twist) label([M2[0]+tang[0]*(r+14),M2[1]+tang[1]*(r+14)],'twist '+twist+'°');
+  return _svgWrap(parts,all,190);
 }
 
 function fittingDiagram(kind,s){
