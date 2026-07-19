@@ -1134,6 +1134,162 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF (the twister)' };
   }
 
+  // ================= BOXES (valve / flange boxes) ==========================
+  // From Craig's sketch (Jul 2026). Every box is TWO identical halves, so one
+  // template set cuts the pair. Split edges carry OUT-TURNED FLANGES (fold
+  // out, bolt/clip face-to-face). End caps fix with a bent-out lip ON the cap
+  // (pot-lid, same idea as the tee flange). Flat corners fold from one piece;
+  // the only lap is the square wrap's closing corner. Sizes are the finished
+  // OUTSIDE box sizes - no insulation maths here.
+  function _arcPts(cx, cy, r, a0, a1, n) {
+    const out = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n;
+      out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return out;
+  }
+  function _lineHoles(holes, x0, y0, x1, y1, pitch, endGap) {
+    const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L;
+    const span = L - 2 * endGap;
+    if (span <= 0) { holes.push([(x0 + x1) / 2, (y0 + y1) / 2]); return; }
+    const n = Math.max(1, Math.round(span / pitch));
+    for (let k = 0; k <= n; k++) holes.push([x0 + ux * (endGap + span * k / n), y0 + uy * (endGap + span * k / n)]);
+  }
+
+  function roundBoxKit(p) {
+    const D = p.dia, H = p.height, F = p.splitFlange, Lp = p.capLip || 10;
+    const half = Math.PI * D / 2, W = 2 * F + half;
+    // half barrel: flat width = half circumference between the split folds
+    const pr1 = [], h1 = [];
+    pr1.push({ style: 'cut', pts: [[0, 0], [W, 0], [W, H], [0, H], [0, 0]] });
+    [F, F + half].forEach(x => pr1.push({ style: 'fold', pts: [[x, 0], [x, H]] }));
+    pr1.push({ style: 'centre', pts: [[F + half / 2, 0], [F + half / 2, H]] });
+    _lineHoles(h1, F / 2, 0, F / 2, H, p.holePitch, p.holeEndGap);
+    _lineHoles(h1, W - F / 2, 0, W - F / 2, H, p.holePitch, p.holeEndGap);
+    const barrel = { kind: 'roundbox', title: 'Round Box  -  Half Barrel 1:1',
+      meta: [`Box Ø${D} × ${H} high  -  two identical halves`,
+             `Roll to Ø${D}: flat width ${half.toFixed(1)} mm between the fold lines`,
+             `Split flanges ${F} mm both edges  -  fold OUT, halves bolt/clip face-to-face`,
+             `Caps fit over the ends  -  their lips screw onto the barrel`],
+      calc: { D, H, half, F, Lp },
+      prim: pr1, holes: h1, ticks: [{ x: F + half / 2, y: H, label: half.toFixed(0) }],
+      bbox: bboxOf(pr1), cutNote: 'CUT 2 OFF (half barrels)' };
+    // half cap: half disc + lip band over the barrel + split flange on the diameter
+    const R = D / 2, NA = 120;
+    const pr2 = [], h2 = [];
+    const outer = _arcPts(0, 0, R + Lp, 0, Math.PI, NA);
+    pr2.push({ style: 'cut',
+      pts: [[-R, -F], [R, -F], [R, 0], [R + Lp, 0]].concat(outer.slice(1, NA), [[-R - Lp, 0], [-R, 0], [-R, -F]]) });
+    pr2.push({ style: 'fold', pts: _arcPts(0, 0, R, 0, Math.PI, NA) });   // lip folds down here
+    pr2.push({ style: 'fold', pts: [[-R, 0], [R, 0]] });                  // split flange folds out here
+    const snipN = Math.max(6, Math.round(Math.PI * R / 40));
+    for (let i = 1; i < snipN; i++) { const a = Math.PI * i / snipN;
+      pr2.push({ style: 'ord', pts: [[R * Math.cos(a), R * Math.sin(a)], [(R + Lp) * Math.cos(a), (R + Lp) * Math.sin(a)]] }); }
+    const hp = Math.max(2, Math.round(Math.PI * (R + Lp / 2) / p.holePitch));
+    for (let i = 0; i <= hp; i++) { const a = Math.PI * i / hp;
+      h2.push([(R + Lp / 2) * Math.cos(a), (R + Lp / 2) * Math.sin(a)]); }
+    _lineHoles(h2, -R, -F / 2, R, -F / 2, p.holePitch, p.holeEndGap);
+    const cap = { kind: 'roundbox', title: 'Round Box  -  Half Cap 1:1',
+      meta: [`Half cap for box Ø${D}  -  lip ${Lp} mm folds down over the barrel (snip on the marks)`,
+             `Split flange ${F} mm along the straight edge`,
+             `Top and bottom caps are the same piece`],
+      calc: { R, Lp, F },
+      prim: pr2, holes: h2, ticks: [],
+      bbox: bboxOf(pr2), cutNote: 'CUT 4 OFF (half caps - top + bottom)' };
+    return [barrel, cap];
+  }
+
+  function squareBoxKit(p) {
+    const L = p.boxL, W = p.boxW, H = p.boxH, F = p.splitFlange, Lp = p.capLip || 10, lap = p.lapTotal || 40;
+    const D2 = L / 2, X = lap + 2 * (W + H);
+    // half wrap: folds round all four sides, laps shut at the start corner
+    const pr1 = [], h1 = [];
+    pr1.push({ style: 'cut', pts: [[0, 0], [X, 0], [X, D2 + F], [0, D2 + F], [0, 0]] });
+    pr1.push({ style: 'fold', pts: [[lap, 0], [lap, D2]] });              // closing lap line
+    _lineHoles(h1, lap, 0, lap, D2, p.holePitch, p.holeEndGap);
+    let cx = lap; const ticks = [];
+    [W, H, W, H].forEach((w, i) => { ticks.push({ x: cx + w / 2, y: D2, label: String(w) });
+      cx += w; if (i < 3) pr1.push({ style: 'fold', pts: [[cx, 0], [cx, D2]] }); });
+    pr1.push({ style: 'fold', pts: [[0, D2], [X, D2]] });                 // split flange folds out here
+    _lineHoles(h1, 0, D2 + F / 2, X, D2 + F / 2, p.holePitch, p.holeEndGap);
+    const wrap = { kind: 'squarebox', title: 'Square Box  -  Half Wrap 1:1',
+      meta: [`Box ${L} × ${W} × ${H}  -  two identical halves, split across the middle`,
+             `Fold on the lines: ${W} / ${H} / ${W} / ${H}, lap ${lap} mm shuts the corner`,
+             `Split flange ${F} mm along the open edge  -  fold OUT, halves bolt/clip together`,
+             `End panel lips screw onto this wrap at the other edge`],
+      calc: { L, W, H, X, D2, F },
+      prim: pr1, holes: h1, ticks,
+      bbox: bboxOf(pr1), cutNote: 'CUT 2 OFF (half wraps)' };
+    // end panel: W x H with a bent-out lip all round, corners snipped
+    const pr2 = [], h2 = [];
+    pr2.push({ style: 'cut', pts: [[0, -Lp], [W, -Lp], [W, 0], [W + Lp, 0], [W + Lp, H], [W, H],
+      [W, H + Lp], [0, H + Lp], [0, H], [-Lp, H], [-Lp, 0], [0, 0], [0, -Lp]] });
+    [[[0, 0], [W, 0]], [[W, 0], [W, H]], [[W, H], [0, H]], [[0, H], [0, 0]]].forEach(e => pr2.push({ style: 'fold', pts: e }));
+    _lineHoles(h2, 0, -Lp / 2, W, -Lp / 2, p.holePitch, p.holeEndGap);
+    _lineHoles(h2, W + Lp / 2, 0, W + Lp / 2, H, p.holePitch, p.holeEndGap);
+    _lineHoles(h2, 0, H + Lp / 2, W, H + Lp / 2, p.holePitch, p.holeEndGap);
+    _lineHoles(h2, -Lp / 2, 0, -Lp / 2, H, p.holePitch, p.holeEndGap);
+    const end = { kind: 'squarebox', title: 'Square Box  -  End Panel 1:1',
+      meta: [`End panel ${W} × ${H}  -  lip ${Lp} mm all round folds onto the wrap`,
+             `Corners already snipped on the template`],
+      calc: { W, H, Lp },
+      prim: pr2, holes: h2, ticks: [],
+      bbox: bboxOf(pr2), cutNote: 'CUT 2 OFF (end panels)' };
+    return [wrap, end];
+  }
+
+  function dBoxKit(p) {
+    const W = p.boxW, H = p.boxH, Len = p.boxLen, R = W / 2, F = p.splitFlange, Lp = p.capLip || 10;
+    if (H <= R + 1) throw new Error('Height must be more than half the width for a D-box.');
+    const flat = H - R, qa = Math.PI * R / 2;
+    const S = W / 2 + flat + qa;                          // half-section girth
+    const X = 2 * F + S;
+    // half wrap: split flange | half top | flat side | quarter round | split flange
+    const pr1 = [], h1 = [];
+    pr1.push({ style: 'cut', pts: [[0, 0], [X, 0], [X, Len], [0, Len], [0, 0]] });
+    [F, F + W / 2, F + S].forEach(x => pr1.push({ style: 'fold', pts: [[x, 0], [x, Len]] }));
+    pr1.push({ style: 'centre', pts: [[F + W / 2 + flat, 0], [F + W / 2 + flat, Len]] });  // roll starts here
+    for (let i = 1; i < 4; i++) { const x = F + W / 2 + flat + qa * i / 4;
+      pr1.push({ style: 'ord', pts: [[x, 0], [x, Len]] }); }
+    _lineHoles(h1, F / 2, 0, F / 2, Len, p.holePitch, p.holeEndGap);
+    _lineHoles(h1, X - F / 2, 0, X - F / 2, Len, p.holePitch, p.holeEndGap);
+    const wrap = { kind: 'dbox', title: 'D-Box  -  Half Wrap 1:1',
+      meta: [`Box ${W} wide × ${H} high × ${Len} long, round bottom radius ${R.toFixed(0)}  -  two identical halves`,
+             `Fold at ${F} (flange), ${(F + W / 2).toFixed(0)} (top corner); ROLL from the marked line - quarter round flat length ${qa.toFixed(1)} mm`,
+             `Split flanges ${F} mm both long edges  -  fold OUT, halves bolt/clip together`,
+             `End panel lips screw onto this wrap`],
+      calc: { W, H, Len, R, S, X, F, qa },
+      prim: pr1, holes: h1,
+      ticks: [{ x: F + W / 4, y: Len, label: (W / 2).toFixed(0) }, { x: F + W / 2 + flat / 2, y: Len, label: flat.toFixed(0) },
+              { x: F + W / 2 + flat + qa / 2, y: Len, label: qa.toFixed(0) }],
+      bbox: bboxOf(pr1), cutNote: 'CUT 2 OFF (half wraps)' };
+    // half-D end panel: lips on top / side / curve, split flange down the straight back
+    const NA = 60, pr2 = [], h2 = [];
+    const arcC = [0, flat];                                // arc centre on the split edge
+    const outerArc = _arcPts(arcC[0], arcC[1], R + Lp, 0, Math.PI / 2, NA);
+    pr2.push({ style: 'cut',
+      pts: [[0, -Lp], [R, -Lp], [R, 0], [R + Lp, 0], [R + Lp, flat]].concat(outerArc.slice(1, NA),
+        [[0, H + Lp], [0, H], [-F, H], [-F, 0], [0, 0], [0, -Lp]]) });
+    pr2.push({ style: 'fold', pts: [[0, 0], [R, 0]] });                   // top lip fold
+    pr2.push({ style: 'fold', pts: [[R, 0], [R, flat]] });                // side lip fold
+    pr2.push({ style: 'fold', pts: _arcPts(arcC[0], arcC[1], R, 0, Math.PI / 2, NA) });  // curve lip fold
+    pr2.push({ style: 'fold', pts: [[0, 0], [0, H]] });                   // split flange fold
+    const snipN = Math.max(4, Math.round(qa / 40));
+    for (let i = 1; i < snipN; i++) { const a = (Math.PI / 2) * i / snipN;
+      pr2.push({ style: 'ord', pts: [[R * Math.cos(a), flat + R * Math.sin(a)], [(R + Lp) * Math.cos(a), flat + (R + Lp) * Math.sin(a)]] }); }
+    _lineHoles(h2, 0, -Lp / 2, R, -Lp / 2, p.holePitch, p.holeEndGap);
+    _lineHoles(h2, R + Lp / 2, 0, R + Lp / 2, flat, p.holePitch, p.holeEndGap);
+    const hp2 = Math.max(2, Math.round(Math.PI / 2 * (R + Lp / 2) / p.holePitch));
+    for (let i = 0; i <= hp2; i++) { const a = (Math.PI / 2) * i / hp2;
+      h2.push([(R + Lp / 2) * Math.cos(a), flat + (R + Lp / 2) * Math.sin(a)]); }
+    _lineHoles(h2, -F / 2, 0, -F / 2, H, p.holePitch, p.holeEndGap);
+    const end = { kind: 'dbox', title: 'D-Box  -  Half End 1:1',
+      meta: [`Half-D end for box ${W} × ${H}  -  lip ${Lp} mm folds onto the wrap (snip the curve on the marks)`,
+             `Split flange ${F} mm down the straight back edge`,
+             `All four ends are the same piece`],
+      calc: { W, H, R, flat, Lp, F, girth: R + flat + qa },
+      prim: pr2, holes: h2, ticks: [],
+      bbox: bboxOf(pr2), cutNote: 'CUT 4 OFF (half-D ends)' };
+    return [wrap, end];
+  }
+
   // ================= AREA / WEIGHT / SHEET FIT =============================
   function patternArea(pat) {                    // mm^2, shoelace on the cut outline
     const cut = pat.prim.find(pr => pr.style === 'cut'); if (!cut) return 0;
@@ -1326,7 +1482,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1387,7 +1543,10 @@ const I={
  obl:`<svg viewBox="0 0 100 80"><path d="M16 62 L61 20 L81 20 L84 62 A34 8.5 0 0 1 16 62 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><ellipse cx="71" cy="20" rx="10" ry="3.6" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
  str:`<svg viewBox="0 0 100 80"><path d="M16 66 L84 66 L80 48 L20 48 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="M20 48 L34 16 L66 16 L80 48 Z" fill="var(--ic-fill2)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><line x1="50" y1="48" x2="50" y2="20" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="35" y1="48" x2="41" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="65" y1="48" x2="59" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="50" cy="16" rx="16" ry="5.5" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
  otr:`<svg viewBox="0 0 100 80"><path d="M16 66 L84 66 L80 48 L20 48 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="M20 48 L52 16 L80 16 L80 48 Z" fill="var(--ic-fill2)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><line x1="50" y1="48" x2="62" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="35" y1="48" x2="54" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="66" cy="16" rx="13" ry="4.6" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
- chart:`<svg viewBox="0 0 100 80"><rect x="16" y="14" width="68" height="52" rx="6" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><rect x="16" y="14" width="68" height="14" rx="6" fill="var(--ic-gold)"/><line x1="16" y1="42" x2="84" y2="42" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="16" y1="54" x2="84" y2="54" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="50" y1="28" x2="50" y2="66" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/></svg>`
+ chart:`<svg viewBox="0 0 100 80"><rect x="16" y="14" width="68" height="52" rx="6" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><rect x="16" y="14" width="68" height="14" rx="6" fill="var(--ic-gold)"/><line x1="16" y1="42" x2="84" y2="42" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="16" y1="54" x2="84" y2="54" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="50" y1="28" x2="50" y2="66" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+ rbox:`<svg viewBox="0 0 100 80"><path d="M28 18 L28 60 A22 7 0 0 0 72 60 L72 18" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><ellipse cx="50" cy="18" rx="22" ry="7" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3"/><line x1="50" y1="26" x2="50" y2="66" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
+ sbox:`<svg viewBox="0 0 100 80"><path d="M24 32 L40 18 L80 18 L80 52 L64 66 L24 66 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M24 32 L64 32 L64 66 M64 32 L80 18" fill="none" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="44" y1="32" x2="44" y2="66" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="44" y1="32" x2="60" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
+ dboxI:`<svg viewBox="0 0 100 80"><path d="M22 30 L40 18 L76 18 L76 34 A18 18 0 0 1 62 51 M22 30 L58 30 L58 46 A18 18 0 0 1 22 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M58 30 L76 18" fill="none" stroke="var(--ic-ink)" stroke-width="3"/><line x1="40" y1="30" x2="40" y2="62" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="40" y1="30" x2="58" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`
 };
 
 /* ================= fitting registry ================= */
@@ -1504,12 +1663,36 @@ const F={
   mini:c=>['Main Ø '+c.mainOD.toFixed(0),'Branch Ø '+c.brOD.toFixed(0),'Circ '+c.circ.toFixed(0)],
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
+ roundbox:{name:'Round Box',sub:'Valve / flange box',icon:I.rbox,
+  defaults:{dia:200,height:300,splitFlange:25,holePitch:60,holeEndGap:20},
+  fields:[num('dia','Box diameter (mm)'),num('height','Height (mm)'),num('splitFlange','Split flange (mm)'),num('holePitch','Hole pitch (mm)')],
+  build:s=>FP.roundBoxKit({...s,capLip:SET.flange})[0],
+  kit:s=>FP.roundBoxKit({...s,capLip:SET.flange}),
+  mini:c=>['Ø '+c.D+' × '+c.H,'2 halves + 4 caps'],
+  stats:c=>['Ø'+c.D+' × '+c.H,'Roll width '+c.half.toFixed(0),'Flange '+c.F,'Cap lip '+c.Lp],
+  note:'Whole box, no cutouts yet. Two identical halves: the barrel folds its split flanges OUT (halves bolt or clip face-to-face), the caps lip over the ends like a pot lid — snip marks printed. Cap lip width comes from Settings → tee flat flange.'},
+ squarebox:{name:'Square Box',sub:'Valve / flange box',icon:I.sbox,
+  defaults:{boxL:300,boxW:250,boxH:250,splitFlange:25,lapTotal:40,holePitch:60,holeEndGap:20},
+  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('splitFlange','Split flange (mm)'),num('lapTotal','Closing lap (mm)'),num('holePitch','Hole pitch (mm)')],
+  build:s=>FP.squareBoxKit({...s,capLip:SET.flange})[0],
+  kit:s=>FP.squareBoxKit({...s,capLip:SET.flange}),
+  mini:c=>[c.L+' × '+c.W+' × '+c.H,'2 wraps + 2 ends'],
+  stats:c=>[c.L+'×'+c.W+'×'+c.H,'Wrap '+c.X.toFixed(0)+' × '+c.D2.toFixed(0),'Flange '+c.F],
+  note:'Whole box, no cutouts yet. Split across the middle into two identical halves. The wrap folds round all four sides and laps shut at one corner; end panels lip over the ends, corners pre-snipped.'},
+ dbox:{name:'D-Box',sub:'Valve / flange box',icon:I.dboxI,
+  defaults:{boxW:250,boxH:300,boxLen:400,splitFlange:25,holePitch:60,holeEndGap:20},
+  fields:[num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('boxLen','Length (mm)'),num('splitFlange','Split flange (mm)'),num('holePitch','Hole pitch (mm)')],
+  build:s=>FP.dBoxKit({...s,capLip:SET.flange})[0],
+  kit:s=>FP.dBoxKit({...s,capLip:SET.flange}),
+  mini:c=>[c.W+' × '+c.H+' × '+c.Len,'2 wraps + 4 ends'],
+  stats:c=>[c.W+'×'+c.H+'×'+c.Len,'Girth '+c.S.toFixed(0),'Roll '+c.qa.toFixed(0),'Flange '+c.F],
+  note:'Whole box, no cutouts yet. Split along its length into two identical halves. The wrap folds the top corner then ROLLS the quarter-round from the marked line; D-shaped ends lip over. The round bottom radius is half the width.'},
 };
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
-const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','dbox'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes',k:['roundbox','squarebox','dbox']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
@@ -1796,6 +1979,38 @@ function diagDouble(st){
   return _svgWrap(parts,all,200);
 }
 
+function diagRoundBox(s){
+  const D=Math.max(1,+s.dia||200), H=Math.max(1,+s.height||300), sc=64/Math.max(D,H);
+  const rx=D*sc/2, ry=Math.max(4,rx*0.3), h=H*sc, y0=-h/2, y1=h/2;
+  const parts=[], all=[[-rx,y0-ry],[rx,y1+ry]];
+  parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L${(-rx).toFixed(1)} ${y1.toFixed(1)} A${rx.toFixed(1)} ${ry.toFixed(1)} 0 0 0 ${rx.toFixed(1)} ${y1.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
+  parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
+  parts.push(_ln([0,y0+ry],[0,y1+ry*0.85],SEAMST));
+  return _svgWrap(parts,all,130);
+}
+function diagSquareBox(s){
+  const L=Math.max(1,+s.boxL||300), W=Math.max(1,+s.boxW||250), H=Math.max(1,+s.boxH||250);
+  const sc=62/Math.max(L,W,H), l=L*sc, w=W*sc, h=H*sc, dx=w*0.55, dy=-w*0.4;
+  const x0=-l/2, x1=l/2, y0=-h/2, y1=h/2;
+  const parts=[], all=[[x0,y1],[x1+dx,y0+dy]];
+  parts.push(`<polygon points="${x0} ${y0} ${x0+dx} ${y0+dy} ${x1+dx} ${y0+dy} ${x1} ${y0}" fill="none" ${INKST}/>`);
+  parts.push(`<polygon points="${x1} ${y0} ${x1+dx} ${y0+dy} ${x1+dx} ${y1+dy} ${x1} ${y1}" fill="none" ${INKST}/>`);
+  parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="none" ${INKST}/>`);
+  parts.push(_ln([0,y0],[0,y1],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
+  return _svgWrap(parts,all,150);
+}
+function diagDBox(s){
+  const W=Math.max(1,+s.boxW||250), H=Math.max(1,+s.boxH||300), L=Math.max(1,+s.boxLen||400);
+  const sc=60/Math.max(W,H,L*0.7), w=W*sc, h=H*sc, r=w/2, len=Math.min(L*sc,80), dx=len*0.6, dy=-len*0.42;
+  const x0=-w/2, x1=w/2, y0=-h/2, yr=y0+h-r;
+  const parts=[], all=[[x0,y0+h],[x1+dx,y0+dy]];
+  parts.push(`<path d="M${x0} ${y0} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="none" ${INKST}/>`);
+  parts.push(`<polygon points="${x0} ${y0} ${x0+dx} ${y0+dy} ${x1+dx} ${y0+dy} ${x1} ${y0}" fill="none" ${INKST}/>`);
+  parts.push(`<path d="M${x1} ${y0} L${x1+dx} ${y0+dy} L${x1+dx} ${(yr+dy)}" fill="none" ${INKST}/>`);
+  parts.push(`<path d="M${x1+dx} ${(yr+dy)} A${r} ${r} 0 0 1 ${(x0+dx+r*0.55)} ${(yr+dy+r*0.8)}" fill="none" ${INKST}/>`);
+  parts.push(_ln([0,y0],[0,y0+h*0.98],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
+  return _svgWrap(parts,all,150);
+}
 function fittingDiagram(kind,s){
   try{
     const clad=x=>x+2*(s.insulation||0);
@@ -1834,6 +2049,9 @@ function fittingDiagram(kind,s){
       parts.push(`<path d="M${(bx-rr).toFixed(1)} ${by.toFixed(1)} Q ${bx.toFixed(1)} ${(by-6).toFixed(1)} ${(bx+rr).toFixed(1)} ${by.toFixed(1)}" fill="none" stroke="#b78400" stroke-width="2.6"/>`);
       all.push([bx-rr,y2+6],[bx+rr,y2+6]);
       return _svgWrap(parts,all,150); }
+    if(kind==='roundbox') return diagRoundBox(s);
+    if(kind==='squarebox') return diagSquareBox(s);
+    if(kind==='dbox') return diagDBox(s);
     if(kind==='inctee'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
     if(kind==='teehole'||kind==='trunnionhole') return diagHole(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
   }catch(e){}
@@ -1972,7 +2190,7 @@ function form(kind, presetParams){
     renderKit();
   }
   function kitCaption(p){ const t=(p.title||'').replace(/\s*1:1\s*$/,'');
-    const i=t.indexOf('-'); return (i>0?t.slice(i+1):t).trim(); }
+    const parts=t.split(/\s+-\s+/); return (parts.length>1?parts.slice(1).join(' - '):t).trim(); }
   function renderKit(){ const kw=document.getElementById('kitwrap'); if(!kw) return;
     if(!fit.kit){ kw.innerHTML=''; return; }
     if(!kitOpen){ kw.innerHTML='<button class="kitbar" id="kitToggle">Show all kit pieces ▸</button>'; }
@@ -2046,6 +2264,9 @@ function jobDetail(id){
     toast('Job pack — '+out.pieces+' patterns, '+out.sheets+' sheets'); };
 }
 function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
+  if(p.dia) return q+'Ø'+p.dia+' × '+p.height;
+  if(p.boxLen) return q+p.boxW+'×'+p.boxH+'×'+p.boxLen;
+  if(p.boxL) return q+p.boxL+'×'+p.boxW+'×'+p.boxH;
   if(p.pipeOD) return q+'Ø'+p.pipeOD+' +'+(p.insulation||0)+'mm';
   if(p.bigPipeOD) return q+'Ø'+p.bigPipeOD+'→'+p.smallPipeOD+' +'+(p.insulation||0)+'mm';
   if(p.mainPipeOD) return q+'Ø'+p.mainPipeOD+' / Ø'+p.branchPipeOD;
@@ -2081,7 +2302,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:14px;margin:2px auto 10px;background:linear-gradient(135deg,#ffd254,#fcb700);display:grid;place-items:center;box-shadow:0 2px 10px rgba(252,183,0,.4)">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#171310"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#171310" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#171310"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.0.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.1.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:#b78400;font-weight:700;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -2105,7 +2326,7 @@ function settingsPage(){
   document.getElementById('sTheme').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sTheme').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.theme=b.dataset.v; saveSet(); applyTheme(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'2.0.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'2.1.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
