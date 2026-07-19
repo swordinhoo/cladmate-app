@@ -591,49 +591,76 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   // ================= LOBSTER BACK (segmented elbow) =======================
-  function lobster(p) {
+  // A lobster bend of N segments is built from TWO half-height END gores
+  // (the starter and finisher - flat edge butts the straight pipe, one wavy
+  // mitre edge) plus (N-1) full-height MIDDLE gores (wavy on both edges).
+  // Two half-ends = one full middle, so N "segment equivalents" turn through
+  // 2*N*g total with g = bendAngle/(2N).  kind: 'end' or 'mid'.
+  function _lobGore(p, kind) {
     const cladOD = p.pipeOD + 2 * (p.insulation + (p.cladGap || 0));
     const r = cladOD / 2;
-    const g = (p.bendDeg * Math.PI / 180) / (2 * p.segments);   // mitre half-angle
+    const N = Math.max(1, Math.round(p.segments));
+    const g = (p.bendDeg * Math.PI / 180) / (2 * N);            // mitre half-angle
     const A = r * Math.tan(g);
-    const C = p.centreRadius * g + p.jointAllow;
+    const C = p.centreRadius * g + (p.jointAllow || 0);         // half-gore mean length
     const circ = Math.PI * cladOD;
     const lapEach = p.lapTotal / 2;
     const ND = p.nDiv || 12;
     const seamEff = (p.bendHand === 'B') ? ((360 - (p.seamFromThroat || 0)) % 360) : (p.seamFromThroat || 0);
     const seamRad = seamEff * Math.PI / 180;
-
     const phiAt = x => seamRad + (x / circ) * 2 * Math.PI;
-    const hAt   = th => C - A * Math.cos(th);
+    const hAt   = th => C - A * Math.cos(th);                   // mitre edge height from baseline
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapEach, xHi = circ + lapEach;
-    const top = [], bot = [];
-    for (let i = 0; i <= steps; i++) { const x = xLo + (xHi - xLo) * i / steps; const h = hAt(phiAt(x)); top.push([x, h]); bot.push([x, -h]); }
-    prim.push({ style: 'cut', pts: top.concat([[xHi, -hAt(phiAt(xHi))]], bot.slice().reverse(), [top[0]]) });
-    prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
-    [0, circ].forEach(xf => { const h = hAt(phiAt(xf)); prim.push({ style: 'fold', pts: [[xf, -h], [xf, h]] }); });
+    const mid = (kind === 'mid');
 
-    // rivet/screw holes ON the seam (dashed) lines -> rolls to the correct diameter
-    [0, circ].forEach(xl => {
-      const h = hAt(phiAt(xl)), top = h - p.holeEndGap, bot = -(h - p.holeEndGap), span = top - bot;
-      const nH = Math.max(1, Math.round(span / p.holePitch));
-      for (let k = 0; k <= nH; k++) holes.push([xl, bot + span * k / nH]);
-    });
-    for (let k = 0; k <= ND; k++) { const x = k * circ / ND; const h = hAt(phiAt(x)); prim.push({ style: 'ord', pts: [[x, -h], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
+    if (mid) {
+      const top = [], bot = [];
+      for (let i = 0; i <= steps; i++) { const x = xLo + (xHi - xLo) * i / steps; const h = hAt(phiAt(x)); top.push([x, h]); bot.push([x, -h]); }
+      prim.push({ style: 'cut', pts: top.concat([[xHi, -hAt(phiAt(xHi))]], bot.slice().reverse(), [top[0]]) });
+      prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
+      [0, circ].forEach(xf => { const h = hAt(phiAt(xf)); prim.push({ style: 'fold', pts: [[xf, -h], [xf, h]] }); });
+      [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), t = h - p.holeEndGap, b = -(h - p.holeEndGap), span = t - b;
+        const nH = Math.max(1, Math.round(span / p.holePitch));
+        for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
+      for (let k = 0; k <= ND; k++) { const x = k * circ / ND, h = hAt(phiAt(x)); prim.push({ style: 'ord', pts: [[x, -h], [x, h]] }); ticks.push({ x, y: h, label: (2*h).toFixed(0) }); }
+    } else {
+      const top = [];
+      for (let i = 0; i <= steps; i++) { const x = xLo + (xHi - xLo) * i / steps; top.push([x, hAt(phiAt(x))]); }
+      prim.push({ style: 'cut', pts: [[xLo, 0]].concat(top, [[xHi, 0]], [[xLo, 0]]) });
+      prim.push({ style: 'fold', pts: [[xLo, 0], [xHi, 0]] });   // flat flange edge (butts the straight pipe)
+      [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, hAt(phiAt(xf))]] }));
+      [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b;
+        const nH = Math.max(1, Math.round(span / p.holePitch));
+        for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
+      for (let k = 0; k <= ND; k++) { const x = k * circ / ND, h = hAt(phiAt(x)); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
+    }
 
     const ordTable = nd => { const a = []; for (let i = 0; i <= nd / 2; i++) a.push(Math.round(hAt(i * 2 * Math.PI / nd))); return a; };
+    const nMid = N - 1;
     return {
       kind: 'Lobster',
-      title: 'Lobster-Back Elbow  -  1:1 Segment Template',
+      title: mid ? 'Lobster Back  -  Middle Gore 1:1' : 'Lobster Back  -  Starter / Finisher Gore 1:1',
       meta: [
         `Bare pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD`,
-        `Bend ${p.bendDeg}°  ${p.segments} segments  centre radius ${p.centreRadius} mm  joint allow ${p.jointAllow} mm`,
-        `Mitre half-angle ${(g*180/Math.PI).toFixed(2)}°  amplitude ${A.toFixed(1)}  circ ${circ.toFixed(1)} mm`,
-        `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  seam ${p.seamFromThroat}° from throat  CUT ${p.segments} OFF`
+        `Bend ${p.bendDeg}°  ${N} segments = 2 half-end gores + ${nMid} middle gore${nMid===1?'':'s'}   centre radius ${p.centreRadius} mm`,
+        `Mitre half-angle ${(g*180/Math.PI).toFixed(2)}°  amplitude ${A.toFixed(1)}  circ ${circ.toFixed(1)} mm  swage ${p.jointAllow||0} mm`,
+        mid
+          ? `MIDDLE gore - wavy both edges, cut ${nMid} off.  Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  seam ${p.seamFromThroat}° from throat`
+          : `STARTER / FINISHER gore - flat edge butts the straight pipe, cut 2 off.  Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  seam ${p.seamFromThroat}° from throat`
       ],
-      calc: { g: g * 180 / Math.PI, A, C, circ, cladOD, o12: ordTable(12), o24: ordTable(24) },
-      prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT ${p.segments} OFF (identical)`
+      calc: { g: g * 180 / Math.PI, A, C, circ, cladOD, segments: N, nMid, o12: ordTable(12), o24: ordTable(24) },
+      prim, holes, ticks, bbox: bboxOf(prim),
+      cutNote: mid ? `CUT ${nMid} OFF (middle gores)` : `CUT 2 OFF (starter + finisher · half gores)`
     };
+  }
+  function lobster(p) { return _lobGore(p, p.gore || 'mid'); }
+  // Full set of gores for a lobster bend: 2 end gores + (N-1) middle gores.
+  function lobsterKit(p) {
+    const N = Math.max(1, Math.round(p.segments));
+    const out = [ _lobGore(p, 'end') ];
+    if (N - 1 > 0) out.push(_lobGore(p, 'mid'));
+    return out;
   }
 
   // ================= GENERAL TRIANGULATION ================================
@@ -961,7 +988,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       meta:[`Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD   circ ${circ.toFixed(1)}`,
             `Bend 1: ${p.bendDeg1}° / ${p.segments1} seg / CR ${p.centreRadius1}    Bend 2: ${p.bendDeg2}° / ${p.segments2} seg / CR ${p.centreRadius2}`,
             `${p.direction==='same'?'Same-way bend':'S-bend (opposite)'}   straight between bends ${p.midLen||0} mm   twist ${p.twist||0}°   Type ${p.bendHand||'A'}   lap ${p.lapTotal} (${lapEach} each end)`,
-            `This piece finishes bend 1 AND starts bend 2. Cut the other gores with Lobster Back: ${p.segments1-1} off at bend-1 settings, ${p.segments2-1} off at bend-2 settings.`],
+            `This piece finishes bend 1 AND starts bend 2 in one gore. Generate prints the full kit: this + a starter + a finisher (half gores) + ${p.segments1-1} bend-1 middle${p.segments1-1===1?'':'s'} + ${p.segments2-1} bend-2 middle${p.segments2-1===1?'':'s'}.`],
       calc:{ cladOD, circ, A1, A2, L0, oT },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF (shared segment)' };
   }
@@ -1158,7 +1185,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1234,8 +1261,10 @@ const F={
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,bendDeg:90,segments:4,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
-  build:s=>FP.lobster(s), stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Cut × segments'],
-  note:'Back fastener = seam on the back of the bend (point 7). Side fastener = seam on the side (point 4). Or tap any division on the circle for a custom seam. Holes sit on the dashed seam line so it rolls to the exact diameter.'},
+  build:s=>FP.lobster({...s,gore:'end'}),
+  kit:s=>FP.lobsterKit(s),
+  stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'2 ends + '+c.nMid+' mid'],
+  note:'Segments = 2 half gores (starter + finisher) + the middle gores. So 4 segments = a starter, a finisher and 3 middles. The preview shows the STARTER / FINISHER (the half gore that butts the straight pipe); Generate prints the full kit — cut 2 of these + '+'the middle gore (cut N-1, twice the height, wavy both edges). Back fastener = seam on the back (point 7), side fastener = point 4, or tap any division for a custom seam. Holes sit on the dashed seam line so it rolls to the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2 / N-piece',icon:I.elbow,free:true,
   defaults:{swage:3,bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('pieces','Pieces'),num('minLen','Min length (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
@@ -1249,14 +1278,18 @@ const F={
     num('twist','Twist (°, -90 to +90)'),num('jointAllow','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
   build:s=>FP.bendOnBend(s),
   kit:s=>{ const shared=FP.bendOnBend(s);
-    const lob=(n,cr,deg,tag,cnt)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:s.jointAllow,lapTotal:s.lapTotal,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:s.seamFromThroat,bendHand:s.bendHand});
-      p.title='Double Bend - '+tag+' Gores 1:1'; p.meta.push('For this double bend cut '+cnt+' off - the shared segment replaces one gore.'); return p; };
+    const gore=(n,cr,deg,g,tag,cnt,extra)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:s.jointAllow,lapTotal:s.lapTotal,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:s.seamFromThroat,bendHand:s.bendHand,gore:g});
+      p.title='Double Bend - '+tag+' 1:1'; p.meta.push(extra); return p; };
     const out=[shared];
-    if(s.segments1>1) out.push(lob(s.segments1,s.centreRadius1,s.bendDeg1,'Bend 1',s.segments1-1));
-    if(s.segments2>1) out.push(lob(s.segments2,s.centreRadius2,s.bendDeg2,'Bend 2',s.segments2-1));
+    // bend 1: starter (half) + (seg1-1) middle gores
+    out.push(gore(s.segments1,s.centreRadius1,s.bendDeg1,'end','Bend 1 Starter','Half gore that butts the straight pipe at the bend-1 end. Cut 1 off.'));
+    if(s.segments1>1) out.push(gore(s.segments1,s.centreRadius1,s.bendDeg1,'mid','Bend 1 Middle Gores','Full middle gore, wavy both edges. Cut '+(s.segments1-1)+' off.'));
+    // bend 2: (seg2-1) middle gores + finisher (half)
+    if(s.segments2>1) out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'mid','Bend 2 Middle Gores','Full middle gore, wavy both edges. Cut '+(s.segments2-1)+' off.'));
+    out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'end','Bend 2 Finisher','Half gore that butts the straight pipe at the bend-2 end. Cut 1 off.'));
     return out; },
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'Cut 1 off'],
-  note:'Radius bend onto radius bend. The preview shows the SHARED segment (finishes bend 1, starts bend 2 in one piece). Twist rolls bend 2 out of plane: 0 = flat S, ±90 = second bend goes up/down out of the page. Add a straight length between the bends if the job has one — it becomes part of the shared piece. Generate prints the FULL KIT: shared piece + all gores for both bends.'},
+  note:'Radius bend onto radius bend. The preview shows the SHARED segment (finishes bend 1, starts bend 2 in one piece). Twist rolls bend 2 out of plane: 0 = flat S, ±90 = second bend goes up/down out of the page. Add a straight length between the bends if the job has one — it becomes part of the shared piece. Generate prints the FULL KIT: the shared piece + a starter and finisher (half gores that butt the straight pipe) + the middle gores for both bends.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -1474,9 +1507,10 @@ function diagDouble(st){
 function fittingDiagram(kind,s){
   try{
     const clad=x=>x+2*(s.insulation||0);
-    if(kind==='lobster'){ const n=Math.max(2,Math.round(s.segments||4)), phi=s.bendDeg||90;
+    if(kind==='lobster'){ const N=Math.max(1,Math.round(s.segments||4)), phi=s.bendDeg||90;
       const r=clad(s.pipeOD)/2, k=Math.min(0.8, r/Math.max(s.centreRadius||r*2, r+5));
-      const va=[]; for(let i=0;i<=n;i++) va.push(90-i*phi/n);
+      // half starter + (N-1) full middles + half finisher: joints at (j-0.5)*phi/N
+      const va=[90]; for(let j=1;j<=N;j++) va.push(90-(j-0.5)*phi/N); va.push(90-phi);
       return diagBend(va,k,s.seamFromThroat,s.bendHand); }
     if(kind==='elbow'){ const p=Math.max(2,Math.round(s.pieces||2)), phi=s.bendDeg||90;
       const va=[90]; for(let j=1;j<p;j++) va.push(90-(j-0.5)*phi/(p-1)); va.push(90-phi);
