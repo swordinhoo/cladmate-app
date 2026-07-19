@@ -1135,12 +1135,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   // ================= BOXES (valve / flange boxes) ==========================
-  // From Craig's sketch (Jul 2026). Every box is TWO identical halves, so one
-  // template set cuts the pair. Split edges carry OUT-TURNED FLANGES (fold
-  // out, bolt/clip face-to-face). End caps fix with a bent-out lip ON the cap
-  // (pot-lid, same idea as the tee flange). Flat corners fold from one piece;
-  // the only lap is the square wrap's closing corner. Sizes are the finished
-  // OUTSIDE box sizes - no insulation maths here.
+  // Real shop construction (Craig, Jul 2026):
+  //  - wrap-to-cheek joints are LOCKFORMED: the wrap edge carries the
+  //    lockformer allowance (machines vary - adjustable), the cheek carries a
+  //    small fold-out flange that slots into the lock before it's hammered
+  //    down. Same system on curves (round caps included).
+  //  - split joints: out-turned flanges, laps half-and-half on the centre
+  //    line, or a full lap on one piece over a clean-cut mate - selectable.
+  //  - WATERSHED IS LAW: no seam faces upwards. Horizontal-split pieces fit
+  //    lowest first and the upper piece always laps OVER.
+  //  - sizes are finished OUTSIDE box sizes.
+  // One girth-path engine drives all three shapes: the section (flats + arcs,
+  // clockwise from top-centre, y up) is sliced at split positions; slices
+  // rectify to flat wraps, cheeks come from the section outline.
+
   function _arcPts(cx, cy, r, a0, a1, n) {
     const out = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n;
       out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return out;
@@ -1153,142 +1161,310 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let k = 0; k <= n; k++) holes.push([x0 + ux * (endGap + span * k / n), y0 + uy * (endGap + span * k / n)]);
   }
 
-  function roundBoxKit(p) {
-    const D = p.dia, H = p.height, F = p.splitFlange, Lp = p.capLip || 10;
-    const half = Math.PI * D / 2, W = 2 * F + half;
-    // half barrel: flat width = half circumference between the split folds
-    const pr1 = [], h1 = [];
-    pr1.push({ style: 'cut', pts: [[0, 0], [W, 0], [W, H], [0, H], [0, 0]] });
-    [F, F + half].forEach(x => pr1.push({ style: 'fold', pts: [[x, 0], [x, H]] }));
-    pr1.push({ style: 'centre', pts: [[F + half / 2, 0], [F + half / 2, H]] });
-    _lineHoles(h1, F / 2, 0, F / 2, H, p.holePitch, p.holeEndGap);
-    _lineHoles(h1, W - F / 2, 0, W - F / 2, H, p.holePitch, p.holeEndGap);
-    const barrel = { kind: 'roundbox', title: 'Round Box  -  Half Barrel 1:1',
-      meta: [`Box Ø${D} × ${H} high  -  two identical halves`,
-             `Roll to Ø${D}: flat width ${half.toFixed(1)} mm between the fold lines`,
-             `Split flanges ${F} mm both edges  -  fold OUT, halves bolt/clip face-to-face`,
-             `Caps fit over the ends  -  their lips screw onto the barrel`],
-      calc: { D, H, half, F, Lp },
-      prim: pr1, holes: h1, ticks: [{ x: F + half / 2, y: H, label: half.toFixed(0) }],
-      bbox: bboxOf(pr1), cutNote: 'CUT 2 OFF (half barrels)' };
-    // half cap: half disc + lip band over the barrel + split flange on the diameter
-    const R = D / 2, NA = 120;
-    const pr2 = [], h2 = [];
-    const outer = _arcPts(0, 0, R + Lp, 0, Math.PI, NA);
-    pr2.push({ style: 'cut',
-      pts: [[-R, -F], [R, -F], [R, 0], [R + Lp, 0]].concat(outer.slice(1, NA), [[-R - Lp, 0], [-R, 0], [-R, -F]]) });
-    pr2.push({ style: 'fold', pts: _arcPts(0, 0, R, 0, Math.PI, NA) });   // lip folds down here
-    pr2.push({ style: 'fold', pts: [[-R, 0], [R, 0]] });                  // split flange folds out here
-    const snipN = Math.max(6, Math.round(Math.PI * R / 40));
-    for (let i = 1; i < snipN; i++) { const a = Math.PI * i / snipN;
-      pr2.push({ style: 'ord', pts: [[R * Math.cos(a), R * Math.sin(a)], [(R + Lp) * Math.cos(a), (R + Lp) * Math.sin(a)]] }); }
-    const hp = Math.max(2, Math.round(Math.PI * (R + Lp / 2) / p.holePitch));
-    for (let i = 0; i <= hp; i++) { const a = Math.PI * i / hp;
-      h2.push([(R + Lp / 2) * Math.cos(a), (R + Lp / 2) * Math.sin(a)]); }
-    _lineHoles(h2, -R, -F / 2, R, -F / 2, p.holePitch, p.holeEndGap);
-    const cap = { kind: 'roundbox', title: 'Round Box  -  Half Cap 1:1',
-      meta: [`Half cap for box Ø${D}  -  lip ${Lp} mm folds down over the barrel (snip on the marks)`,
-             `Split flange ${F} mm along the straight edge`,
-             `Top and bottom caps are the same piece`],
-      calc: { R, Lp, F },
-      prim: pr2, holes: h2, ticks: [],
-      bbox: bboxOf(pr2), cutNote: 'CUT 4 OFF (half caps - top + bottom)' };
-    return [barrel, cap];
+  // ---- section: clockwise from top-centre, y up ---------------------------
+  function _boxSection(p) {
+    const segs = []; let g = 0;
+    const flat = (p0, p1) => { const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+      segs.push({ type: 'flat', p0, p1, len, g0: g }); g += len; };
+    const arc = (c, r, a0, a1) => { const len = r * Math.abs(a1 - a0);
+      segs.push({ type: 'arc', c, r, a0, a1, len, g0: g }); g += len; };
+    // _tilt = tan(watershed angle) for horizontal boxes: the top face slopes,
+    // HIGH side at -x (back). Entered height is the LOW side.
+    const T = p._tilt || 0;
+    if (p.shape === 'round') {
+      const R = p.dia / 2;
+      arc([0, 0], R, Math.PI / 2, Math.PI / 2 - 2 * Math.PI);
+    } else if (p.shape === 'square') {
+      const W = p.boxW, H = p.boxH;
+      flat([0, H / 2 + W / 2 * T], [W / 2, H / 2]); flat([W / 2, H / 2], [W / 2, -H / 2]);
+      flat([W / 2, -H / 2], [-W / 2, -H / 2]); flat([-W / 2, -H / 2], [-W / 2, H / 2 + W * T]);
+      flat([-W / 2, H / 2 + W * T], [0, H / 2 + W / 2 * T]);
+    } else {
+      const W = p.boxW, R = W / 2, fl = p.boxH - R;
+      if (fl <= 1) throw new Error('Height must be more than half the width for a D-box.');
+      flat([0, W / 2 * T], [R, 0]); flat([R, 0], [R, -fl]);
+      arc([0, -fl], R, 0, -Math.PI);
+      flat([-R, -fl], [-R, W * T]); flat([-R, W * T], [0, W / 2 * T]);
+    }
+    const G = g;
+    // clockwise path, y up: outward normal = tangent rotated +90 CCW = (-uy, ux)
+    const at = gg => { gg = ((gg % G) + G) % G;
+      let s = segs[segs.length - 1];
+      for (const sg of segs) { if (gg < sg.g0 + sg.len - 1e-9) { s = sg; break; } }
+      const t = Math.max(0, Math.min(1, (gg - s.g0) / s.len));
+      if (s.type === 'flat') {
+        const ux = (s.p1[0] - s.p0[0]) / s.len, uy = (s.p1[1] - s.p0[1]) / s.len;
+        return { p: [s.p0[0] + (s.p1[0] - s.p0[0]) * t, s.p0[1] + (s.p1[1] - s.p0[1]) * t], n: [-uy, ux], seg: s };
+      }
+      const a = s.a0 + (s.a1 - s.a0) * t;
+      return { p: [s.c[0] + s.r * Math.cos(a), s.c[1] + s.r * Math.sin(a)], n: [Math.cos(a), Math.sin(a)], seg: s };
+    };
+    return { segs, G, at };
   }
 
-  function squareBoxKit(p) {
-    const L = p.boxL, W = p.boxW, H = p.boxH, F = p.splitFlange, Lp = p.capLip || 10, lap = p.lapTotal || 40;
-    const D2 = L / 2, X = lap + 2 * (W + H);
-    // half wrap: folds round all four sides, laps shut at the start corner
-    const pr1 = [], h1 = [];
-    pr1.push({ style: 'cut', pts: [[0, 0], [X, 0], [X, D2 + F], [0, D2 + F], [0, 0]] });
-    pr1.push({ style: 'fold', pts: [[lap, 0], [lap, D2]] });              // closing lap line
-    _lineHoles(h1, lap, 0, lap, D2, p.holePitch, p.holeEndGap);
-    let cx = lap; const ticks = [];
-    [W, H, W, H].forEach((w, i) => { ticks.push({ x: cx + w / 2, y: D2, label: String(w) });
-      cx += w; if (i < 3) pr1.push({ style: 'fold', pts: [[cx, 0], [cx, D2]] }); });
-    pr1.push({ style: 'fold', pts: [[0, D2], [X, D2]] });                 // split flange folds out here
-    _lineHoles(h1, 0, D2 + F / 2, X, D2 + F / 2, p.holePitch, p.holeEndGap);
-    const wrap = { kind: 'squarebox', title: 'Square Box  -  Half Wrap 1:1',
-      meta: [`Box ${L} × ${W} × ${H}  -  two identical halves, split across the middle`,
-             `Fold on the lines: ${W} / ${H} / ${W} / ${H}, lap ${lap} mm shuts the corner`,
-             `Split flange ${F} mm along the open edge  -  fold OUT, halves bolt/clip together`,
-             `End panel lips screw onto this wrap at the other edge`],
-      calc: { L, W, H, X, D2, F },
-      prim: pr1, holes: h1, ticks,
-      bbox: bboxOf(pr1), cutNote: 'CUT 2 OFF (half wraps)' };
-    // end panel: W x H with a bent-out lip all round, corners snipped
-    const pr2 = [], h2 = [];
-    pr2.push({ style: 'cut', pts: [[0, -Lp], [W, -Lp], [W, 0], [W + Lp, 0], [W + Lp, H], [W, H],
-      [W, H + Lp], [0, H + Lp], [0, H], [-Lp, H], [-Lp, 0], [0, 0], [0, -Lp]] });
-    [[[0, 0], [W, 0]], [[W, 0], [W, H]], [[W, H], [0, H]], [[0, H], [0, 0]]].forEach(e => pr2.push({ style: 'fold', pts: e }));
-    _lineHoles(h2, 0, -Lp / 2, W, -Lp / 2, p.holePitch, p.holeEndGap);
-    _lineHoles(h2, W + Lp / 2, 0, W + Lp / 2, H, p.holePitch, p.holeEndGap);
-    _lineHoles(h2, 0, H + Lp / 2, W, H + Lp / 2, p.holePitch, p.holeEndGap);
-    _lineHoles(h2, -Lp / 2, 0, -Lp / 2, H, p.holePitch, p.holeEndGap);
-    const end = { kind: 'squarebox', title: 'Square Box  -  End Panel 1:1',
-      meta: [`End panel ${W} × ${H}  -  lip ${Lp} mm all round folds onto the wrap`,
-             `Corners already snipped on the template`],
-      calc: { W, H, Lp },
-      prim: pr2, holes: h2, ticks: [],
-      bbox: bboxOf(pr2), cutNote: 'CUT 2 OFF (end panels)' };
-    return [wrap, end];
+  // ---- split girth positions ----------------------------------------------
+  function _boxSplits(p, sec) {
+    const G = sec.G, n = Math.max(2, Math.min(4, Math.round(p.pieces || 2)));
+    const fb = p.preset === 'frontback';
+    if (p.shape === 'round') {
+      if (n === 2) return fb ? [0, G / 2] : [G / 4, 3 * G / 4];
+      if (n === 3) return [G / 6, G / 2, 5 * G / 6];
+      return [G / 8, 3 * G / 8, 5 * G / 8, 7 * G / 8];
+    }
+    // square / dbox segs: 0 top-right half, 1 right side, 2 bottom, 3 left
+    // side, 4 top-left half. Positions read off the segments so tilted
+    // sections stay correct.
+    const S = sec.segs;
+    const mid = i => S[i].g0 + S[i].len / 2;
+    if (n === 2) return fb ? [0, mid(2)] : [mid(1), mid(3)];
+    if (n === 3) return [S[1].g0, mid(2), S[4].g0];       // lid + two lower pieces
+    return [S[1].g0, S[2].g0, S[3].g0, S[4].g0];          // top / right / bottom / left
   }
 
-  function dBoxKit(p) {
-    const W = p.boxW, H = p.boxH, Len = p.boxLen, R = W / 2, F = p.splitFlange, Lp = p.capLip || 10;
-    if (H <= R + 1) throw new Error('Height must be more than half the width for a D-box.');
-    const flat = H - R, qa = Math.PI * R / 2;
-    const S = W / 2 + flat + qa;                          // half-section girth
-    const X = 2 * F + S;
-    // half wrap: split flange | half top | flat side | quarter round | split flange
-    const pr1 = [], h1 = [];
-    pr1.push({ style: 'cut', pts: [[0, 0], [X, 0], [X, Len], [0, Len], [0, 0]] });
-    [F, F + W / 2, F + S].forEach(x => pr1.push({ style: 'fold', pts: [[x, 0], [x, Len]] }));
-    pr1.push({ style: 'centre', pts: [[F + W / 2 + flat, 0], [F + W / 2 + flat, Len]] });  // roll starts here
-    for (let i = 1; i < 4; i++) { const x = F + W / 2 + flat + qa * i / 4;
-      pr1.push({ style: 'ord', pts: [[x, 0], [x, Len]] }); }
-    _lineHoles(h1, F / 2, 0, F / 2, Len, p.holePitch, p.holeEndGap);
-    _lineHoles(h1, X - F / 2, 0, X - F / 2, Len, p.holePitch, p.holeEndGap);
-    const wrap = { kind: 'dbox', title: 'D-Box  -  Half Wrap 1:1',
-      meta: [`Box ${W} wide × ${H} high × ${Len} long, round bottom radius ${R.toFixed(0)}  -  two identical halves`,
-             `Fold at ${F} (flange), ${(F + W / 2).toFixed(0)} (top corner); ROLL from the marked line - quarter round flat length ${qa.toFixed(1)} mm`,
-             `Split flanges ${F} mm both long edges  -  fold OUT, halves bolt/clip together`,
-             `End panel lips screw onto this wrap`],
-      calc: { W, H, Len, R, S, X, F, qa },
-      prim: pr1, holes: h1,
-      ticks: [{ x: F + W / 4, y: Len, label: (W / 2).toFixed(0) }, { x: F + W / 2 + flat / 2, y: Len, label: flat.toFixed(0) },
-              { x: F + W / 2 + flat + qa / 2, y: Len, label: qa.toFixed(0) }],
-      bbox: bboxOf(pr1), cutNote: 'CUT 2 OFF (half wraps)' };
-    // half-D end panel: lips on top / side / curve, split flange down the straight back
-    const NA = 60, pr2 = [], h2 = [];
-    const arcC = [0, flat];                                // arc centre on the split edge
-    const outerArc = _arcPts(arcC[0], arcC[1], R + Lp, 0, Math.PI / 2, NA);
-    pr2.push({ style: 'cut',
-      pts: [[0, -Lp], [R, -Lp], [R, 0], [R + Lp, 0], [R + Lp, flat]].concat(outerArc.slice(1, NA),
-        [[0, H + Lp], [0, H], [-F, H], [-F, 0], [0, 0], [0, -Lp]]) });
-    pr2.push({ style: 'fold', pts: [[0, 0], [R, 0]] });                   // top lip fold
-    pr2.push({ style: 'fold', pts: [[R, 0], [R, flat]] });                // side lip fold
-    pr2.push({ style: 'fold', pts: _arcPts(arcC[0], arcC[1], R, 0, Math.PI / 2, NA) });  // curve lip fold
-    pr2.push({ style: 'fold', pts: [[0, 0], [0, H]] });                   // split flange fold
-    const snipN = Math.max(4, Math.round(qa / 40));
-    for (let i = 1; i < snipN; i++) { const a = (Math.PI / 2) * i / snipN;
-      pr2.push({ style: 'ord', pts: [[R * Math.cos(a), flat + R * Math.sin(a)], [(R + Lp) * Math.cos(a), flat + (R + Lp) * Math.sin(a)]] }); }
-    _lineHoles(h2, 0, -Lp / 2, R, -Lp / 2, p.holePitch, p.holeEndGap);
-    _lineHoles(h2, R + Lp / 2, 0, R + Lp / 2, flat, p.holePitch, p.holeEndGap);
-    const hp2 = Math.max(2, Math.round(Math.PI / 2 * (R + Lp / 2) / p.holePitch));
-    for (let i = 0; i <= hp2; i++) { const a = (Math.PI / 2) * i / hp2;
-      h2.push([(R + Lp / 2) * Math.cos(a), flat + (R + Lp / 2) * Math.sin(a)]); }
-    _lineHoles(h2, -F / 2, 0, -F / 2, H, p.holePitch, p.holeEndGap);
-    const end = { kind: 'dbox', title: 'D-Box  -  Half End 1:1',
-      meta: [`Half-D end for box ${W} × ${H}  -  lip ${Lp} mm folds onto the wrap (snip the curve on the marks)`,
-             `Split flange ${F} mm down the straight back edge`,
-             `All four ends are the same piece`],
-      calc: { W, H, R, flat, Lp, F, girth: R + flat + qa },
-      prim: pr2, holes: h2, ticks: [],
-      bbox: bboxOf(pr2), cutNote: 'CUT 4 OFF (half-D ends)' };
-    return [wrap, end];
+  // ---- one wrap piece: girth slice rectified flat -------------------------
+  function _wrapPiece(p, sec, ga, gb, meta) {
+    const L = p.exLen, LF = p.lockform, hp = p.holePitch, eg = p.holeEndGap;
+    const G = sec.G, span = (((gb - ga) % G) + G) % G || G;
+    const style = p.splitStyle, SS = p.splitSize;
+    const extOf = over => style === 'flange' ? SS : style === 'lap2' ? SS / 2 : (over ? SS : 0);
+    const extL = extOf(meta.overL), extR = extOf(meta.overR);
+    const X = extL + span + extR;
+    const prim = [], holes = [], ticks = [];
+    // top edge: flat at L, or the inclined watershed profile (vertical boxes)
+    const yAt = xs => p._yTop ? p._yTop(ga - extL + xs) : L;
+    if (p._yTop) {
+      const NS = Math.max(24, Math.round(X / 5));
+      const topOut = [], topFold = [];
+      for (let i = 0; i <= NS; i++) { const xs = X * i / NS;
+        topOut.push([X - xs, yAt(X - xs) + LF]); topFold.push([xs, yAt(xs)]); }
+      prim.push({ style: 'cut', pts: [[0, -LF], [X, -LF], [X, yAt(X) + LF]].concat(topOut, [[0, yAt(0) + LF], [0, -LF]]) });
+      prim.push({ style: 'fold', pts: topFold });
+      const hi = yAt(0) > yAt(X) ? 0 : X;
+      ticks.push({ x: hi, y: yAt(hi) + LF + 2, label: 'HIGH SIDE' });
+    } else {
+      prim.push({ style: 'cut', pts: [[0, -LF], [X, -LF], [X, L + LF], [0, L + LF], [0, -LF]] });
+      prim.push({ style: 'fold', pts: [[0, L], [X, L]] });
+    }
+    prim.push({ style: 'fold', pts: [[0, 0], [X, 0]] });
+    ticks.push({ x: X / 2, y: yAt(X / 2) + LF, label: 'LOCKFORM ' + LF });
+    ticks.push({ x: X / 2, y: -LF + 1, label: 'LOCKFORM ' + LF });
+    const splitEdge = (xEdge, xLine, hasJoint) => {
+      if (extOf(hasJoint) <= 0) return;
+      prim.push({ style: 'fold', pts: [[xLine, 0], [xLine, yAt(xLine)]] });
+      const hx = style === 'lap2' ? xLine : (xEdge + xLine) / 2;
+      _lineHoles(holes, hx, 0, hx, yAt(hx), hp, eg);
+    };
+    splitEdge(0, extL, meta.overL); splitEdge(X, X - extR, meta.overR);
+    // fold lines at flat corners, roll boundaries + ordinates in arcs
+    let d = 0;
+    while (d < span - 1e-6) {
+      const gAbs = ((ga + d) % G + G) % G;
+      const s = sec.at(gAbs + 1e-6).seg;
+      const rem = s.g0 + s.len - (gAbs < s.g0 ? gAbs + G : gAbs);
+      const end = Math.min(span, d + rem);
+      if (s.type === 'arc') { const nOrd = Math.max(2, Math.round((end - d) / 60));
+        for (let i = 1; i < nOrd; i++) { const mx = extL + d + (end - d) * i / nOrd;
+          prim.push({ style: 'ord', pts: [[mx, 0], [mx, yAt(mx)]] }); } }
+      if (end < span - 1e-6) {
+        const q0 = sec.at(((ga + end) % G) - 1e-4), q1 = sec.at(((ga + end) % G) + 1e-4);
+        const straightOn = q0.seg.type === 'flat' && q1.seg.type === 'flat'
+          && q0.n[0] * q1.n[0] + q0.n[1] * q1.n[1] > 0.9999;   // collinear flats - no real corner
+        if (!straightOn) {
+          const nx = sec.at(((ga + end) % G) + 1e-6).seg;
+          const rolls = s.type === 'arc' || nx.type === 'arc';
+          prim.push({ style: rolls ? 'centre' : 'fold', pts: [[extL + end, 0], [extL + end, yAt(extL + end)]] });
+        }
+      }
+      d = end;
+    }
+    ticks.push({ x: extL + span / 2, y: yAt(extL + span / 2), label: span.toFixed(0) });
+    return { kind: 'box', title: meta.title,
+      meta: [meta.desc,
+             `Girth ${span.toFixed(1)} mm between split lines   box length ${L} mm`,
+             `LOCKFORM allowance ${LF} mm both long edges (the cheeks lock in here)`,
+             meta.splitDesc],
+      calc: { span, X, L, extL, extR },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: meta.cutNote };
   }
+
+  // ---- cheek piece: section half + slot flange + split edge ---------------
+  function _cheekPiece(p, sec, ga, gb, meta) {
+    const SF = p.slotFlange, hp = p.holePitch, eg = p.holeEndGap;
+    const style = p.splitStyle, SS = p.splitSize;
+    const ext = style === 'flange' ? SS : style === 'lap2' ? SS / 2 : (meta.over ? SS : 0);
+    const G = sec.G, span = (((gb - ga) % G) + G) % G;
+    const N = Math.max(24, Math.round(span / 6));
+    // sample the girth edge; a tilted top cheek (vertical watershed) is the
+    // section stretched 1/cos(angle) along x, so normals come numerically
+    const K = meta.stretch || 1;
+    const inner = [], segTypes = [];
+    for (let i = 0; i <= N; i++) { const q = sec.at(ga + span * i / N);
+      inner.push([q.p[0] * K, q.p[1]]); segTypes.push(q.seg.type); }
+    const outer = inner.map((pt, i) => {
+      const a = inner[Math.max(0, i - 1)], b = inner[Math.min(N, i + 1)];
+      const tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const nx = -(b[1] - a[1]) / tl, ny = (b[0] - a[0]) / tl;   // +90 CCW of travel = outward (clockwise path)
+      return [pt[0] + nx * SF, pt[1] + ny * SF]; });
+    const A = inner[0], B = inner[N];
+    const cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1;
+    // piece lies clockwise of A->..->B; the chord closes it. Outward (away from
+    // the piece) across the chord = rotate the B->A direction +90 CCW.
+    const vx = (A[0] - B[0]) / cl, vy = (A[1] - B[1]) / cl;
+    const pox = -vy, poy = vx;
+    const A2 = [A[0] + pox * ext, A[1] + poy * ext], B2 = [B[0] + pox * ext, B[1] + poy * ext];
+    const prim = [], holes = [], ticks = [];
+    const outR = outer.slice().reverse();
+    prim.push({ style: 'cut', pts: [A2, B2, B].concat(outR, [A, A2]) });
+    prim.push({ style: 'fold', pts: inner.slice() });                 // slot flange folds here
+    if (ext > 0) prim.push({ style: 'fold', pts: [A.slice(), B.slice()] });
+    for (let i = 1; i < N; i++) if (segTypes[i] === 'arc' && (span * i / N) % 40 < span / N)
+      prim.push({ style: 'ord', pts: [inner[i], outer[i]] });
+    if (ext > 0) {
+      const line = style === 'lap2' ? [A, B]
+        : [[(A[0] + A2[0]) / 2, (A[1] + A2[1]) / 2], [(B[0] + B2[0]) / 2, (B[1] + B2[1]) / 2]];
+      _lineHoles(holes, line[0][0], line[0][1], line[1][0], line[1][1], hp, eg);
+    }
+    if (meta.hole) { const r = meta.hole.dia / 2, cx = meta.hole.ox || 0, cy = meta.hole.oy || 0;
+      prim.push({ style: 'cut', pts: _arcPts(cx, cy, r, 0, 2 * Math.PI, 90) });
+      prim.push({ style: 'centre', pts: [[cx - r - 8, cy], [cx + r + 8, cy]] });
+      prim.push({ style: 'centre', pts: [[cx, cy - r - 8], [cx, cy + r + 8]] });
+      ticks.push({ x: cx, y: cy, label: 'Ø' + meta.hole.dia }); }
+    return { kind: 'box', title: meta.title,
+      meta: [meta.desc,
+             `Slot flange ${SF} mm round the girth edge - fold out, slot into the wrap's lockform, hammer the lock shut`,
+             meta.splitDesc].concat(meta.hole ? [`Pipe hole Ø${meta.hole.dia}${(meta.hole.ox || meta.hole.oy) ? ' at ' + (meta.hole.ox || 0) + ', ' + (meta.hole.oy || 0) + ' from centre' : ' on centre'}`] : []),
+      calc: { girth: span, ext, SF,
+        edgeLen: inner.reduce((s, pt, i) => i ? s + Math.hypot(pt[0] - inner[i - 1][0], pt[1] - inner[i - 1][1]) : 0, 0) },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: meta.cutNote };
+  }
+
+  // ---- watershed cone cap (vertical round box): half-sector, cut 2 --------
+  function _coneCapHalf(p, meta) {
+    const R = p.dia / 2, th = meta.angle, l = R / Math.cos(th);
+    const Phi = 2 * Math.PI * R / l, half = Phi / 2;
+    const SF = p.slotFlange, style = p.splitStyle, SS = p.splitSize;
+    const ext = style === 'flange' ? SS : style === 'lap2' ? SS / 2 : (meta.over ? SS : 0);
+    // sector symmetric about +y: radial edges at 90 +/- half/2 degrees
+    const a1 = Math.PI / 2 + half / 2, a2 = Math.PI / 2 - half / 2, NA = 90;
+    const P = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
+    // lap strips run parallel to each radial edge, outward from the sector
+    const off = (a, sgn) => [Math.cos(a - sgn * Math.PI / 2) * ext, Math.sin(a - sgn * Math.PI / 2) * ext];
+    const o1 = off(a1, -1), o2 = off(a2, 1);
+    const E1 = P(l + SF, a1), E2 = P(l + SF, a2);
+    const prim = [], holes = [], ticks = [];
+    prim.push({ style: 'cut', pts: [[o1[0], o1[1]], [E1[0] + o1[0], E1[1] + o1[1]], E1]
+      .concat(_arcPts(0, 0, l + SF, a1, a2, NA).slice(1), [[E2[0] + o2[0], E2[1] + o2[1]], [o2[0], o2[1]], [o1[0], o1[1]]]) });
+    prim.push({ style: 'fold', pts: _arcPts(0, 0, l, a1, a2, NA) });          // slot flange folds at the rim
+    prim.push({ style: 'fold', pts: [[0, 0], P(l, a1)] });                    // split lines
+    prim.push({ style: 'fold', pts: [[0, 0], P(l, a2)] });
+    const snips = Math.max(6, Math.round(l * half / 40));
+    for (let i = 1; i < snips; i++) { const a = a1 + (a2 - a1) * i / snips;
+      prim.push({ style: 'ord', pts: [P(l, a), P(l + SF, a)] }); }
+    if (ext > 0) [[a1, o1], [a2, o2]].forEach(pair => {
+      const a = pair[0], o = pair[1], f = style === 'lap2' ? 0 : 0.5;   // holes on the line, or mid-strip
+      _lineHoles(holes, o[0] * f, o[1] * f, l * Math.cos(a) + o[0] * f, l * Math.sin(a) + o[1] * f, p.holePitch, p.holeEndGap);
+    });
+    return { kind: 'box', title: meta.title,
+      meta: [`Watershed cone cap, ${(th * 180 / Math.PI).toFixed(0)}° pitch - half sector, both halves the same`,
+             `Roll to the cone; slot flange ${SF} mm at the rim locks into the barrel`,
+             meta.splitDesc],
+      calc: { R, l, Phi, half, SF, ext, rimArc: l * half },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: meta.cutNote || 'CUT 2 OFF (cone cap halves)' };
+  }
+
+  // ---- the kit ------------------------------------------------------------
+  function boxKit(p) {
+    p = Object.assign({ pieces: 2, splitStyle: 'lap2', splitSize: 50,
+      lockform: 25, slotFlange: 10, holePitch: 60, holeEndGap: 20, orientation: 'vertical' }, p);
+    // sketch default: vertical boxes split down the face centres (front/back);
+    // horizontal boxes split on the level so the top half lifts off (sides)
+    if (!p.preset) p.preset = p.orientation === 'horizontal' ? 'sides' : 'frontback';
+    p.exLen = p.shape === 'round' ? p.height : p.shape === 'square' ? p.boxL : p.boxLen;
+    if (!(p.exLen > 0)) throw new Error('Box length must be positive.');
+    const ws = !!p.watershed, th = (p.wsAngle || 10) * Math.PI / 180, T = Math.tan(th);
+    // horizontal watershed: the flat top of the section slopes (round sheds anyway)
+    if (ws && p.orientation === 'horizontal' && p.shape !== 'round') p._tilt = T;
+    const sec = _boxSection(p);
+    const G = sec.G;
+    // vertical watershed: square/D wrap top edge is the inclined cut
+    if (ws && p.orientation !== 'horizontal' && p.shape !== 'round') {
+      const W = p.boxW; p._yTop = g => p.exLen + (W / 2 - sec.at(g).p[0]) * T;
+    }
+    const splits = _boxSplits(p, sec).map(g => ((g % G) + G) % G).sort((a, b) => a - b);
+    const horiz = p.orientation === 'horizontal';
+    const upness = (ga, gb) => { const span = (((gb - ga) % G) + G) % G; let s = 0; const M = 16;
+      for (let i = 0; i <= M; i++) s += sec.at(ga + span * i / M).p[1]; return s / (M + 1); };
+    const n = splits.length;
+    const slices = splits.map((ga, i) => { const gb = splits[(i + 1) % n];
+      return { ga, gb, up: upness(ga, gb) }; });
+    // per-edge over flags for the 50/0 lap: at each split, the higher slice laps
+    // over; on vertical splits (no height difference) the first slice is over
+    slices.forEach((sl, i) => {
+      const prev = slices[(i - 1 + n) % n], next = slices[(i + 1) % n];
+      const overVs = o => horiz && Math.abs(sl.up - o.up) > 1e-6 ? sl.up > o.up : slices.indexOf(sl) < slices.indexOf(o);
+      sl.overL = p.splitStyle === 'lap1' && overVs(prev);
+      sl.overR = p.splitStyle === 'lap1' && overVs(next);
+    });
+    const order = slices.slice().sort((a, b) => a.up - b.up);           // fit lowest first
+    const shapeName = p.shape === 'round' ? 'Round Box' : p.shape === 'square' ? 'Square Box' : 'D-Box';
+    const styleDesc = p.splitStyle === 'flange' ? `Split flanges ${p.splitSize} mm fold OUT - pieces bolt/clip face-to-face`
+      : p.splitStyle === 'lap2' ? `Split laps ${p.splitSize / 2} mm each side of the line - holes ON the line`
+      : `50/0 lap - the OVER piece carries ${p.splitSize} mm past the split, its mate is cut clean`;
+    const out = [];
+    order.forEach((sl, i) => {
+      const pos = horiz ? (i === 0 ? 'BOTTOM' : i === n - 1 ? 'TOP' : 'MIDDLE') : ('PIECE ' + (i + 1));
+      out.push(_wrapPiece(p, sec, sl.ga, sl.gb, {
+        overL: sl.overL, overR: sl.overR,
+        title: `${shapeName}  -  Wrap ${i + 1} of ${n} (${pos.toLowerCase()}) 1:1`,
+        desc: horiz ? `${pos} wrap - fit lowest first, the upper piece laps OVER (watershed)`
+                    : `${pos} wrap - vertical splits, keep the lap away from the prevailing weather`,
+        splitDesc: styleDesc,
+        cutNote: `CUT 1 OFF (wrap ${i + 1} of ${n}${horiz ? ' - ' + pos.toLowerCase() : ''})`
+      }));
+    });
+    // cheeks: come off separately, so they halve on the 2-piece plane of the
+    // chosen preset whatever the wrap piece count. Ends print separately only
+    // when their pipe holes differ.
+    const chord = _boxSplits(Object.assign({}, p, { pieces: 2 }), sec).map(g => ((g % G) + G) % G).sort((a, b) => a - b);
+    const hA = p.holeA && p.holeA.dia > 0 ? p.holeA : null;
+    const hB = p.holeB && p.holeB.dia > 0 ? p.holeB : null;
+    const same = JSON.stringify(hA) === JSON.stringify(hB);
+    const upC = [upness(chord[0], chord[1]), upness(chord[1], chord[0])];
+    const vertWS = ws && !horiz;
+    if (vertWS && hB) throw new Error('A watershed top cannot take a pipe hole yet - run the pipe through end A (the bottom).');
+    const cheekHalves = (hole, endName, cutN, stretch) => [0, 1].map(k => {
+      const ga = chord[k], gb = chord[(k + 1) % 2];
+      const over = p.splitStyle === 'lap1' && (horiz && Math.abs(upC[0] - upC[1]) > 1e-6 ? upC[k] > upC[1 - k] : k === 0);
+      return _cheekPiece(p, sec, ga, gb, {
+        over, hole, stretch,
+        title: `${shapeName}  -  Cheek half ${k + 1}${endName} 1:1`,
+        desc: horiz && Math.abs(upC[0] - upC[1]) > 1e-6
+          ? `Cheek (end) piece - ${upC[k] > upC[1 - k] ? 'UPPER half, laps OVER (watershed)' : 'LOWER half, fits first'}`
+          : `Cheek (end) piece, half ${k + 1}${stretch ? ' - TILTED watershed top, already stretched to true size' : ''}`,
+        splitDesc: styleDesc,
+        cutNote: cutN
+      });
+    });
+    if (vertWS) {
+      out.push(...cheekHalves(hA, ' - bottom end', 'CUT 1 OFF (bottom end)'));
+      if (p.shape === 'round') {
+        if (p.splitStyle === 'lap1') {
+          out.push(_coneCapHalf(p, { angle: th, over: true, splitDesc: styleDesc,
+            title: `${shapeName}  -  Cone Cap (over half) 1:1`, cutNote: 'CUT 1 OFF (over half)' }));
+          out.push(_coneCapHalf(p, { angle: th, over: false, splitDesc: styleDesc,
+            title: `${shapeName}  -  Cone Cap (under half) 1:1`, cutNote: 'CUT 1 OFF (under half)' }));
+        } else out.push(_coneCapHalf(p, { angle: th, over: false, splitDesc: styleDesc,
+          title: `${shapeName}  -  Cone Cap Half 1:1` }));
+      } else out.push(...cheekHalves(null, ' - top (watershed)', 'CUT 1 OFF (top end)', 1 / Math.cos(th)));
+    } else if (same) out.push(...cheekHalves(hA, '', 'CUT 2 OFF (one per end)'));
+    else { out.push(...cheekHalves(hA, ' - end A', 'CUT 1 OFF (end A)'));
+           out.push(...cheekHalves(hB, ' - end B', 'CUT 1 OFF (end B)')); }
+    out.forEach(o => { o.calc.nWraps = n; o.calc.kitPieces = out.length; });
+    return out;
+  }
+  const roundBoxKit = p => boxKit(Object.assign({ shape: 'round' }, p));
+  const squareBoxKit = p => boxKit(Object.assign({ shape: 'square' }, p));
+  const dBoxKit = p => boxKit(Object.assign({ shape: 'dbox' }, p));
 
   // ================= AREA / WEIGHT / SHEET FIT =============================
   function patternArea(pat) {                    // mm^2, shoelace on the cut outline
@@ -1482,7 +1658,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1496,7 +1672,8 @@ const store = {
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
 let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:10, detail:false,
-  material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', theme:'auto' }, store.get('cm_settings',{}));
+  material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', theme:'auto',
+  lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10 }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
 function applyTheme(){ const r=document.documentElement;
   if(SET.theme==='auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme',SET.theme); }
@@ -1664,30 +1841,43 @@ const F={
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  roundbox:{name:'Round Box',sub:'Valve / flange box',icon:I.rbox,
-  defaults:{dia:200,height:300,splitFlange:25,holePitch:60,holeEndGap:20},
-  fields:[num('dia','Box diameter (mm)'),num('height','Height (mm)'),num('splitFlange','Split flange (mm)'),num('holePitch','Hole pitch (mm)')],
-  build:s=>FP.roundBoxKit({...s,capLip:SET.flange})[0],
-  kit:s=>FP.roundBoxKit({...s,capLip:SET.flange}),
-  mini:c=>['Ø '+c.D+' × '+c.H,'2 halves + 4 caps'],
-  stats:c=>['Ø'+c.D+' × '+c.H,'Roll width '+c.half.toFixed(0),'Flange '+c.F,'Cap lip '+c.Lp],
-  note:'Whole box, no cutouts yet. Two identical halves: the barrel folds its split flanges OUT (halves bolt or clip face-to-face), the caps lip over the ends like a pot lid — snip marks printed. Cap lip width comes from Settings → tee flat flange.'},
+  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,preset:'',watershed:0,holeAdia:0,holeAx:0,holeAy:0,holeBdia:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  fields:BOXFIELDS([num('dia','Box diameter (mm)'),num('height','Height / length (mm)')]),
+  build:s=>FP.boxKit(boxParams('round',s))[0],
+  kit:s=>FP.boxKit(boxParams('round',s)),
+  mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
+  stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
+  note:'Lockformed construction: the barrel edges carry the lockform allowance, the cheeks slot in and the lock hammers shut. Splits per Settings → Boxes. Watershed on a vertical box makes the top a shallow cone.'},
  squarebox:{name:'Square Box',sub:'Valve / flange box',icon:I.sbox,
-  defaults:{boxL:300,boxW:250,boxH:250,splitFlange:25,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('splitFlange','Split flange (mm)'),num('lapTotal','Closing lap (mm)'),num('holePitch','Hole pitch (mm)')],
-  build:s=>FP.squareBoxKit({...s,capLip:SET.flange})[0],
-  kit:s=>FP.squareBoxKit({...s,capLip:SET.flange}),
-  mini:c=>[c.L+' × '+c.W+' × '+c.H,'2 wraps + 2 ends'],
-  stats:c=>[c.L+'×'+c.W+'×'+c.H,'Wrap '+c.X.toFixed(0)+' × '+c.D2.toFixed(0),'Flange '+c.F],
-  note:'Whole box, no cutouts yet. Split across the middle into two identical halves. The wrap folds round all four sides and laps shut at one corner; end panels lip over the ends, corners pre-snipped.'},
+  defaults:{boxL:300,boxW:250,boxH:250,orientation:'vertical',pieces:2,preset:'',watershed:0,holeAdia:0,holeAx:0,holeAy:0,holeBdia:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  fields:BOXFIELDS([num('boxL','Box length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)')]),
+  build:s=>FP.boxKit(boxParams('square',s))[0],
+  kit:s=>FP.boxKit(boxParams('square',s)),
+  mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
+  stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
+  note:'Lockformed construction: wraps fold at the corners and carry the lockform allowance on both cheek edges; cheeks slot in. Watershed slopes the top — on its side the top face tilts, upright the wrap top edge runs on the rake.'},
  dbox:{name:'D-Box',sub:'Valve / flange box',icon:I.dboxI,
-  defaults:{boxW:250,boxH:300,boxLen:400,splitFlange:25,holePitch:60,holeEndGap:20},
-  fields:[num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('boxLen','Length (mm)'),num('splitFlange','Split flange (mm)'),num('holePitch','Hole pitch (mm)')],
-  build:s=>FP.dBoxKit({...s,capLip:SET.flange})[0],
-  kit:s=>FP.dBoxKit({...s,capLip:SET.flange}),
-  mini:c=>[c.W+' × '+c.H+' × '+c.Len,'2 wraps + 4 ends'],
-  stats:c=>[c.W+'×'+c.H+'×'+c.Len,'Girth '+c.S.toFixed(0),'Roll '+c.qa.toFixed(0),'Flange '+c.F],
-  note:'Whole box, no cutouts yet. Split along its length into two identical halves. The wrap folds the top corner then ROLLS the quarter-round from the marked line; D-shaped ends lip over. The round bottom radius is half the width.'},
+  defaults:{boxW:250,boxH:300,boxLen:400,orientation:'vertical',pieces:2,preset:'',watershed:0,holeAdia:0,holeAx:0,holeAy:0,holeBdia:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  fields:BOXFIELDS([num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('boxLen','Length (mm)')]),
+  build:s=>FP.boxKit(boxParams('dbox',s))[0],
+  kit:s=>FP.boxKit(boxParams('dbox',s)),
+  mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
+  stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
+  note:'Lockformed construction; the round bottom is half the width. Default split runs down the face centres (flat front / round back) — switch to side centres for a side handle. Roll the quarter-round from the marked line.'},
 };
+function BOXFIELDS(dims){ return dims.concat([
+  sego('orientation','Orientation',[{v:'vertical',label:'Vertical'},{v:'horizontal',label:'Horizontal'}]),
+  segd('pieces','Pieces',[2,3,4]),
+  sego('preset','Split runs',[{v:'',label:'Auto'},{v:'frontback',label:'Face centres'},{v:'sides',label:'Side centres'}]),
+  sego('watershed','Watershed top',[{v:0,label:'Flat'},{v:1,label:'Sloped'}]),
+  num('holeAdia','End A pipe hole Ø (0 = none)'),num('holeAx','A offset X (mm)'),num('holeAy','A offset Y (mm)'),
+  num('holeBdia','End B pipe hole Ø (0 = none)'),num('holeBx','B offset X (mm)'),num('holeBy','B offset Y (mm)'),
+  num('holePitch','Hole pitch (mm)')]); }
+function boxParams(shape,s){ return Object.assign({},s,{shape,
+  watershed:!!(+s.watershed), preset:s.preset||undefined,
+  splitStyle:SET.splitStyle, splitSize:SET.splitSize, lockform:SET.lockform, slotFlange:SET.slotFlange, wsAngle:SET.wsAngle,
+  holeA:+s.holeAdia>0?{dia:+s.holeAdia,ox:+s.holeAx||0,oy:+s.holeAy||0}:null,
+  holeB:+s.holeBdia>0?{dia:+s.holeBdia,ox:+s.holeBx||0,oy:+s.holeBy||0}:null}); }
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
@@ -1980,12 +2170,27 @@ function diagDouble(st){
 }
 
 function diagRoundBox(s){
-  const D=Math.max(1,+s.dia||200), H=Math.max(1,+s.height||300), sc=64/Math.max(D,H);
-  const rx=D*sc/2, ry=Math.max(4,rx*0.3), h=H*sc, y0=-h/2, y1=h/2;
-  const parts=[], all=[[-rx,y0-ry],[rx,y1+ry]];
-  parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L${(-rx).toFixed(1)} ${y1.toFixed(1)} A${rx.toFixed(1)} ${ry.toFixed(1)} 0 0 0 ${rx.toFixed(1)} ${y1.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
-  parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
-  parts.push(_ln([0,y0+ry],[0,y1+ry*0.85],SEAMST));
+  const D=Math.max(1,+s.dia||200), H=Math.max(1,+s.height||300), horiz=s.orientation==='horizontal', ws=!!(+s.watershed);
+  const sc=64/Math.max(D,H);
+  let rx=D*sc/2, h=H*sc;
+  const parts=[], all=[];
+  if(horiz){ // lying down: split on the level, top half lifts off
+    const ry2=Math.max(4,h*0.16), x0=-h/2, x1=h/2;
+    parts.push(`<path d="M${x0} ${-rx} L${x1} ${-rx} A${ry2} ${rx} 0 0 1 ${x1} ${rx} L${x0} ${rx} A${ry2} ${rx} 0 0 1 ${x0} ${-rx}" fill="none" ${INKST}/>`);
+    parts.push(`<ellipse cx="${x0}" cy="0" rx="${ry2}" ry="${rx}" fill="none" ${INKST}/>`);
+    parts.push(_ln([x0-ry2,0],[x1+ry2*0.8,0],SEAMST));
+    all.push([x0-ry2,-rx],[x1+ry2,rx]);
+  } else {
+    const ry=Math.max(4,rx*0.3), y0=-h/2, y1=h/2;
+    parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L${(-rx).toFixed(1)} ${y1.toFixed(1)} A${rx.toFixed(1)} ${ry.toFixed(1)} 0 0 0 ${rx.toFixed(1)} ${y1.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
+    if(ws){ const apex=y0-rx*0.28; // shallow cone cap
+      parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L0 ${apex.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
+      parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
+      all.push([0,apex-3]); }
+    else parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
+    parts.push(_ln([0,y0+ry],[0,y1+ry*0.85],SEAMST));
+    all.push([-rx,y0-ry],[rx,y1+ry]);
+  }
   return _svgWrap(parts,all,130);
 }
 function diagSquareBox(s){
@@ -1997,6 +2202,7 @@ function diagSquareBox(s){
   parts.push(`<polygon points="${x1} ${y0} ${x1+dx} ${y0+dy} ${x1+dx} ${y1+dy} ${x1} ${y1}" fill="none" ${INKST}/>`);
   parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="none" ${INKST}/>`);
   parts.push(_ln([0,y0],[0,y1],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
+  if(+s.watershed) parts.push(_ln([x0,y0-6],[x1,y0],'stroke="#b78400" stroke-width="2.4" stroke-linecap="round"'));
   return _svgWrap(parts,all,150);
 }
 function diagDBox(s){
@@ -2009,6 +2215,7 @@ function diagDBox(s){
   parts.push(`<path d="M${x1} ${y0} L${x1+dx} ${y0+dy} L${x1+dx} ${(yr+dy)}" fill="none" ${INKST}/>`);
   parts.push(`<path d="M${x1+dx} ${(yr+dy)} A${r} ${r} 0 0 1 ${(x0+dx+r*0.55)} ${(yr+dy+r*0.8)}" fill="none" ${INKST}/>`);
   parts.push(_ln([0,y0],[0,y0+h*0.98],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
+  if(+s.watershed) parts.push(_ln([x0,y0-6],[x1,y0],'stroke="#b78400" stroke-width="2.4" stroke-linecap="round"'));
   return _svgWrap(parts,all,150);
 }
 function fittingDiagram(kind,s){
@@ -2287,6 +2494,13 @@ function settingsPage(){
     <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
     <label>Appearance</label><div class="seg" id="sTheme"><button data-v="auto" ${SET.theme==='auto'?'class="on"':''}>Auto</button><button data-v="light" ${SET.theme==='light'?'class="on"':''}>Light</button><button data-v="dark" ${SET.theme==='dark'?'class="on"':''}>Dark</button></div>
     <div class="hint" style="text-align:left">Basic shows just diameter &amp; circumference on the preview. Detailed adds mitre angles, ordinates, area, weight and sheet counts. Swage is added at every bend/lobster joint. The tee flange is a flat lip rolled out on the branch saddle to rivet onto the main (used instead of a swage).</div></div>
+   <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Boxes</h3>
+    <div class="row"><div><label>Lockform allowance (mm)</label><input type="number" id="sLock" value="${SET.lockform}"></div>
+    <div><label>Cheek slot flange (mm)</label><input type="number" id="sSlot" value="${SET.slotFlange}"></div></div>
+    <label>Split joint</label><div class="seg" id="sSplitStyle"><button data-v="lap2" ${SET.splitStyle==='lap2'?'class="on"':''}>Half laps</button><button data-v="lap1" ${SET.splitStyle==='lap1'?'class="on"':''}>Full lap over</button><button data-v="flange" ${SET.splitStyle==='flange'?'class="on"':''}>Flanges out</button></div>
+    <div class="row"><div><label>Split lap / flange size (mm)</label><input type="number" id="sSplitSize" value="${SET.splitSize}"></div>
+    <div><label>Watershed angle (°)</label><input type="number" id="sWs" value="${SET.wsAngle}"></div></div>
+    <div class="hint" style="text-align:left">Wraps carry the lockform allowance on both cheek edges; cheeks carry the slot flange that locks into it. Half laps = ${SET.splitSize/2} mm each side of the split line, holes on the line. Full lap = the upper piece carries the whole ${SET.splitSize} mm over a clean-cut mate — always over, never under, so the weather runs off.</div></div>
    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Material &amp; sheet</h3>
     <label>Material</label><select id="sMat"><option value="aluminium" ${SET.material==='aluminium'?'selected':''}>Aluminium (2.70)</option><option value="galv" ${SET.material==='galv'?'selected':''}>Galv / mild steel (7.85)</option><option value="stainless" ${SET.material==='stainless'?'selected':''}>Stainless (7.90)</option></select>
     <div class="row"><div><label>Thickness (mm)</label><input type="number" step="0.1" id="sThk" value="${SET.thickness}"></div>
@@ -2302,7 +2516,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:14px;margin:2px auto 10px;background:linear-gradient(135deg,#ffd254,#fcb700);display:grid;place-items:center;box-shadow:0 2px 10px rgba(252,183,0,.4)">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#171310"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#171310" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#171310"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.1.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.2.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:#b78400;font-weight:700;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -2318,15 +2532,20 @@ function settingsPage(){
     SET.sheetH=+document.getElementById('sSH').value||SET.sheetH;
     SET.swage=(v=>isNaN(v)?SET.swage:v)(parseFloat(document.getElementById('sSwage').value));
     SET.flange=(v=>isNaN(v)?SET.flange:v)(parseFloat(document.getElementById('sFlange').value));
+    SET.lockform=(v=>isNaN(v)?SET.lockform:v)(parseFloat(document.getElementById('sLock').value));
+    SET.slotFlange=(v=>isNaN(v)?SET.slotFlange:v)(parseFloat(document.getElementById('sSlot').value));
+    SET.splitSize=(v=>isNaN(v)?SET.splitSize:v)(parseFloat(document.getElementById('sSplitSize').value));
+    SET.wsAngle=(v=>isNaN(v)?SET.wsAngle:v)(parseFloat(document.getElementById('sWs').value));
     const b=document.getElementById('sBrand'); if(b&&!b.disabled) SET.brand=b.value;
     saveSet(); ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); }); };
   app.querySelectorAll('input,select').forEach(e=>e.onchange=save);
   document.getElementById('sPage').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sPage').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.page=b.dataset.v; saveSet(); });
   document.getElementById('sDetail').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDetail').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.detail=b.dataset.v==='1'; saveSet(); });
   document.getElementById('sTheme').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sTheme').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.theme=b.dataset.v; saveSet(); applyTheme(); });
+  document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'2.1.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'2.2.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
