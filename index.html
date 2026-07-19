@@ -1324,6 +1324,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         : [[(A[0] + A2[0]) / 2, (A[1] + A2[1]) / 2], [(B[0] + B2[0]) / 2, (B[1] + B2[1]) / 2]];
       _lineHoles(holes, line[0][0], line[0][1], line[1][0], line[1][1], hp, eg);
     }
+    // triangulation / marking lines: ordinates off the split line to the girth
+    // edge with true lengths - for watershed-shaped cheeks that aren't the
+    // obvious rectangle/half-disc, so they can be checked or set out by hand
+    if (meta.triang) {
+      const NT = 10;
+      for (let i = 1; i < NT; i++) {
+        const t = i / NT, S = [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
+        const d = [-pox, -poy];                                  // into the piece
+        let hit = null, hu = 0;
+        for (let j = 0; j < N; j++) {
+          const P0 = inner[j], ex = inner[j + 1][0] - P0[0], ey = inner[j + 1][1] - P0[1];
+          const den = d[0] * ey - d[1] * ex; if (Math.abs(den) < 1e-12) continue;
+          const wx = P0[0] - S[0], wy = P0[1] - S[1];
+          const u = (wx * ey - wy * ex) / den, v = (wx * d[1] - wy * d[0]) / -den;
+          if (u > 1 && v >= -1e-9 && v <= 1 + 1e-9 && u > hu) { hu = u; hit = [S[0] + d[0] * u, S[1] + d[1] * u]; }
+        }
+        if (hit) { prim.push({ style: 'ord', pts: [S, hit] });
+          ticks.push({ x: hit[0], y: hit[1], label: hu.toFixed(0) }); }
+      }
+    }
     if (meta.hole) { const r = meta.hole.dia / 2, cx = meta.hole.ox || 0, cy = meta.hole.oy || 0;
       prim.push({ style: 'cut', pts: _arcPts(cx, cy, r, 0, 2 * Math.PI, 90) });
       prim.push({ style: 'centre', pts: [[cx - r - 8, cy], [cx + r + 8, cy]] });
@@ -1386,10 +1406,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (ws && p.orientation === 'horizontal' && p.shape !== 'round') p._tilt = T;
     const sec = _boxSection(p);
     const G = sec.G;
-    // vertical watershed: square/D wrap top edge is the inclined cut
-    if (ws && p.orientation !== 'horizontal' && p.shape !== 'round') {
-      const W = p.boxW; p._yTop = g => p.exLen + (W / 2 - sec.at(g).p[0]) * T;
-    }
+    // upright square/D watershed needs the RISEN CHEEK development (lockformed
+    // rim stays level, the cheek triangulates up to the rise) - not built yet.
+    // A raked wrap edge is not an option: lockformed edges must be straight.
+    if (ws && p.orientation !== 'horizontal' && p.shape !== 'round')
+      throw new Error('Sloped top on an upright box needs the risen-cheek development - coming soon. Lay the box horizontal, use a round box (cone cap), or keep the top flat for now.');
     const splits = _boxSplits(p, sec).map(g => ((g % G) + G) % G).sort((a, b) => a - b);
     const horiz = p.orientation === 'horizontal';
     const upness = (ga, gb) => { const span = (((gb - ga) % G) + G) % G; let s = 0; const M = 16;
@@ -1436,7 +1457,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       const ga = chord[k], gb = chord[(k + 1) % 2];
       const over = p.splitStyle === 'lap1' && (horiz && Math.abs(upC[0] - upC[1]) > 1e-6 ? upC[k] > upC[1 - k] : k === 0);
       return _cheekPiece(p, sec, ga, gb, {
-        over, hole, stretch,
+        over, hole, stretch, triang: !!p._tilt,
         title: `${shapeName}  -  Cheek half ${k + 1}${endName} 1:1`,
         desc: horiz && Math.abs(upC[0] - upC[1]) > 1e-6
           ? `Cheek (end) piece - ${upC[k] > upC[1 - k] ? 'UPPER half, laps OVER (watershed)' : 'LOWER half, fits first'}`
@@ -1455,7 +1476,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
             title: `${shapeName}  -  Cone Cap (under half) 1:1`, cutNote: 'CUT 1 OFF (under half)' }));
         } else out.push(_coneCapHalf(p, { angle: th, over: false, splitDesc: styleDesc,
           title: `${shapeName}  -  Cone Cap Half 1:1` }));
-      } else out.push(...cheekHalves(null, ' - top (watershed)', 'CUT 1 OFF (top end)', 1 / Math.cos(th)));
+      }
     } else if (same) out.push(...cheekHalves(hA, '', 'CUT 2 OFF (one per end)'));
     else { out.push(...cheekHalves(hA, ' - end A', 'CUT 1 OFF (end A)'));
            out.push(...cheekHalves(hB, ' - end B', 'CUT 1 OFF (end B)')); }
@@ -1841,7 +1862,7 @@ const F={
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  roundbox:{name:'Round Box',sub:'Valve / flange box',icon:I.rbox,
-  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,preset:'',watershed:0,holeAdia:0,holeAx:0,holeAy:0,holeBdia:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,preset:'',watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('dia','Box diameter (mm)'),num('height','Height / length (mm)')]),
   build:s=>FP.boxKit(boxParams('round',s))[0],
   kit:s=>FP.boxKit(boxParams('round',s)),
@@ -1849,7 +1870,7 @@ const F={
   stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
   note:'Lockformed construction: the barrel edges carry the lockform allowance, the cheeks slot in and the lock hammers shut. Splits per Settings → Boxes. Watershed on a vertical box makes the top a shallow cone.'},
  squarebox:{name:'Square Box',sub:'Valve / flange box',icon:I.sbox,
-  defaults:{boxL:300,boxW:250,boxH:250,orientation:'vertical',pieces:2,preset:'',watershed:0,holeAdia:0,holeAx:0,holeAy:0,holeBdia:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  defaults:{boxL:300,boxW:250,boxH:250,orientation:'vertical',pieces:2,preset:'',watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('boxL','Box length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)')]),
   build:s=>FP.boxKit(boxParams('square',s))[0],
   kit:s=>FP.boxKit(boxParams('square',s)),
@@ -1857,7 +1878,7 @@ const F={
   stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
   note:'Lockformed construction: wraps fold at the corners and carry the lockform allowance on both cheek edges; cheeks slot in. Watershed slopes the top — on its side the top face tilts, upright the wrap top edge runs on the rake.'},
  dbox:{name:'D-Box',sub:'Valve / flange box',icon:I.dboxI,
-  defaults:{boxW:250,boxH:300,boxLen:400,orientation:'vertical',pieces:2,preset:'',watershed:0,holeAdia:0,holeAx:0,holeAy:0,holeBdia:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  defaults:{boxW:250,boxH:300,boxLen:400,orientation:'vertical',pieces:2,preset:'',watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('boxLen','Length (mm)')]),
   build:s=>FP.boxKit(boxParams('dbox',s))[0],
   kit:s=>FP.boxKit(boxParams('dbox',s)),
@@ -1870,14 +1891,18 @@ function BOXFIELDS(dims){ return dims.concat([
   segd('pieces','Pieces',[2,3,4]),
   sego('preset','Split runs',[{v:'',label:'Auto'},{v:'frontback',label:'Face centres'},{v:'sides',label:'Side centres'}]),
   sego('watershed','Watershed top',[{v:0,label:'Flat'},{v:1,label:'Sloped'}]),
-  num('holeAdia','End A pipe hole Ø (0 = none)'),num('holeAx','A offset X (mm)'),num('holeAy','A offset Y (mm)'),
-  num('holeBdia','End B pipe hole Ø (0 = none)'),num('holeBx','B offset X (mm)'),num('holeBy','B offset Y (mm)'),
+  num('insulation','Insulation on the pipe (mm)'),
+  {type:'pipe',k:'holeApipe',label:'End A — pipe landing on',none:true},
+  num('holeAx','A offset X (mm)'),num('holeAy','A offset Y (mm)'),
+  {type:'pipe',k:'holeBpipe',label:'End B — pipe landing on',none:true},
+  num('holeBx','B offset X (mm)'),num('holeBy','B offset Y (mm)'),
   num('holePitch','Hole pitch (mm)')]); }
-function boxParams(shape,s){ return Object.assign({},s,{shape,
+function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulation||0),ox:+x||0,oy:+y||0}:null;
+  return Object.assign({},s,{shape,
   watershed:!!(+s.watershed), preset:s.preset||undefined,
   splitStyle:SET.splitStyle, splitSize:SET.splitSize, lockform:SET.lockform, slotFlange:SET.slotFlange, wsAngle:SET.wsAngle,
-  holeA:+s.holeAdia>0?{dia:+s.holeAdia,ox:+s.holeAx||0,oy:+s.holeAy||0}:null,
-  holeB:+s.holeBdia>0?{dia:+s.holeBdia,ox:+s.holeBx||0,oy:+s.holeBy||0}:null}); }
+  holeA:holeOf(s.holeApipe,s.holeAx,s.holeAy),
+  holeB:holeOf(s.holeBpipe,s.holeBx,s.holeBy)}); }
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
@@ -2268,8 +2293,8 @@ function fittingDiagram(kind,s){
 /* ================= fitting form ================= */
 function fieldHTML(f,s){
   if(f.type==='num') return `<label>${f.label}</label><input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
-  if(f.type==='pipe'){ const cur=s[f.k], isc=!FP.PIPE_CHART.some(p=>p.od==cur);
-    return `<label>${f.label}</label><select data-pipe="${f.k}">${FP.PIPE_CHART.map(p=>`<option value="${p.od}" ${(p.od==cur&&!isc)?'selected':''}>${p.inch}" · DN${p.dn} · ${p.od}mm</option>`).join('')}<option value="custom" ${isc?'selected':''}>Custom…</option></select><div data-cuswrap="${f.k}" class="${isc?'':'hide'}"><input type="number" inputmode="decimal" data-cus="${f.k}" value="${cur}" step="0.1" style="margin-top:8px"></div>`; }
+  if(f.type==='pipe'){ const cur=s[f.k], none=!!f.none&&!(+cur), isc=!none&&!FP.PIPE_CHART.some(p=>p.od==cur);
+    return `<label>${f.label}</label><select data-pipe="${f.k}">${f.none?`<option value="0" ${none?'selected':''}>No hole</option>`:''}${FP.PIPE_CHART.map(p=>`<option value="${p.od}" ${(p.od==cur&&!isc)?'selected':''}>${p.inch}" · DN${p.dn} · ${p.od}mm</option>`).join('')}<option value="custom" ${isc?'selected':''}>Custom…</option></select><div data-cuswrap="${f.k}" class="${isc?'':'hide'}"><input type="number" inputmode="decimal" data-cus="${f.k}" value="${cur}" step="0.1" style="margin-top:8px"></div>`; }
   if(f.type==='seg') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}">${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}">${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
@@ -2516,7 +2541,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:14px;margin:2px auto 10px;background:linear-gradient(135deg,#ffd254,#fcb700);display:grid;place-items:center;box-shadow:0 2px 10px rgba(252,183,0,.4)">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#171310"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#171310" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#171310"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.2.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.2.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:#b78400;font-weight:700;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -2545,7 +2570,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'2.2.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'2.2.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
