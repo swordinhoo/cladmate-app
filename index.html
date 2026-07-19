@@ -1392,6 +1392,140 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: meta.cutNote || 'CUT 2 OFF (cone cap halves)' };
   }
 
+  // ---- risen top (upright square/D watershed) -----------------------------
+  // Two flat panels tilt off the ridge (the split line, on the symmetry
+  // axis); a skirt runs round the rim: dead-straight bottom edge with the
+  // lockform allowance, top edge shaped with the rise + a slot flange the
+  // panels screw onto. Everything the lockformer touches stays straight.
+  function _risenTopPieces(p, sec, chord, styleDesc) {
+    const th = (p.wsAngle || 10) * Math.PI / 180, T = Math.tan(th), cosT = Math.cos(th);
+    const G = sec.G, SF = p.slotFlange, LF = p.lockform, base = p.skirtBase || 20;
+    const hp = p.holePitch, eg = p.holeEndGap;
+    const style = p.splitStyle, SS = p.splitSize;
+    const C0 = sec.at(chord[0]).p, C1 = sec.at(chord[1]).p;
+    const cl = Math.hypot(C1[0] - C0[0], C1[1] - C0[1]) || 1;
+    const cu = [(C1[0] - C0[0]) / cl, (C1[1] - C0[1]) / cl];
+    const dOf = q => Math.abs((q[0] - C0[0]) * cu[1] - (q[1] - C0[1]) * cu[0]);
+    let d0 = 0; for (let i = 0; i < 720; i++) d0 = Math.max(d0, dOf(sec.at(G * i / 720).p));
+    const rise = d0 * T;
+    const out = [];
+    // ---- ridge panels: one per chord half, plan stretched 1/cos across the tilt
+    [0, 1].forEach(k => {
+      const ga = chord[k], gb = chord[(k + 1) % 2];
+      const span = (((gb - ga) % G) + G) % G;
+      const N = Math.max(32, Math.round(span / 6));
+      const mapPt = q => { const t = (q[0] - C0[0]) * cu[0] + (q[1] - C0[1]) * cu[1];
+        const proj = [C0[0] + cu[0] * t, C0[1] + cu[1] * t];
+        return [proj[0] + (q[0] - proj[0]) / cosT, proj[1] + (q[1] - proj[1]) / cosT]; };
+      const edge = []; for (let i = 0; i <= N; i++) edge.push(mapPt(sec.at(ga + span * i / N).p));
+      const A = edge[0], B = edge[N];
+      const ext = style === 'flange' ? SS : style === 'lap2' ? SS / 2 : (k === 0 ? SS : 0);
+      const vx = (A[0] - B[0]) / cl, vy = (A[1] - B[1]) / cl;
+      const pox = -vy, poy = vx;                                 // away from the piece across the ridge
+      const A2 = [A[0] + pox * ext, A[1] + poy * ext], B2 = [B[0] + pox * ext, B[1] + poy * ext];
+      const prim = [], holes = [], ticks = [];
+      prim.push({ style: 'cut', pts: [A2, B2, B].concat(edge.slice().reverse(), [A, A2]) });
+      if (ext > 0) { prim.push({ style: 'fold', pts: [A.slice(), B.slice()] });
+        const line = style === 'lap2' ? [A, B]
+          : [[(A[0] + A2[0]) / 2, (A[1] + A2[1]) / 2], [(B[0] + B2[0]) / 2, (B[1] + B2[1]) / 2]];
+        _lineHoles(holes, line[0][0], line[0][1], line[1][0], line[1][1], hp, eg); }
+      // screw line just inside the outer edge (lands on the skirt flange)
+      let acc = 0;
+      for (let i = 1; i <= N; i++) { acc += Math.hypot(edge[i][0] - edge[i - 1][0], edge[i][1] - edge[i - 1][1]);
+        if (acc >= hp) { acc = 0; const q = edge[i];
+          const t = (q[0] - C0[0]) * cu[0] + (q[1] - C0[1]) * cu[1];
+          const proj = [C0[0] + cu[0] * t, C0[1] + cu[1] * t];
+          const dd = Math.hypot(q[0] - proj[0], q[1] - proj[1]) || 1;
+          holes.push([q[0] - (q[0] - proj[0]) / dd * 7, q[1] - (q[1] - proj[1]) / dd * 7]); } }
+      // triangulation ordinates: chord stations out to the edge, true lengths
+      for (let i = 1; i < 10; i++) { const t = i / 10;
+        const S0 = [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
+        let hit = null, bu = 0;
+        for (let j = 0; j < N; j++) { const P0 = edge[j], P1 = edge[j + 1];
+          const ex = P1[0] - P0[0], ey = P1[1] - P0[1];
+          const den = (-pox) * ey - (-poy) * ex; if (Math.abs(den) < 1e-9) continue;
+          const u = ((P0[0] - S0[0]) * ey - (P0[1] - S0[1]) * ex) / den;
+          const vv = ((P0[0] - S0[0]) * (-poy) - (P0[1] - S0[1]) * (-pox)) / (-den);
+          if (u > 1 && vv >= -1e-9 && vv <= 1 + 1e-9 && u > bu) { bu = u; hit = [S0[0] - pox * u, S0[1] - poy * u]; } }
+        if (hit) { prim.push({ style: 'ord', pts: [S0, hit] });
+          ticks.push({ x: hit[0], y: hit[1], label: bu.toFixed(0) }); } }
+      out.push({ kind: 'box', title: `${p._shapeName}  -  Risen Top Panel ${k + 1} 1:1`,
+        meta: [`Flat ridge panel, tilts ${(th * 180 / Math.PI).toFixed(0)}° off the ridge (the split line) - drawn TRUE SIZE`,
+               `Ridge rise ${rise.toFixed(1)} mm above the skirt; outer edge screws onto the skirt flange`,
+               `Triangulation lines marked with true lengths off the ridge`, styleDesc],
+        calc: { rise, d0, span, ext },
+        prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT 1 OFF (top panel ${k + 1} of 2)` });
+    });
+    // ---- skirt halves: straight lockform bottom, shaped top + slot flange
+    [0, 1].forEach(k => {
+      const ga = chord[k], gb = chord[(k + 1) % 2];
+      const span = (((gb - ga) % G) + G) % G;
+      const ext = style === 'flange' ? SS : style === 'lap2' ? SS / 2 : (k === 0 ? SS : 0);
+      const X = ext + span + ext;
+      const hAt = xs => { const q = sec.at(ga - ext + xs); return base + (d0 - dOf(q.p)) * T; };
+      const NS = Math.max(32, Math.round(X / 5));
+      const prim = [], holes = [], ticks = [];
+      const topOut = [], topFold = [];
+      for (let i = 0; i <= NS; i++) { const xs = X * i / NS;
+        topFold.push([xs, hAt(xs)]); topOut.push([X - X * i / NS, hAt(X - X * i / NS) + SF]); }
+      prim.push({ style: 'cut', pts: [[0, -LF], [X, -LF], [X, hAt(X) + SF]].concat(topOut, [[0, hAt(0) + SF], [0, -LF]]) });
+      prim.push({ style: 'fold', pts: [[0, 0], [X, 0]] });                  // lockform line (straight)
+      prim.push({ style: 'fold', pts: topFold });                           // slot flange folds here
+      ticks.push({ x: X / 2, y: -LF + 1, label: 'LOCKFORM ' + LF });
+      for (let i = 1; i < 12; i++) { const xs = X * i / 12;
+        prim.push({ style: 'ord', pts: [[xs, 0], [xs, hAt(xs)]] });
+        ticks.push({ x: xs, y: hAt(xs), label: hAt(xs).toFixed(0) }); }
+      // flange screw line + split edges
+      let acc2 = 0;
+      for (let i = 1; i <= NS; i++) { const xs = X * i / NS;
+        acc2 += X / NS; if (acc2 >= hp) { acc2 = 0; holes.push([xs, hAt(xs) + SF / 2]); } }
+      const splitEdge = (xEdge, xLine) => { if (ext <= 0) return;
+        prim.push({ style: 'fold', pts: [[xLine, 0], [xLine, hAt(xLine)]] });
+        const hx = style === 'lap2' ? xLine : (xEdge + xLine) / 2;
+        _lineHoles(holes, hx, 0, hx, hAt(hx), hp, eg); };
+      splitEdge(0, ext); splitEdge(X, X - ext);
+      out.push({ kind: 'box', title: `${p._shapeName}  -  Risen Top Skirt ${k + 1} 1:1`,
+        meta: [`Skirt: bottom edge STRAIGHT with the ${LF} mm lockform (locks onto the wrap)`,
+               `Top edge shaped with the rise (${base} mm band + up to ${rise.toFixed(1)} mm) - slot flange ${SF} mm folds out, panels screw down onto it`,
+               `Ordinate heights marked every 1/12 of the girth`, styleDesc],
+        calc: { span, X, base, rise },
+        prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT 1 OFF (skirt ${k + 1} of 2)` });
+    });
+    return out;
+  }
+
+  // ---- end caps (the Bilfinger dekiel family) -----------------------------
+  function endCapKit(p) {
+    p = Object.assign({ splitStyle: 'lap2', splitSize: 50, slotFlange: 10,
+      holePitch: 60, holeEndGap: 20, style: 'flat' }, p);
+    if (!(p.dia > 10)) throw new Error('Cap diameter must be at least 10 mm.');
+    if (p.style === 'cone') {
+      if (p.hole) throw new Error('A conical cap cannot take a pipe hole yet - use a flat cap.');
+      const styleDesc = p.splitStyle === 'flange' ? `Split flanges ${p.splitSize} mm fold OUT`
+        : p.splitStyle === 'lap2' ? `Split laps ${p.splitSize / 2} mm each side of the line`
+        : `50/0 lap - the over half carries ${p.splitSize} mm`;
+      const th = (p.wsAngle || 10) * Math.PI / 180;
+      if (p.splitStyle === 'lap1') return [
+        _coneCapHalf(p, { angle: th, over: true, splitDesc: styleDesc, title: 'End Cap  -  Conical (over half) 1:1', cutNote: 'CUT 1 OFF (over half)' }),
+        _coneCapHalf(p, { angle: th, over: false, splitDesc: styleDesc, title: 'End Cap  -  Conical (under half) 1:1', cutNote: 'CUT 1 OFF (under half)' })];
+      return [_coneCapHalf(p, { angle: th, over: false, splitDesc: styleDesc, title: 'End Cap  -  Conical Half 1:1' })];
+    }
+    const sec = _boxSection({ shape: 'round', dia: p.dia });
+    const chord = [0, sec.G / 2];
+    const styleDesc = p.splitStyle === 'flange' ? `Split flanges ${p.splitSize} mm fold OUT`
+      : p.splitStyle === 'lap2' ? `Split laps ${p.splitSize / 2} mm each side of the line - holes ON the line`
+      : `50/0 lap - the over half carries ${p.splitSize} mm past the split`;
+    const arr = [0, 1].map(k => _cheekPiece(p, sec, chord[k], chord[(k + 1) % 2], {
+      over: p.splitStyle === 'lap1' && k === 0, hole: p.hole || null,
+      title: `End Cap  -  Half ${k + 1} 1:1`,
+      desc: `Flat end cap Ø${p.dia}, two halves - rim slot flange locks onto the pipe end`
+        + (p.hole ? '. The pipe hole spans the split - cut the half-moon each side.' : ''),
+      splitDesc: styleDesc, cutNote: 'CUT 1 OFF (half ' + (k + 1) + ')'
+    }));
+    arr.forEach(o => o.calc.dia = p.dia);
+    return arr;
+  }
+
   // ---- the kit ------------------------------------------------------------
   function boxKit(p) {
     p = Object.assign({ pieces: 2, splitStyle: 'lap2', splitSize: 50,
@@ -1406,11 +1540,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (ws && p.orientation === 'horizontal' && p.shape !== 'round') p._tilt = T;
     const sec = _boxSection(p);
     const G = sec.G;
-    // upright square/D watershed needs the RISEN CHEEK development (lockformed
-    // rim stays level, the cheek triangulates up to the rise) - not built yet.
-    // A raked wrap edge is not an option: lockformed edges must be straight.
-    if (ws && p.orientation !== 'horizontal' && p.shape !== 'round')
-      throw new Error('Sloped top on an upright box needs the risen-cheek development - coming soon. Lay the box horizontal, use a round box (cone cap), or keep the top flat for now.');
+    // upright square/D watershed = RISEN TOP: the wrap top edge stays level
+    // and lockformed; two flat ridge panels tilt off the split line and a
+    // profiled skirt takes up the rise (level lockform bottom, shaped top).
+    // The ridge must sit on the section's symmetry axis.
+    if (ws && p.orientation !== 'horizontal' && p.shape === 'dbox' && p.preset === 'sides')
+      throw new Error('A risen top on a D-box needs the ridge on the front-back line - set Split runs to Face centres (or Auto).');
     const splits = _boxSplits(p, sec).map(g => ((g % G) + G) % G).sort((a, b) => a - b);
     const horiz = p.orientation === 'horizontal';
     const upness = (ga, gb) => { const span = (((gb - ga) % G) + G) % G; let s = 0; const M = 16;
@@ -1468,7 +1603,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     });
     if (vertWS) {
       out.push(...cheekHalves(hA, ' - bottom end', 'CUT 1 OFF (bottom end)'));
-      if (p.shape === 'round') {
+      p._shapeName = shapeName;
+      if (p.shape !== 'round') out.push(..._risenTopPieces(p, sec, chord, styleDesc));
+      else if (p.shape === 'round') {
         if (p.splitStyle === 'lap1') {
           out.push(_coneCapHalf(p, { angle: th, over: true, splitDesc: styleDesc,
             title: `${shapeName}  -  Cone Cap (over half) 1:1`, cutNote: 'CUT 1 OFF (over half)' }));
@@ -1679,7 +1816,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1744,7 +1881,8 @@ const I={
  chart:`<svg viewBox="0 0 100 80"><rect x="16" y="14" width="68" height="52" rx="6" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><rect x="16" y="14" width="68" height="14" rx="6" fill="var(--ic-gold)"/><line x1="16" y1="42" x2="84" y2="42" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="16" y1="54" x2="84" y2="54" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/><line x1="50" y1="28" x2="50" y2="66" stroke="var(--ic-ink)" stroke-width="2.4" stroke-linecap="round"/></svg>`,
  rbox:`<svg viewBox="0 0 100 80"><path d="M28 18 L28 60 A22 7 0 0 0 72 60 L72 18" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><ellipse cx="50" cy="18" rx="22" ry="7" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3"/><line x1="50" y1="26" x2="50" y2="66" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  sbox:`<svg viewBox="0 0 100 80"><path d="M24 32 L40 18 L80 18 L80 52 L64 66 L24 66 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M24 32 L64 32 L64 66 M64 32 L80 18" fill="none" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="44" y1="32" x2="44" y2="66" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="44" y1="32" x2="60" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
- dboxI:`<svg viewBox="0 0 100 80"><path d="M22 30 L40 18 L76 18 L76 34 A18 18 0 0 1 62 51 M22 30 L58 30 L58 46 A18 18 0 0 1 22 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M58 30 L76 18" fill="none" stroke="var(--ic-ink)" stroke-width="3"/><line x1="40" y1="30" x2="40" y2="62" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="40" y1="30" x2="58" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`
+ dboxI:`<svg viewBox="0 0 100 80"><path d="M22 30 L40 18 L76 18 L76 34 A18 18 0 0 1 62 51 M22 30 L58 30 L58 46 A18 18 0 0 1 22 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M58 30 L76 18" fill="none" stroke="var(--ic-ink)" stroke-width="3"/><line x1="40" y1="30" x2="40" y2="62" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="40" y1="30" x2="58" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
+ ecap:`<svg viewBox="0 0 100 80"><path d="M16 40 L16 50 A34 13 0 0 0 84 50 L84 40" fill="var(--ic-fill2)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="50" cy="40" rx="34" ry="13" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="50" cy="40" rx="12" ry="4.5" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="2.4"/><line x1="16" y1="40" x2="84" y2="40" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`
 };
 
 /* ================= fitting registry ================= */
@@ -1884,8 +2022,23 @@ const F={
   kit:s=>FP.boxKit(boxParams('dbox',s)),
   mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
   stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
-  note:'Lockformed construction; the round bottom is half the width. Default split runs down the face centres (flat front / round back) — switch to side centres for a side handle. Roll the quarter-round from the marked line.'},
+  note:'Lockformed construction; the round bottom is half the width. Default split runs down the face centres (flat front / round back) — switch to side centres for a side handle. Roll the quarter-round from the marked line. Watershed upright = risen ridge top: two tilted panels + shaped skirt, lockform stays level.'},
+ endcap:{name:'End Cap',sub:'Flat or conical · rim',icon:I.ecap,
+  defaults:{capPipe:168.3,insulation:25,capStyle:'flat',holeApipe:0,holeAx:0,holeAy:0,holePitch:60,holeEndGap:20},
+  fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
+    sego('capStyle','Cap style',[{v:'flat',label:'Flat'},{v:'cone',label:'Conical (watershed)'}]),
+    {type:'pipe',k:'holeApipe',label:'Pipe through the cap',none:true},
+    num('holeAx','Hole offset X (mm)'),num('holeAy','Hole offset Y (mm)'),num('holePitch','Hole pitch (mm)')],
+  build:s=>FP.endCapKit(capParams(s))[0],
+  kit:s=>FP.endCapKit(capParams(s)),
+  mini:c=>['Ø '+(c.dia?fmtDim(c.dia):(c.R?fmtDim(c.R*2):''))+' cap','2 halves'],
+  stats:c=>['Cap Ø'+(c.dia?fmtDim(c.dia):fmtDim(c.R*2)),'Rim '+SET.slotFlange,'Split '+SET.splitSize],
+  note:'Caps the end of a run or a vessel: pick the pipe + insulation and the cap comes out at the cladding OD. Rim slot flange locks onto a lockformed pipe end. Conical gives the watershed pitch from Settings; a pipe hole spans the split so each half shows its half-moon.'},
 };
+function capParams(s){ const D=+s.capPipe+2*(+s.insulation||0);
+  return {dia:D, style:s.capStyle||'flat', wsAngle:SET.wsAngle, slotFlange:SET.slotFlange,
+    splitStyle:SET.splitStyle, splitSize:SET.splitSize, holePitch:+s.holePitch||60, holeEndGap:+s.holeEndGap||20,
+    hole:+s.holeApipe>0?{dia:+s.holeApipe+2*(+s.insulation||0),ox:+s.holeAx||0,oy:+s.holeAy||0}:null}; }
 function BOXFIELDS(dims){ return dims.concat([
   sego('orientation','Orientation',[{v:'vertical',label:'Vertical'},{v:'horizontal',label:'Horizontal'}]),
   segd('pieces','Pieces',[2,3,4]),
@@ -1906,8 +2059,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
-const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','dbox'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes',k:['roundbox','squarebox','dbox']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','dbox','endcap'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','dbox','endcap']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
@@ -1977,7 +2130,43 @@ const _pl=(ps,st)=>`<polyline points="${ps.map(p=>p[0].toFixed(1)+','+p[1].toFix
 const INKST='stroke="#2b251c" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const SEAMST='stroke="#d93025" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"';
 
-function diagBend(va, k, seamDeg, hand){
+/* ---- dimension-line toolkit: catalogue-style red dims, live values ---- */
+const DIMC='#d93025', DIMST=`stroke="${DIMC}" stroke-width="1.1"`;
+const fmtDim=v=>{ const n=+v; return (Math.round(n*10)/10).toString(); };
+function _dimArrow(parts,p,dir){ const s=5, nx=-dir[1], ny=dir[0];
+  parts.push(`<polygon points="${p[0].toFixed(1)},${p[1].toFixed(1)} ${(p[0]-dir[0]*s+nx*s*0.38).toFixed(1)},${(p[1]-dir[1]*s+ny*s*0.38).toFixed(1)} ${(p[0]-dir[0]*s-nx*s*0.38).toFixed(1)},${(p[1]-dir[1]*s-ny*s*0.38).toFixed(1)}" fill="${DIMC}"/>`); }
+function _dimText(parts,all,x,y,label){ all.push([x-label.length*2.6,y-4],[x+label.length*2.6,y+4]);
+  parts.push(`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="8.5" font-weight="700" fill="${DIMC}" text-anchor="middle" paint-order="stroke" stroke="#ffffff" stroke-width="2.6" font-family="Consolas,'Roboto Mono',monospace">${label}</text>`); }
+function dimLin(parts,all,p0,p1,off,label){
+  const dx=p1[0]-p0[0], dy=p1[1]-p0[1], L=Math.hypot(dx,dy)||1, ux=dx/L, uy=dy/L, nx=-uy, ny=ux;
+  const a=[p0[0]+nx*off,p0[1]+ny*off], b=[p1[0]+nx*off,p1[1]+ny*off];
+  parts.push(_ln([p0[0]+nx*3,p0[1]+ny*3],[a[0]+nx*4,a[1]+ny*4],DIMST));
+  parts.push(_ln([p1[0]+nx*3,p1[1]+ny*3],[b[0]+nx*4,b[1]+ny*4],DIMST));
+  parts.push(_ln(a,b,DIMST));
+  _dimArrow(parts,a,[-ux,-uy]); _dimArrow(parts,b,[ux,uy]);
+  all.push(a,b);
+  _dimText(parts,all,(a[0]+b[0])/2+nx*7,(a[1]+b[1])/2+ny*7+3,label);
+}
+function dimAng(parts,all,c,r,a0,a1,label){
+  const N=18, pts=[]; for(let i=0;i<=N;i++){ const a=a0+(a1-a0)*i/N; pts.push([c[0]+r*Math.cos(a),c[1]-r*Math.sin(a)]); }
+  parts.push(_pl(pts,DIMST)); pts.forEach(p=>all.push(p));
+  const t0=[Math.sin(a0),Math.cos(a0)], t1=[-Math.sin(a1),-Math.cos(a1)];
+  _dimArrow(parts,pts[0],[t0[0],t0[1]]); _dimArrow(parts,pts[N],[t1[0],t1[1]]);
+  const am=(a0+a1)/2; _dimText(parts,all,c[0]+(r+11)*Math.cos(am),c[1]-(r+11)*Math.sin(am)+3,label);
+}
+function dimRad(parts,all,c,p,label){
+  const dx=p[0]-c[0], dy=p[1]-c[1], L=Math.hypot(dx,dy)||1, u=[dx/L,dy/L];
+  parts.push(_ln(c,p,DIMST)); _dimArrow(parts,p,u); all.push(c,p);
+  _dimText(parts,all,(c[0]+p[0])/2+u[1]*8,(c[1]+p[1])/2-u[0]*8+3,label);
+}
+function dimLead(parts,all,p,dx,dy,label){
+  const e=[p[0]+dx,p[1]+dy], tail=dx>=0?10:-10;
+  parts.push(_ln(p,e,DIMST)); parts.push(_ln(e,[e[0]+tail,e[1]],DIMST));
+  all.push(p,e,[e[0]+tail*2.2,e[1]]);
+  _dimText(parts,all,e[0]+tail+(dx>=0?label.length*2.4:-label.length*2.4),e[1]+3,label);
+}
+
+function diagBend(va, k, seamDeg, hand, dims){
   const Rc=60, r=Math.max(8,Math.min(Rc*k,Rc*0.8)), Ri=Rc-r, Ro=Rc+r;
   // trade convention (Craig, bench-checked): C = B rotated 180, D = A rotated 180
   const mir=(hand==='B'||hand==='C'), rot=(hand==='C'||hand==='D');
@@ -1999,9 +2188,17 @@ function diagBend(va, k, seamDeg, hand){
   const t0=va[0],t1=va[va.length-1];
   for(let i=0;i<=24;i++) sp.push(P(Rs,t0+(t1-t0)*i/24));
   parts.push(_pl(sp,SEAMST)); sp.forEach(p=>all.push(p));
-  return _svgWrap(parts,all,160);
+  if(dims){
+    dimLin(parts,all,P(Ri,t0),P(Ro,t0),16,'Ø'+fmtDim(dims.clad));            // pipe dia at the inlet
+    const tm=(t0+t1)/2;
+    dimRad(parts,all,[0,0],P(Rc,tm),'CR '+fmtDim(dims.CR));                  // centre radius to the centreline
+    const ap=[]; for(let i=0;i<=16;i++) ap.push(P(Ro+9,t0+(t1-t0)*i/16));    // bend angle arc outside the back
+    parts.push(_pl(ap,DIMST)); ap.forEach(p=>all.push(p));
+    _dimText(parts,all,P(Ro+20,tm)[0],P(Ro+20,tm)[1]+3,fmtDim(dims.bendDeg)+'° · '+dims.segs+' seg');
+  }
+  return _svgWrap(parts,all,210);
 }
-function diagElbow(phi,seamDeg,hand){
+function diagElbow(phi,seamDeg,hand,dims){
   // true 2-piece mitred elbow: two straight tubes butted on the bisecting mitre plane
   const rad=a=>a*Math.PI/180, f=rad(phi||90);
   const mir=(hand==='B'||hand==='C'), rot=(hand==='C'||hand==='D');
@@ -2025,9 +2222,13 @@ function diagElbow(phi,seamDeg,hand){
   const e=r*Math.cos(rad(seamDeg==null?180:seamDeg));            // seam offset: throat=+r, back=-r, side=centre
   const Ms=isect([e*p1[0],e*p1[1]],u1);
   parts.push(_pl([mx(A(E1,e,p1)),mx(Ms),mx(A(E2,e,p2))],SEAMST));
-  return _svgWrap(parts,all,150);
+  if(dims){
+    dimLin(parts,all,mx(A(E1,r,p1)),mx(A(E1,-r,p1)),16,'Ø'+fmtDim(dims.clad));
+    dimLead(parts,all,mx(Mt),14*(mx([1,0])[0]>0?1:-1),-12,fmtDim(phi||90)+'°');
+  }
+  return _svgWrap(parts,all,200);
 }
-function diagCone(bigW,smallW,h,mode,off,seamDeg){
+function diagCone(bigW,smallW,h,mode,off,seamDeg,dims){
   const W=120, sc=W/Math.max(bigW,smallW,1); let b=bigW*sc/2, sm=smallW*sc/2, H=Math.max(34,Math.min(110,(h||100)*sc));
   let cT=0;
   if(mode==='flatback') cT=b-sm; else if(mode==='oblique'||mode==='obliqueround') cT=(off||0)*sc;
@@ -2039,9 +2240,16 @@ function diagCone(bigW,smallW,h,mode,off,seamDeg){
   if(seamDeg!=null){ const c=Math.cos(seamDeg*Math.PI/180);
     const xb=-b*c, xt=cT-sm*c, yb=ry*Math.sqrt(Math.max(0,1-Math.min(1,(xb/b)*(xb/b))));
     parts.push(_ln([xb,yb],[xt,-H],SEAMST)); all.push([xb,yb+3]); }
-  return _svgWrap(parts,all,130);
+  if(dims){
+    dimLin(parts,all,[-b,ry*0.6],[b,ry*0.6],18,dims.d1);
+    dimLin(parts,all,[cT-sm,-H],[cT+sm,-H],-16,dims.d2);
+    const bx=Math.max(b,cT+sm)+8;
+    dimLin(parts,all,[bx,0],[bx,-H],12,dims.L);
+    if(dims.v) dimLin(parts,all,[0,-H],[cT,-H],-32,dims.v);
+  }
+  return _svgWrap(parts,all,190);
 }
-function diagTee(mainOD,brOD,ang){
+function diagTee(mainOD,brOD,ang,dims){
   const W=150, mr=28, br=Math.max(8,Math.min(mr*brOD/Math.max(mainOD,1),mr));
   const parts=[], all=[[-W/2,-mr],[W/2,mr]];
   parts.push(`<rect x="${-W/2}" y="${-mr}" width="${W}" height="${2*mr}" rx="4" fill="none" ${INKST}/>`);
@@ -2050,7 +2258,12 @@ function diagTee(mainOD,brOD,ang){
   const t0=[b0[0]+dx*L,b0[1]+dy*L], t1=[b1[0]+dx*L,b1[1]+dy*L];
   parts.push(_ln(b0,t0,INKST),_ln(b1,t1,INKST),_ln(t0,t1,INKST));
   all.push(t0,t1);
-  return _svgWrap(parts,all,140);
+  if(dims){
+    dimLin(parts,all,[-W/2,-mr],[-W/2,mr],-14,dims.d1);
+    dimLin(parts,all,t0,t1,-14,dims.d);
+    if(dims.a) dimLead(parts,all,[br+4,-mr],22,18,dims.a);
+  }
+  return _svgWrap(parts,all,200);
 }
 function diagHole(mainOD,brOD,ang){
   const W=150, mr=30, parts=[], all=[[-W/2,-mr],[W/2,mr]];
@@ -2188,10 +2401,11 @@ function diagDouble(st){
   // labels
   const label=(q,txt,sz)=>{ const p=proj(q).p; all.push([p[0],p[1]-6],[p[0]+14,p[1]],[p[0]-14,p[1]]);
     parts.push(`<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" font-size="${sz||9.5}" font-weight="800" fill="#8a5a00" text-anchor="middle">${txt}</text>`); };
-  label(add(P1(90-phi1*0.4),mul(nrm(sub(P1(90-phi1*0.4),C1)),r+11)),'1');
-  label(add(Q2(phi2*0.6),mul(nrm(sub(Q2(phi2*0.6),C2)),r+11)),'2');
+  label(add(P1(90-phi1*0.4),mul(nrm(sub(P1(90-phi1*0.4),C1)),r+11)),'1·'+fmtDim(phi1)+'°');
+  label(add(Q2(phi2*0.6),mul(nrm(sub(Q2(phi2*0.6),C2)),r+11)),'2·'+fmtDim(phi2)+'°');
   if(tau) label(add(M2,mul(a2,r+16)),'twist '+tau+'°'+(tau>0?' (towards you)':' (away)'),8.5);
-  return _svgWrap(parts,all,200);
+  dimLead(parts,all,proj(S[0].c).p,-24,-10,'Ø'+fmtDim(st.pipeOD+2*(st.insulation||0)));
+  return _svgWrap(parts,all,230);
 }
 
 function diagRoundBox(s){
@@ -2205,6 +2419,8 @@ function diagRoundBox(s){
     parts.push(`<ellipse cx="${x0}" cy="0" rx="${ry2}" ry="${rx}" fill="none" ${INKST}/>`);
     parts.push(_ln([x0-ry2,0],[x1+ry2*0.8,0],SEAMST));
     all.push([x0-ry2,-rx],[x1+ry2,rx]);
+    dimLin(parts,all,[x0,-rx],[x1,-rx],-14,fmtDim(H));
+    dimLin(parts,all,[x0,-rx],[x0,rx],-(14+ry2),'Ø'+fmtDim(D));
   } else {
     const ry=Math.max(4,rx*0.3), y0=-h/2, y1=h/2;
     parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L${(-rx).toFixed(1)} ${y1.toFixed(1)} A${rx.toFixed(1)} ${ry.toFixed(1)} 0 0 0 ${rx.toFixed(1)} ${y1.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
@@ -2215,8 +2431,11 @@ function diagRoundBox(s){
     else parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
     parts.push(_ln([0,y0+ry],[0,y1+ry*0.85],SEAMST));
     all.push([-rx,y0-ry],[rx,y1+ry]);
+    dimLin(parts,all,[-rx,y0],[rx,y0],-(ws?22:14),'Ø'+fmtDim(D));
+    dimLin(parts,all,[rx,y0],[rx,y1],-14,fmtDim(H));
   }
-  return _svgWrap(parts,all,130);
+  if(+s.holeApipe>0) dimLead(parts,all,[0,(horiz? rx: h/2)-2],18,14,'hole Ø'+fmtDim(+s.holeApipe+2*(+s.insulation||0)));
+  return _svgWrap(parts,all,200);
 }
 function diagSquareBox(s){
   const L=Math.max(1,+s.boxL||300), W=Math.max(1,+s.boxW||250), H=Math.max(1,+s.boxH||250);
@@ -2228,7 +2447,11 @@ function diagSquareBox(s){
   parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="none" ${INKST}/>`);
   parts.push(_ln([0,y0],[0,y1],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
   if(+s.watershed) parts.push(_ln([x0,y0-6],[x1,y0],'stroke="#b78400" stroke-width="2.4" stroke-linecap="round"'));
-  return _svgWrap(parts,all,150);
+  dimLin(parts,all,[x0,y1],[x1,y1],14,fmtDim(L));
+  dimLin(parts,all,[x1+dx,y0+dy],[x1+dx,y1+dy],-12,fmtDim(H));
+  dimLin(parts,all,[x0,y0],[x0+dx,y0+dy],-11,fmtDim(W));
+  if(+s.holeApipe>0) dimLead(parts,all,[x1+dx*0.5,(y0+y1)/2+dy*0.5],20,16,'hole Ø'+fmtDim(+s.holeApipe+2*(+s.insulation||0)));
+  return _svgWrap(parts,all,200);
 }
 function diagDBox(s){
   const W=Math.max(1,+s.boxW||250), H=Math.max(1,+s.boxH||300), L=Math.max(1,+s.boxLen||400);
@@ -2241,7 +2464,25 @@ function diagDBox(s){
   parts.push(`<path d="M${x1+dx} ${(yr+dy)} A${r} ${r} 0 0 1 ${(x0+dx+r*0.55)} ${(yr+dy+r*0.8)}" fill="none" ${INKST}/>`);
   parts.push(_ln([0,y0],[0,y0+h*0.98],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
   if(+s.watershed) parts.push(_ln([x0,y0-6],[x1,y0],'stroke="#b78400" stroke-width="2.4" stroke-linecap="round"'));
-  return _svgWrap(parts,all,150);
+  dimLin(parts,all,[x0,y0],[x1,y0],-14,fmtDim(W));
+  dimLin(parts,all,[x0,y0],[x0,y0+h],-12,fmtDim(H));
+  dimLin(parts,all,[x1,y0],[x1+dx,y0+dy],-11,fmtDim(L));
+  if(+s.holeApipe>0) dimLead(parts,all,[x1+dx*0.6,y0+dy*0.6+h*0.35],20,16,'hole Ø'+fmtDim(+s.holeApipe+2*(+s.insulation||0)));
+  return _svgWrap(parts,all,200);
+}
+function diagEndCap(s){
+  const D=+s.capPipe+2*(+s.insulation||0), R=42;
+  const parts=[], all=[[-R,-R],[R,R]];
+  parts.push(`<circle cx="0" cy="0" r="${R}" fill="none" ${INKST}/>`);
+  parts.push(_ln([-R,0],[R,0],SEAMST));
+  if(+s.holeApipe>0){ const hD=+s.holeApipe+2*(+s.insulation||0), hr=Math.min(R*0.72, R*hD/Math.max(D,1));
+    parts.push(`<circle cx="0" cy="0" r="${hr.toFixed(1)}" fill="none" stroke="#c98a00" stroke-width="2"/>`);
+    dimLin(parts,all,[-hr,0],[hr,0],-(R*0.5),'Ø'+fmtDim(hD)); }
+  dimLin(parts,all,[-R,0],[R,0],-(R+14),'Ø'+fmtDim(D));
+  if(s.capStyle==='cone'){ parts.push(_pl([[-R,R+24],[0,R+12],[R,R+24]],INKST));
+    parts.push(_ln([-R,R+24],[R,R+24],INKST)); all.push([0,R+30]);
+    dimLead(parts,all,[R*0.5,R+18],16,-8,fmtDim(SET.wsAngle)+'°'); }
+  return _svgWrap(parts,all,190);
 }
 function fittingDiagram(kind,s){
   try{
@@ -2250,14 +2491,19 @@ function fittingDiagram(kind,s){
       const r=clad(s.pipeOD)/2, k=Math.min(0.8, r/Math.max(s.centreRadius||r*2, r+5));
       // half starter + (N-1) full middles + half finisher: joints at (j-0.5)*phi/N
       const va=[90]; for(let j=1;j<=N;j++) va.push(90-(j-0.5)*phi/N); va.push(90-phi);
-      return diagBend(va,k,s.seamFromThroat,s.bendHand); }
-    if(kind==='elbow') return diagElbow(s.bendDeg,s.seamFromThroat,s.bendHand);
+      return diagBend(va,k,s.seamFromThroat,s.bendHand,{clad:clad(s.pipeOD),CR:s.centreRadius||0,bendDeg:phi,segs:N}); }
+    if(kind==='elbow') return diagElbow(s.bendDeg,s.seamFromThroat,s.bendHand,{clad:clad(s.pipeOD)});
     if(kind==='bendonbend') return diagDouble({...s,direction:dirOf(s)});
-    if(kind==='reducer'||kind==='frustri') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'con');
-    if(kind==='flatback') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'flatback',0,s.seamFromThroat);
-    if(kind==='oblique') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'oblique',s.offset,s.seamFromThroat);
-    if(kind==='sqround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'sqround');
-    if(kind==='obliqueround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'obliqueround',s.offsetX);
+    if(kind==='reducer'||kind==='frustri') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'con',0,null,
+      {d1:'Ø'+fmtDim(clad(s.bigPipeOD)),d2:'Ø'+fmtDim(clad(s.smallPipeOD)),L:fmtDim(s.height)});
+    if(kind==='flatback') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'flatback',0,s.seamFromThroat,
+      {d1:'Ø'+fmtDim(clad(s.bigPipeOD)),d2:'Ø'+fmtDim(clad(s.smallPipeOD)),L:fmtDim(s.height)});
+    if(kind==='oblique') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'oblique',s.offset,s.seamFromThroat,
+      {d1:'Ø'+fmtDim(clad(s.bigPipeOD)),d2:'Ø'+fmtDim(clad(s.smallPipeOD)),L:fmtDim(s.height),v:'V '+fmtDim(s.offset||0)});
+    if(kind==='sqround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'sqround',0,null,
+      {d1:fmtDim(s.sqW)+'×'+fmtDim(s.sqD),d2:'Ø'+fmtDim(clad(s.pipeOD)),L:fmtDim(s.height)});
+    if(kind==='obliqueround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'obliqueround',s.offsetX,null,
+      {d1:fmtDim(s.sqW)+'×'+fmtDim(s.sqD),d2:'Ø'+fmtDim(clad(s.pipeOD)),L:fmtDim(s.height),v:'V '+fmtDim(s.offsetX||0)});
     if(kind==='trunnion'){ const n=Math.max(2,Math.round(s.segments||4));
       const rad=a=>a*Math.PI/180, Rc=52;
       const Rt=(s.bendPipeOD+2*(s.insulation||0))/2, rt=(s.trunnionPipeOD+2*(s.insulation||0))/2, CR=Math.max(s.centreRadius||300, Rt+10);
@@ -2284,7 +2530,9 @@ function fittingDiagram(kind,s){
     if(kind==='roundbox') return diagRoundBox(s);
     if(kind==='squarebox') return diagSquareBox(s);
     if(kind==='dbox') return diagDBox(s);
-    if(kind==='inctee'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
+    if(kind==='endcap') return diagEndCap(s);
+    if(kind==='inctee'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90,
+      {d1:'Ø'+fmtDim(clad(s.mainPipeOD)),d:'Ø'+fmtDim(clad(s.branchPipeOD)),a:fmtDim(s.angle||90)+'°'});
     if(kind==='teehole'||kind==='trunnionhole') return diagHole(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
   }catch(e){}
   return '';
@@ -2541,7 +2789,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:14px;margin:2px auto 10px;background:linear-gradient(135deg,#ffd254,#fcb700);display:grid;place-items:center;box-shadow:0 2px 10px rgba(252,183,0,.4)">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#171310"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#171310" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#171310"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.2.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v2.3.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:#b78400;font-weight:700;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -2570,7 +2818,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'2.2.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'2.3.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
