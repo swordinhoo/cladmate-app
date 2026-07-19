@@ -484,6 +484,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .prolist{margin:0 0 16px;padding:0;list-style:none}
   .prolist li{display:flex;gap:9px;align-items:center;font-size:13.5px;padding:5px 0;font-weight:600}
   .prolist li::before{content:"✓";color:var(--good);font-weight:800}
+  /* ---- tablet / wide-screen: two-pane layout, use the width ---- */
+  @media(min-width:760px){
+    main{max-width:1060px;padding:20px}
+    .workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+    .pane-left{position:sticky;top:0}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+    .grid2 .full{grid-column:1 / -1}
+  }
+  @media(min-width:1120px){ main{max-width:1200px} .workspace{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)} }
 </style>
 </head>
 <body>
@@ -1605,9 +1614,11 @@ function form(kind, presetParams){
   const locked=!unlocked(kind);
   setView(fit.name,fit.sub,true);
   const seamF=fit.fields.find(f=>f.type==='seam');
-  let html=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div></div>`;
+  let html=`<div class="workspace"><div class="pane-left">`;
+  html+=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div></div>`;
   if(seamF) html+=`<div class="card">${fieldHTML(seamF,s)}</div>`;
   else html+=`<div class="card" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
+  html+=`</div><div class="pane-right">`;
   html+=`<div class="card">`;
   html+=fit.fields.filter(f=>f.type!=='seam').map(f=>fieldHTML(f,s)).join('');
   if(fit.note) html+=`<div class="note">${fit.note}</div>`;
@@ -1616,6 +1627,7 @@ function form(kind, presetParams){
   else html+=`<button class="btn primary" id="genBtn">Generate printable PDF</button>
     <div class="btnrow"><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF export${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>Save to Job${PRO?'':' (Pro)'}</button></div>
     <div class="hint">Prints 1:1 across multiple sheets — tape on the red crosshairs, check the 100&nbsp;mm bar, then mark out.</div>`;
+  html+=`</div></div>`;
   app.innerHTML=html;
 
   app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(sel.dataset.pipe==='pipeOD'&&s._xd){ readAll(); applyXd(s._xd); } refresh(); });
