@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d0b08">
+<meta name="description" content="True 1:1 printable flat patterns for industrial insulation cladding — lobster backs, elbows, tees, reducers and more, worked to the outside of the lagging.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CladMate">
 <title>CladMate — Insulation Cladding Patterns</title>
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
 <script>
@@ -386,9 +391,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   :root{
     --bg:#f7f5f0; --card:#ffffff; --ink:#171310; --sub:#6d6558; --line:#e7e1d4;
     --brand:#171310; --brand-dk:#0d0b08; --accent:#d99e00; --good:#188038; --warn:#8a5a00;
-    --gold:#fcb700;
+    --gold:#fcb700; --gold-dk:#b78400; --danger:#b3261e; --danger-bg:#fdeceb;
+    --paper:#ffffff;                 /* pattern/diagram surfaces: always print-white */
+    --field:#ffffff; --seg-bg:#eee9dd; --seg-on:#ffffff;
+    --chip-bg:#f1ece0; --chip-ink:#4a4234; --chip-gold-bg:#fdf0c2; --chip-gold-ink:#7c5600;
+    --note-bg:#fffbeb; --note-line:#fde68a; --lock-bg:#fef3c7; --icfill:#fdf3d3;
+    --zebra:#faf8f2; --overlay:rgba(23,19,16,.55);
     --shadow:0 1px 3px rgba(23,19,16,.08),0 1px 2px rgba(23,19,16,.06);
     --shadow-lg:0 8px 30px rgba(23,19,16,.14);
+  }
+  :root[data-theme="dark"]{
+    --bg:#141210; --card:#1e1a15; --ink:#f2ede3; --sub:#a89e8c; --line:#332d25;
+    --field:#26211a; --seg-bg:#2a251e; --seg-on:#3d362c;
+    --chip-bg:#2a251e; --chip-ink:#d8cfbe; --chip-gold-bg:#3a2f14; --chip-gold-ink:#f0c75e;
+    --note-bg:#2a2412; --note-line:#4a3c14; --warn:#e0b04f; --lock-bg:#3a2f14; --icfill:#332b18;
+    --danger:#e0766c; --danger-bg:#3a201d;
+    --zebra:#231f19; --overlay:rgba(0,0,0,.62);
+    --shadow:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
+    --shadow-lg:0 8px 30px rgba(0,0,0,.55);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]):not([data-theme="dark"]){
+      --bg:#141210; --card:#1e1a15; --ink:#f2ede3; --sub:#a89e8c; --line:#332d25;
+      --field:#26211a; --seg-bg:#2a251e; --seg-on:#3d362c;
+      --chip-bg:#2a251e; --chip-ink:#d8cfbe; --chip-gold-bg:#3a2f14; --chip-gold-ink:#f0c75e;
+      --note-bg:#2a2412; --note-line:#4a3c14; --warn:#e0b04f; --lock-bg:#3a2f14; --icfill:#332b18;
+      --danger:#e0766c; --danger-bg:#3a201d;
+      --zebra:#231f19; --overlay:rgba(0,0,0,.62);
+      --shadow:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
+      --shadow-lg:0 8px 30px rgba(0,0,0,.55);
+    }
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%}
@@ -413,12 +445,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .page{animation:slidein .18s ease}
   @keyframes slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-  nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#fff;border-top:1px solid var(--line);
-      display:flex;padding:6px 8px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px rgba(15,23,42,.06)}
-  nav button{flex:1;border:none;background:none;font-family:inherit;font-size:10.5px;font-weight:700;
-      color:#8a97ab;padding:6px 0 4px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:3px}
-  nav button svg{width:22px;height:22px;stroke:#8a97ab;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-  nav button.on{color:#171310} nav button.on svg{stroke:#b78400}
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--card);border-top:1px solid var(--line);
+      display:flex;padding:6px 8px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px rgba(23,19,16,.06)}
+  nav button{flex:1;border:none;background:none;font-family:inherit;font-size:12px;font-weight:700;
+      color:var(--sub);padding:7px 0 5px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:3px}
+  nav button svg{width:24px;height:24px;stroke:var(--sub);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  nav button.on{color:var(--ink)} nav button.on svg{stroke:var(--gold-dk)}
 
   h2{font-size:13px;text-transform:uppercase;letter-spacing:.7px;color:var(--sub);margin:20px 2px 10px} #app>h2:first-child{margin-top:2px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -429,53 +461,70 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .tile .t{font-weight:700;font-size:14.5px}
   .tile .d{font-size:11px;color:var(--sub);margin-top:2px;line-height:1.35}
   .tile .lock{position:absolute;top:9px;right:9px;width:22px;height:22px;border-radius:7px;
-        background:#fef3c7;display:grid;place-items:center;font-size:12px}
+        background:var(--lock-bg);display:grid;place-items:center;font-size:12px}
   .full{grid-column:1/-1}
+  .recent{display:flex;gap:8px;flex-wrap:wrap}
+  .rchip{border:1.5px solid var(--gold-dk);background:var(--card);color:var(--ink);font-family:inherit;
+        font-weight:700;font-size:13.5px;padding:10px 15px;border-radius:99px;box-shadow:var(--shadow)}
+  .rchip:active{transform:scale(.96)}
+  .kitbar{width:100%;border:none;background:none;font-family:inherit;font-weight:700;font-size:12.5px;
+        color:#b78400;padding:9px 4px 4px;text-align:center;cursor:pointer}
+  .kitstrip{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 4px}
+  .kitpc{flex:none;width:180px;border:1px solid #eee6d2;border-radius:11px;padding:7px;background:#fff}
+  .kitpc .kt{font-size:10.5px;font-weight:700;color:#6d6558;margin-bottom:4px;text-align:center;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kitpc svg{width:100%;height:auto}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
         padding:15px;margin-bottom:14px}
   label{display:block;font-size:12.5px;font-weight:600;color:var(--sub);margin:13px 0 5px}
   .card>label:first-child{margin-top:0}
   input,select{width:100%;font-size:16px;padding:12px;border:1.5px solid var(--line);
-        border-radius:11px;background:#fff;color:var(--ink);font-family:inherit}
+        border-radius:11px;background:var(--field);color:var(--ink);font-family:inherit}
   input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(252,183,0,.22)}
+  button:focus-visible,.tile:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .seg{display:flex;gap:5px;background:#eee9dd;padding:4px;border-radius:12px}
-  .seg button{flex:1;border:none;background:transparent;padding:9px 4px;border-radius:9px;font-weight:700;
-        font-size:13px;color:var(--sub);font-family:inherit;transition:.12s}
-  .seg button.on{background:#fff;color:var(--brand);box-shadow:var(--shadow)}
-  .preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:11px;margin-bottom:13px;box-shadow:var(--shadow)}
+  .seg{display:flex;gap:5px;background:var(--seg-bg);padding:4px;border-radius:12px}
+  .seg button{flex:1;border:none;background:transparent;padding:10px 4px;border-radius:9px;font-weight:700;
+        font-size:13.5px;color:var(--sub);font-family:inherit;transition:.12s}
+  .seg button.on{background:var(--seg-on);color:var(--ink);box-shadow:var(--shadow)}
+  .preview{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:11px;margin-bottom:13px;box-shadow:var(--shadow)}
   .pvhead{display:flex;justify-content:space-between;align-items:center;margin:2px 4px 8px}
-  .pvhead .k{font-size:12px;color:var(--sub);font-weight:600}
+  .pvhead .k{font-size:12px;color:#6d6558;font-weight:600}
   .pvhead .v{font-size:12px;color:#b78400;font-weight:800}
   .stat{display:flex;flex-wrap:wrap;gap:6px;margin:10px 2px 2px}
-  .chip{background:#eef2f7;border-radius:8px;padding:5px 9px;font-size:11.5px;color:#334155;font-weight:600}
-  .chip.gold{background:#fdf0c2;color:#7c5600}
+  .chip{background:var(--chip-bg);border-radius:8px;padding:5px 9px;font-size:12px;color:var(--chip-ink);font-weight:600}
+  .chip.gold{background:var(--chip-gold-bg);color:var(--chip-gold-ink)}
   .btn{width:100%;border:none;font-family:inherit;font-size:16px;font-weight:800;padding:15px;border-radius:13px;transition:transform .1s}
   .btn:active{transform:scale(.98)}
   .btn.primary{background:var(--gold);color:#171310;box-shadow:0 6px 18px rgba(252,183,0,.4)}
   .btn.gold{background:#171310;color:var(--gold);box-shadow:0 6px 18px rgba(23,19,16,.35)}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-  .btn.ghost{background:#fff;color:#171310;border:1.5px solid #e3ce8f;font-size:14px;padding:12px}
+  .btn.ghost{background:var(--card);color:var(--ink);border:1.5px solid var(--gold-dk);font-size:14px;padding:12px}
   .btn.ghost:disabled,.btn.primary:disabled{opacity:.45}
   .hint{font-size:11.5px;color:var(--sub);text-align:center;margin-top:9px;line-height:1.45}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--line)}
   th{background:var(--brand-dk);color:#fff;position:sticky;top:0;font-size:12px}
   th:first-child,td:first-child{text-align:left}
-  tr:nth-child(even) td{background:#f8fafc}
-  .note{font-size:12px;color:var(--warn);background:#fffbeb;border:1px solid #fde68a;
+  tr:nth-child(even) td{background:var(--zebra)}
+  .note{font-size:12px;color:var(--warn);background:var(--note-bg);border:1px solid var(--note-line);
         border-radius:11px;padding:9px 11px;margin-top:12px;line-height:1.45}
   .hide{display:none}
   .empty{text-align:center;color:var(--sub);padding:40px 20px;font-size:13.5px;line-height:1.6}
   .jobrow{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--line);cursor:pointer}
   .jobrow:last-child{border-bottom:none}
-  .jobrow .ic{width:38px;height:38px;border-radius:11px;background:#fdf3d3;display:grid;place-items:center;flex:none}
+  .jobrow .ic{width:38px;height:38px;border-radius:11px;background:var(--icfill);display:grid;place-items:center;flex:none}
   .jobrow .nm{font-weight:700;font-size:14.5px}
   .jobrow .meta{font-size:11.5px;color:var(--sub);margin-top:1px}
-  .jobrow .x{margin-left:auto;border:none;background:#fee2e2;color:#b91c1c;width:30px;height:30px;border-radius:9px;font-weight:800;flex:none}
-  .modal-bg{position:fixed;inset:0;background:rgba(11,21,38,.55);z-index:50;display:grid;place-items:center;padding:24px;animation:fadein .15s ease}
+  .jobrow .x{border:none;background:var(--danger-bg);color:var(--danger);width:34px;height:34px;border-radius:9px;font-weight:800;flex:none}
+  .jobrow .x:first-of-type{margin-left:auto}
+  .qty{display:flex;align-items:center;gap:2px;margin-left:auto;flex:none}
+  .qty button{border:none;background:var(--seg-bg);color:var(--ink);width:30px;height:30px;border-radius:8px;font-weight:800;font-size:16px;font-family:inherit}
+  .qty span{min-width:22px;text-align:center;font-weight:800;font-size:14px}
+  .qty ~ .x{margin-left:6px}
+  .modal-bg{position:fixed;inset:0;background:var(--overlay);z-index:50;display:grid;place-items:center;padding:24px;animation:fadein .15s ease}
   @keyframes fadein{from{opacity:0}to{opacity:1}}
-  .modal{background:#fff;border-radius:18px;padding:20px;width:100%;max-width:380px;box-shadow:var(--shadow-lg);animation:slidein .18s ease}
+  .modal{background:var(--card);border-radius:18px;padding:20px;width:100%;max-width:380px;box-shadow:var(--shadow-lg);animation:slidein .18s ease}
   .modal h3{margin:0 0 6px;font-size:17px}
   .modal p{margin:0 0 14px;font-size:13px;color:var(--sub);line-height:1.5}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));
@@ -494,6 +543,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     .grid2 .full{grid-column:1 / -1}
   }
   @media(min-width:1120px){ main{max-width:1200px} .workspace{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)} }
+  /* pattern & diagram surfaces read as paper in both themes */
+  #fitdiag{background:var(--paper);border-radius:12px;padding:6px}
+  [data-seamsvg]{background:var(--paper);border-radius:12px}
+  @media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
 </style>
 </head>
 <body>
@@ -1212,12 +1265,16 @@ const store = {
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
 let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:10, detail:false,
-  material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'' }, store.get('cm_settings',{}));
+  material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', theme:'auto' }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
+function applyTheme(){ const r=document.documentElement;
+  if(SET.theme==='auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme',SET.theme); }
 const OWNER = false;   // build flag: owner edition has Pro permanently on
 let PRO = OWNER || store.get('cm_pro',false);
 let JOBS = store.get('cm_jobs',[]);
 function saveJobs(){ store.set('cm_jobs',JOBS); }
+let RECENT = store.get('cm_recent',[]);
+function noteRecent(k){ RECENT=[k].concat(RECENT.filter(x=>x!==k)).slice(0,4); store.set('cm_recent',RECENT); }
 
 /* licence code: CM-XXXX-XXXX, weighted base36 checksum */
 function checkCode(c){ c=(c||'').toUpperCase().replace(/[^A-Z0-9]/g,''); if(!c.startsWith('CM')||c.length!==10) return false;
@@ -1408,10 +1465,12 @@ function route(){ if(CUR){ CUR(); return; } TAB==='fit'?home():TAB==='jobs'?jobs
 function home(){
   setView('CladMate','Insulation cladding patterns',false);
   const tile=k=>`<div class="tile" data-go="${k}">${unlocked(k)?'':'<span class="lock">🔒</span>'}${F[k].icon}<div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div></div>`;
-  let tiles=GROUPS.map(g=>`<h2>${g.t}</h2><div class="grid">${g.k.map(tile).join('')}</div>`).join('');
+  const recents=RECENT.filter(k=>F[k]);
+  let tiles=recents.length?`<h2>Pick up where you left off</h2><div class="recent">${recents.map(k=>`<button class="rchip" data-go="${k}">${F[k].name}</button>`).join('')}</div>`:'';
+  tiles+=GROUPS.map(g=>`<h2>${g.t}</h2><div class="grid">${g.k.map(tile).join('')}</div>`).join('');
   tiles+=`<h2>Reference</h2><div class="grid"><div class="tile full" data-go="chart">${I.chart}<div class="t">Standard Pipe Chart</div><div class="d">DN · OD · long &amp; short radius</div></div></div>`;
   app.innerHTML=`${tiles}
-    <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this phone</button></div>
+    <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}
     <div class="hint" style="margin-top:14px">Add to Home Screen from your browser menu to use CladMate offline, like a real app.</div>`;
   app.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>{ const g=e.dataset.go; repage(()=>{ g==='chart'?chart():form(g); }); });
@@ -1434,7 +1493,7 @@ function _svgWrap(parts,pts,w){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   const pad=8; return `<svg viewBox="${(x0-pad).toFixed(1)} ${(y0-pad).toFixed(1)} ${(x1-x0+2*pad).toFixed(1)} ${(y1-y0+2*pad).toFixed(1)}" style="width:${w||150}px;max-width:44vw;height:auto">${parts.join('')}</svg>`; }
 const _ln=(a,b,st)=>`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" ${st}/>`;
 const _pl=(ps,st)=>`<polyline points="${ps.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" ${st}/>`;
-const INKST='stroke="#334155" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
+const INKST='stroke="#2b251c" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const SEAMST='stroke="#d93025" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"';
 
 function diagBend(va, k, seamDeg, hand){
@@ -1613,7 +1672,7 @@ function diagDouble(st){
       const pp=proj(q).p;
       if(vis){ if(!cur)cur=[]; cur.push(pp); } else if(cur){ segs.push(cur); cur=null; } }
     if(cur) segs.push(cur);
-    segs.forEach(sg=>{ if(sg.length>1){ sg.forEach(p=>all.push(p)); parts.push(_pl(sg,'stroke="#334155" stroke-width="1.7" stroke-linecap="round"')); } });
+    segs.forEach(sg=>{ if(sg.length>1){ sg.forEach(p=>all.push(p)); parts.push(_pl(sg,'stroke="#2b251c" stroke-width="1.7" stroke-linecap="round"')); } });
   };
   const seamSeg=(sa,sb,angA,angB)=>{ // seam between two stations, hidden part faded
     const N=8;
@@ -1631,7 +1690,7 @@ function diagDouble(st){
     return inB2? seam2 : seam; };
   bands.forEach(b=>{
     const pl=b.pts; pl.forEach(p=>all.push(p));
-    parts.push(`<polygon points="${pl.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${cols[b.i]}" stroke="#334155" stroke-width="1.8" stroke-linejoin="round"/>`);
+    parts.push(`<polygon points="${pl.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${cols[b.i]}" stroke="#2b251c" stroke-width="1.8" stroke-linejoin="round"/>`);
     if(S[b.i].joint) ringArc(S[b.i]);
     if(S[b.i+1].joint) ringArc(S[b.i+1]);
     if(S[b.i].cap) ringArc(S[b.i]);
@@ -1685,27 +1744,6 @@ function fittingDiagram(kind,s){
       parts.push(`<path d="M${(bx-rr).toFixed(1)} ${by.toFixed(1)} Q ${bx.toFixed(1)} ${(by-6).toFixed(1)} ${(bx+rr).toFixed(1)} ${by.toFixed(1)}" fill="none" stroke="#b78400" stroke-width="2.6"/>`);
       all.push([bx-rr,y2+6],[bx+rr,y2+6]);
       return _svgWrap(parts,all,150); }
-    if(false){ const n=Math.max(2,Math.round(s.segments||4));
-      const Rt=clad(s.bendPipeOD)/2, rt=clad(s.trunnionPipeOD)/2, CR=Math.max(s.centreRadius||300, Rt+10);
-      const sc=60/CR, Rc=60, rb=Math.max(10,Math.min(Rt*sc,Rc*0.75)), rr=Math.max(6,rt*sc);
-      const va=[]; for(let i=0;i<=n;i++) va.push(90-i*90/n);
-      // bend body (reuse bend drawing, hand A)
-      const Ri=Rc-rb, Ro=Rc+rb, rad=a=>a*Math.PI/180, P=(R,t)=>[R*Math.cos(rad(t)),-R*Math.sin(rad(t))];
-      const outer=va.map(t=>P(Ro,t)), inner=va.map(t=>P(Ri,t)), all=outer.concat(inner), parts=[];
-      parts.push(_pl(outer,INKST),_pl(inner,INKST));
-      for(let j=0;j<va.length;j++) parts.push(_ln(inner[j],outer[j],INKST));
-      // riser stub up from t=90 face, outlet stub right from t=0 face
-      parts.push(_ln([ -0+ -0+ inner[0][0], inner[0][1]],[inner[0][0],inner[0][1]-14],INKST), _ln([outer[0][0],outer[0][1]],[outer[0][0],outer[0][1]-14],INKST), _ln([inner[0][0],inner[0][1]-14],[outer[0][0],outer[0][1]-14],INKST));
-      parts.push(_ln(inner[va.length-1],[inner[va.length-1][0]+14,inner[va.length-1][1]],INKST), _ln(outer[va.length-1],[outer[va.length-1][0]+14,outer[va.length-1][1]],INKST), _ln([inner[va.length-1][0]+14,inner[va.length-1][1]],[outer[va.length-1][0]+14,outer[va.length-1][1]],INKST));
-      all.push([inner[0][0],inner[0][1]-14],[outer[va.length-1][0]+14,outer[va.length-1][1]]);
-      // trunnion vertical under the bend at x = a*sc (a = CR - offset)
-      const ax=Math.max(rr+2, (CR-(s.offset||0))*sc);
-      const yTop=x=>{ const v=Math.max(Ri*Ri-x*x,0); return -Math.sqrt(v); };
-      const y1=Math.max(yTop(ax-rr),yTop(ax+rr))+2, y2=Ro+18;
-      parts.push(_ln([ax-rr,y1-6],[ax-rr,y2],INKST), _ln([ax+rr,Math.max(yTop(ax+rr),y1-10)],[ax+rr,y2],INKST));
-      parts.push(`<ellipse cx="${ax.toFixed(1)}" cy="${y2.toFixed(1)}" rx="${rr.toFixed(1)}" ry="${(rr*0.35).toFixed(1)}" fill="none" ${INKST}/>`);
-      all.push([ax-rr,y2+6],[ax+rr,y2+6]);
-      return _svgWrap(parts,all,150); }
     if(kind==='inctee'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
     if(kind==='teehole'||kind==='trunnionhole') return diagHole(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
   }catch(e){}
@@ -1727,24 +1765,27 @@ function fieldHTML(f,s){
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
       const x=80+55*Math.sin(phi), y=80+55*Math.cos(phi);
       const lx=80+72*Math.sin(phi), ly=80+72*Math.cos(phi);
-      dots+=`<g data-dot="${n}" style="cursor:pointer"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13" fill="transparent"/><circle class="seamdot" data-dn="${n}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="#cbd5e1"/><text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" font-size="11" font-weight="700" fill="#64748b" text-anchor="middle">${n}</text></g>`; }
+      dots+=`<g data-dot="${n}" style="cursor:pointer"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="transparent"/><circle class="seamdot" data-dn="${n}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="#cfc5ae"/><text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" font-size="11.5" font-weight="700" fill="#8a8070" text-anchor="middle">${n}</text></g>`; }
     return `${f.noHand?`<label>${f.label}</label>`:handHtml.replace('HANDLABEL',f.label)}<div class="seg" data-seammode="1">
       <button data-sv="180">Back fastener</button><button data-sv="90">Side fastener</button><button data-sv="custom">Custom</button></div>
-      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><svg data-seamsvg="1" viewBox="0 0 160 160" style="width:150px;height:150px"><circle cx="80" cy="80" r="55" fill="none" stroke="#e2e8f0" stroke-width="2.5"/><text x="80" y="84" font-size="9.5" fill="#94a3b8" text-anchor="middle">1 = throat · 7 = back</text>${dots}</svg><div id="fitdiag"></div></div>`; }
+      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><svg data-seamsvg="1" viewBox="0 0 160 160" style="width:170px;height:170px"><circle cx="80" cy="80" r="55" fill="none" stroke="#e5dcc6" stroke-width="2.5"/><text x="80" y="84" font-size="9.5" fill="#a89e8c" text-anchor="middle">1 = throat · 7 = back</text>${dots}</svg><div id="fitdiag"></div></div>`; }
   if(f.type==='xd'){ const cur=s._xd, basis=s._xdbasis||'dn';
     return `<label>${f.label}</label><div class="seg" data-xd="1">${[1,1.5,2,3,5].map(m=>`<button data-m="${m}" ${cur==m?'class="on"':''}>${m}D</button>`).join('')}</div><div class="seg" data-xdbasis="1" style="margin-top:6px"><button data-b="dn" ${basis==='dn'?'class="on"':''}>Nominal</button><button data-b="od" ${basis==='od'?'class="on"':''}>OD</button></div>`; }
   return '';
 }
 function form(kind, presetParams){
   CUR=()=>form(kind);
+  noteRecent(kind);
+  let kitOpen=false;
   const fit=F[kind];
-  if(presetParams) states[kind]=Object.assign({},presetParams);
+  if(presetParams) states[kind]=Object.assign({},presetParams,{__touched:true});
   const s=states[kind];
+  const touch=()=>{ s.__touched=true; };
   const locked=!unlocked(kind);
   setView(fit.name,fit.sub,true);
   const seamF=fit.fields.find(f=>f.type==='seam');
   let html=`<div class="workspace"><div class="pane-left">`;
-  html+=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div></div>`;
+  html+=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
   if(seamF) html+=`<div class="card">${fieldHTML(seamF,s)}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else html+=`<div class="card" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   html+=`</div><div class="pane-right">`;
@@ -1757,16 +1798,17 @@ function form(kind, presetParams){
   html+=`<label>Paper size</label><div class="seg" data-seg="__page"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">Preview is live — Pro unlocks the printable PDF, DXF and Jobs.</div>`;
   else html+=`<button class="btn primary" id="genBtn">Generate printable PDF</button>
+    <div class="btnrow"><button class="btn ghost" id="shareBtn">Share PDF</button><button class="btn ghost" id="calBtn">Print test page</button></div>
     <div class="btnrow"><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF export${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>Save to Job${PRO?'':' (Pro)'}</button></div>
-    <div class="hint">Prints 1:1 across multiple sheets — tape on the red crosshairs, check the 100&nbsp;mm bar, then mark out.</div>`;
+    <div class="hint">Prints 1:1 across multiple sheets — print at <b>100% / Actual size</b> (never "Fit to page"), tape on the red crosshairs, check the 100&nbsp;mm bar, then mark out. Not sure about your printer? Run the test page first.</div>`;
   html+=`</div></div>`;
   app.innerHTML=html;
 
-  app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(sel.dataset.pipe==='pipeOD'&&s._xd){ readAll(); applyXd(s._xd); } refresh(); });
-  app.querySelectorAll('input').forEach(i=>i.oninput=refresh);
+  app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ touch(); app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(sel.dataset.pipe==='pipeOD'&&s._xd){ readAll(); applyXd(s._xd); } refresh(); });
+  app.querySelectorAll('input').forEach(i=>i.oninput=()=>{ touch(); refresh(); });
   app.querySelectorAll('[data-seg]').forEach(el=>{ const k=el.dataset.seg; el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-    if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; } refresh(); }); });
+    if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { touch(); const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; } refresh(); }); });
   const applyXd=m=>{ const basis=s._xdbasis||'dn'; const e=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD);
     let cr;
     if(basis==='od') cr=Math.round(m*s.pipeOD);
@@ -1776,27 +1818,48 @@ function form(kind, presetParams){
     else cr=Math.round(m*(e?e.dn:s.pipeOD));
     s._xd=m; s.centreRadius=cr; const inp=app.querySelector('[data-k="centreRadius"]'); if(inp) inp.value=s.centreRadius;
     const xEl=app.querySelector('[data-xd]'); if(xEl) xEl.querySelectorAll('button').forEach(x=>x.classList.toggle('on', parseFloat(x.dataset.m)===m)); };
-  { const bEl=app.querySelector('[data-xdbasis]'); if(bEl) bEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ bEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); s._xdbasis=b.dataset.b; if(s._xd) applyXd(s._xd); refresh(); });
-    const xEl=app.querySelector('[data-xd]'); if(xEl) xEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ applyXd(parseFloat(b.dataset.m)); refresh(); });
+  { const bEl=app.querySelector('[data-xdbasis]'); if(bEl) bEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ touch(); bEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); s._xdbasis=b.dataset.b; if(s._xd) applyXd(s._xd); refresh(); });
+    const xEl=app.querySelector('[data-xd]'); if(xEl) xEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ touch(); applyXd(parseFloat(b.dataset.m)); refresh(); });
     // manual centre-radius edit clears the ×D highlight
     const cr=app.querySelector('[data-k="centreRadius"]'); if(cr) cr.addEventListener('input',()=>{ s._xd=null; const xe=app.querySelector('[data-xd]'); if(xe) xe.querySelectorAll('button').forEach(x=>x.classList.remove('on')); }); }
 
   { const hEl=app.querySelector('[data-hand]');
-    if(hEl) hEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ hEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); s.bendHand=b.dataset.h; refresh(); }); }
+    if(hEl) hEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ touch(); hEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); s.bendHand=b.dataset.h; refresh(); }); }
   { const svg=app.querySelector('[data-seamsvg]'), mode=app.querySelector('[data-seammode]');
     if(svg&&mode){
       const upd=()=>{ const v=s.seamFromThroat; const n=Math.round(v/30)+1; const exact=Math.abs(v-(n-1)*30)<0.01&&n>=1&&n<=12;
-        svg.querySelectorAll('.seamdot').forEach(d=>{ d.setAttribute('fill', (exact&&+d.dataset.dn===n)?'#d93025':'#cbd5e1'); d.setAttribute('r',(exact&&+d.dataset.dn===n)?'8.5':'7'); });
+        svg.querySelectorAll('.seamdot').forEach(d=>{ d.setAttribute('fill', (exact&&+d.dataset.dn===n)?'#d93025':'#cfc5ae'); d.setAttribute('r',(exact&&+d.dataset.dn===n)?'11':'9'); });
         mode.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.sv==='custom'? (v!==180&&v!==90) : +b.dataset.sv===v)); };
-      mode.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.dataset.sv!=='custom'){ s.seamFromThroat=+b.dataset.sv; refresh(); } upd(); });
-      svg.querySelectorAll('[data-dot]').forEach(g=>g.onclick=()=>{ s.seamFromThroat=(+g.dataset.dot-1)*30; refresh(); upd(); });
+      mode.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.dataset.sv!=='custom'){ touch(); s.seamFromThroat=+b.dataset.sv; refresh(); } upd(); });
+      svg.querySelectorAll('[data-dot]').forEach(g=>g.onclick=()=>{ touch(); s.seamFromThroat=(+g.dataset.dot-1)*30; refresh(); upd(); });
       upd(); } }
   const lb=document.getElementById('lockBtn'); if(lb) lb.onclick=showUnlock;
-  const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{
-    if(fit.kit){ const pats=fit.kit(s); const out=FP.makeKitPDF(window.jspdf.jsPDF, pats, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
-      out.doc.save('CladMate_'+kind+'_kit_'+SET.page+'.pdf'); toast('Full kit PDF — '+out.pieces+' patterns, '+out.sheets+' sheets'); return; }
+  const buildDoc=()=>{ if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(s), {page:SET.page, orient:'auto', brand:SET.brand||undefined});
+      return {out, name:'CladMate_'+kind+'_kit_'+SET.page+'.pdf', msg:'Full kit PDF — '+out.pieces+' patterns, '+out.sheets+' sheets'}; }
     const out=FP.makePDF(window.jspdf.jsPDF, form._pat, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
-    out.doc.save('CladMate_'+kind+'_'+SET.page+'.pdf'); toast('PDF ready — '+out.sheets+' sheet'+(out.sheets>1?'s':'')); };
+    return {out, name:'CladMate_'+kind+'_'+SET.page+'.pdf', msg:'PDF ready — '+out.sheets+' sheet'+(out.sheets>1?'s':'')}; };
+  const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{ const d=buildDoc(); d.out.doc.save(d.name); toast(d.msg); };
+  const sb=document.getElementById('shareBtn'); if(sb) sb.onclick=async()=>{ const d=buildDoc();
+    const file=new File([d.out.doc.output('blob')], d.name, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:'CladMate template'}); }catch(e){} }
+    else { d.out.doc.save(d.name); toast('Sharing not supported here — saved the PDF instead'); } };
+  const cb=document.getElementById('calBtn'); if(cb) cb.onclick=()=>{
+    const doc=new window.jspdf.jsPDF({unit:'mm', format:SET.page, orientation:'portrait'});
+    const W=SET.page==='a4'?210:297;
+    doc.setLineWidth(0.5); doc.setDrawColor(0);
+    doc.setFontSize(20); doc.setFont(undefined,'bold'); doc.text('CladMate printer test',W/2,30,{align:'center'});
+    doc.setFontSize(11); doc.setFont(undefined,'normal');
+    doc.text('Print this page at 100% / Actual size — never "Fit to page".',W/2,40,{align:'center'});
+    const cx=W/2;
+    doc.line(cx-50,70,cx+50,70); doc.line(cx-50,66,cx-50,74); doc.line(cx+50,66,cx+50,74);
+    for(let i=1;i<10;i++) doc.line(cx-50+i*10,68,cx-50+i*10,72);
+    doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.text('100 mm — measure this bar',cx,82,{align:'center'});
+    doc.rect(cx-25,95,50,50);
+    doc.setFont(undefined,'normal'); doc.setFontSize(11); doc.text('50 × 50 mm square',cx,153,{align:'center'});
+    doc.setFontSize(10);
+    doc.text(['If the bar measures 100 mm and the square is 50 mm each way,','your printer is telling the truth — every CladMate template will be true 1:1.','If not: find "Scale" in the print options and set it to 100%.'],cx,168,{align:'center'});
+    doc.save('CladMate_printer_test_'+SET.page+'.pdf'); toast('Test page saved — print it and get the tape on it'); };
   const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!PRO) return showUnlock();
     const blob=new Blob([FP.toDXF(form._pat)],{type:'application/dxf'}); const a=document.createElement('a');
     a.href=URL.createObjectURL(blob); a.download='CladMate_'+kind+'.dxf'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('DXF exported'); };
@@ -1828,16 +1891,26 @@ function form(kind, presetParams){
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
       +(basic?'':`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.kg.toFixed(2)} kg · ${ms.perSheet}/sheet</span>`);
+    renderKit();
   }
+  function kitCaption(p){ const t=(p.title||'').replace(/\s*1:1\s*$/,'');
+    const i=t.indexOf('-'); return (i>0?t.slice(i+1):t).trim(); }
+  function renderKit(){ const kw=document.getElementById('kitwrap'); if(!kw) return;
+    if(!fit.kit){ kw.innerHTML=''; return; }
+    if(!kitOpen){ kw.innerHTML='<button class="kitbar" id="kitToggle">Show all kit pieces ▸</button>'; }
+    else{ let pats; try{ pats=fit.kit(s); }catch(e){ kw.innerHTML=''; return; }
+      kw.innerHTML='<button class="kitbar" id="kitToggle">Hide kit pieces ▾</button><div class="kitstrip">'+
+        pats.map(p=>`<div class="kitpc"><div class="kt" title="${kitCaption(p)}">${kitCaption(p)}</div>${FP.svgPreview(p,260)}</div>`).join('')+'</div>'; }
+    const t=document.getElementById('kitToggle'); if(t) t.onclick=()=>{ kitOpen=!kitOpen; renderKit(); }; }
 }
 
 /* ================= jobs ================= */
 function saveToJob(kind){
-  const opts=JOBS.map(j=>`<button class="btn ghost" data-j="${j.id}" style="margin-bottom:8px">${j.name} <span style="color:#94a3b8">(${j.items.length})</span></button>`).join('');
+  const opts=JOBS.map(j=>`<button class="btn ghost" data-j="${j.id}" style="margin-bottom:8px">${j.name} <span style="color:var(--sub)">(${j.items.length})</span></button>`).join('');
   const bg=modal(`<h3>Save to Job</h3><p>${F[kind].name} — with the sizes you've set.</p>${opts}
     <input id="njName" placeholder="New job name (e.g. Grangemouth U47)" style="margin-bottom:10px">
     <button class="btn primary" id="njGo">Create job &amp; save</button>`);
-  const add=(job)=>{ job.items.push({kind, params:Object.assign({},states[kind]), name:F[kind].name, ts:Date.now()});
+  const add=(job)=>{ job.items.push({kind, params:Object.assign({},states[kind]), name:F[kind].name, ts:Date.now(), qty:1, note:''});
     saveJobs(); bg.remove(); toast('Saved to '+job.name); };
   bg.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>add(JOBS.find(j=>j.id==b.dataset.j)));
   bg.querySelector('#njGo').onclick=()=>{ const n=bg.querySelector('#njName').value.trim(); if(!n) return toast('Give the job a name');
@@ -1852,7 +1925,11 @@ function jobsPage(){
     <div class="meta">${j.items.length} fitting${j.items.length!==1?'s':''} · ${new Date(j.items[0]?j.items[0].ts:Date.now()).toLocaleDateString()}</div></div>
     <button class="x" data-del="${j.id}">✕</button></div>`).join('')}</div>`;
   app.querySelectorAll('[data-open]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.del) return; repage(()=>jobDetail(r.dataset.open)); });
-  app.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ JOBS=JOBS.filter(j=>j.id!=b.dataset.del); saveJobs(); repage(jobsPage); });
+  app.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const j=JOBS.find(x=>x.id==b.dataset.del); if(!j) return;
+    const bg=modal(`<h3>Delete "${j.name}"?</h3><p>${j.items.length} saved fitting${j.items.length!==1?'s':''} go with it. This can't be undone (unless you've exported a backup).</p>
+      <div class="btnrow" style="margin-top:0"><button class="btn ghost" id="delNo">Keep it</button><button class="btn primary" id="delYes" style="background:var(--danger);color:#fff">Delete</button></div>`);
+    bg.querySelector('#delNo').onclick=()=>bg.remove();
+    bg.querySelector('#delYes').onclick=()=>{ JOBS=JOBS.filter(x=>x.id!=j.id); saveJobs(); bg.remove(); repage(jobsPage); }; });
 }
 function jobDetail(id){
   const job=JOBS.find(j=>j.id==id); if(!job) return jobsPage();
@@ -1861,19 +1938,41 @@ function jobDetail(id){
   if(!job.items.length){ app.innerHTML='<div class="empty">Nothing in this job yet.</div>'; return; }
   app.innerHTML=`<div class="card" style="padding:4px 14px">${job.items.map((it,i)=>`
     <div class="jobrow" data-i="${i}"><div class="ic" style="width:44px">${F[it.kind]?F[it.kind].icon:''}</div>
-    <div><div class="nm">${it.name}</div><div class="meta">${describe(it)} · ${new Date(it.ts).toLocaleDateString()}</div></div>
+    <div style="min-width:0"><div class="nm">${it.name}</div><div class="meta">${describe(it)}${it.note?' · '+it.note:''}</div></div>
+    <div class="qty"><button data-q="-1" data-qi="${i}">−</button><span>${it.qty||1}</span><button data-q="1" data-qi="${i}">+</button></div>
+    <button class="x" data-nt="${i}" style="background:var(--chip-bg);color:var(--chip-ink)">✎</button>
     <button class="x" data-di="${i}">✕</button></div>`).join('')}</div>
-    <div class="hint">Tap a fitting to open it with its saved sizes, then print or export.</div>`;
-  app.querySelectorAll('[data-i]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.di) return;
+    <button class="btn primary" id="jobPdf" style="margin-top:4px">Print whole job — every template, one PDF</button>
+    <div class="hint">Tap a fitting to open it with its saved sizes. − / + sets how many of that fitting the job needs (each pattern prints once, marked ×N).</div>`;
+  app.querySelectorAll('[data-i]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.di||e.target.dataset.q||e.target.dataset.nt||e.target.closest('.qty')) return;
     const it=job.items[+r.dataset.i]; if(!F[it.kind]){ toast('That fitting type is no longer in the app'); return; }
     TAB='fit'; repage(()=>form(it.kind, it.params)); });
   app.querySelectorAll('[data-di]').forEach(b=>b.onclick=()=>{ job.items.splice(+b.dataset.di,1); saveJobs(); repage(()=>jobDetail(id)); });
+  app.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ const it=job.items[+b.dataset.qi];
+    it.qty=Math.max(1,(it.qty||1)+(+b.dataset.q)); saveJobs(); repage(()=>jobDetail(id)); });
+  app.querySelectorAll('[data-nt]').forEach(b=>b.onclick=()=>{ const it=job.items[+b.dataset.nt];
+    const bg=modal(`<h3>Note — ${it.name}</h3><input id="ntIn" value="${(it.note||'').replace(/"/g,'&quot;')}" placeholder="e.g. boiler house riser, both hands">
+      <button class="btn primary" id="ntGo" style="margin-top:10px">Save note</button>`);
+    bg.querySelector('#ntGo').onclick=()=>{ it.note=bg.querySelector('#ntIn').value.trim(); saveJobs(); bg.remove(); repage(()=>jobDetail(id)); }; });
+  document.getElementById('jobPdf').onclick=()=>{
+    const pats=[];
+    for(const it of job.items){ const f=F[it.kind]; if(!f) continue;
+      const p=Object.assign({},it.params); if(it.kind==='inctee'||it.kind==='teereducer') p.flange=SET.flange;
+      let ps; try{ ps=f.kit?f.kit(p):[f.build(p)]; }catch(e){ toast(it.name+': '+e.message); continue; }
+      const q=it.qty||1;
+      ps.forEach(pt=>{ if(q>1) pt.title='[×'+q+']  '+pt.title; if(it.note) pt.meta=(pt.meta||[]).concat(['Job note: '+it.note]); });
+      pats.push(...ps); }
+    if(!pats.length) return toast('Nothing printable in this job');
+    const out=FP.makeKitPDF(window.jspdf.jsPDF, pats, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
+    out.doc.save('CladMate_job_'+job.name.replace(/[^\w-]+/g,'_')+'.pdf');
+    toast('Job pack — '+out.pieces+' patterns, '+out.sheets+' sheets'); };
 }
-function describe(it){ const p=it.params;
-  if(p.pipeOD) return 'Ø'+p.pipeOD+' +'+(p.insulation||0)+'mm';
-  if(p.bigPipeOD) return 'Ø'+p.bigPipeOD+'→'+p.smallPipeOD+' +'+(p.insulation||0)+'mm';
-  if(p.mainPipeOD) return 'Ø'+p.mainPipeOD+' / Ø'+p.branchPipeOD;
-  return ''; }
+function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
+  if(p.pipeOD) return q+'Ø'+p.pipeOD+' +'+(p.insulation||0)+'mm';
+  if(p.bigPipeOD) return q+'Ø'+p.bigPipeOD+'→'+p.smallPipeOD+' +'+(p.insulation||0)+'mm';
+  if(p.mainPipeOD) return q+'Ø'+p.mainPipeOD+' / Ø'+p.branchPipeOD;
+  if(p.trunnionPipeOD) return q+'Ø'+p.trunnionPipeOD+' / Ø'+p.bendPipeOD;
+  return q.slice(0,-3); }
 
 /* ================= settings ================= */
 function settingsPage(){
@@ -1887,6 +1986,7 @@ function settingsPage(){
     <div class="row"><div><label>Bend swage allowance (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
     <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
     <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
+    <label>Appearance</label><div class="seg" id="sTheme"><button data-v="auto" ${SET.theme==='auto'?'class="on"':''}>Auto</button><button data-v="light" ${SET.theme==='light'?'class="on"':''}>Light</button><button data-v="dark" ${SET.theme==='dark'?'class="on"':''}>Dark</button></div>
     <div class="hint" style="text-align:left">Basic shows just diameter &amp; circumference on the preview. Detailed adds mitre angles, ordinates, area, weight and sheet counts. Swage is added at every bend/lobster joint. The tee flange is a flat lip rolled out on the branch saddle to rivet onto the main (used instead of a swage).</div></div>
    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Material &amp; sheet</h3>
     <label>Material</label><select id="sMat"><option value="aluminium" ${SET.material==='aluminium'?'selected':''}>Aluminium (2.70)</option><option value="galv" ${SET.material==='galv'?'selected':''}>Galv / mild steel (7.85)</option><option value="stainless" ${SET.material==='stainless'?'selected':''}>Stainless (7.90)</option></select>
@@ -1896,10 +1996,14 @@ function settingsPage(){
     <label>Company name on PDF templates</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. C. Sword Insulations Ltd" ${PRO?'':'disabled'}></div>
    <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ CladMate Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
      :`<button class="btn gold" id="sUp">Unlock CladMate Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
+   <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Backup</h3>
+    <div class="btnrow" style="margin-top:10px"><button class="btn ghost" id="sExport">Export backup</button><button class="btn ghost" id="sImport">Restore backup</button></div>
+    <input type="file" id="sImportFile" accept=".json,application/json" class="hide">
+    <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></div>
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:14px;margin:2px auto 10px;background:linear-gradient(135deg,#ffd254,#fcb700);display:grid;place-items:center;box-shadow:0 2px 10px rgba(252,183,0,.4)">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#171310"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#171310" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#171310"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v1.4</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v1.5.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:#b78400;font-weight:700;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -1920,14 +2024,42 @@ function settingsPage(){
   app.querySelectorAll('input,select').forEach(e=>e.onchange=save);
   document.getElementById('sPage').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sPage').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.page=b.dataset.v; saveSet(); });
   document.getElementById('sDetail').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDetail').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.detail=b.dataset.v==='1'; saveSet(); });
+  document.getElementById('sTheme').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sTheme').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.theme=b.dataset.v; saveSet(); applyTheme(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
+  document.getElementById('sExport').onclick=()=>{
+    const data={app:'CladMate',ver:'1.5.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved — keep it somewhere safe'); };
+  const impF=document.getElementById('sImportFile');
+  document.getElementById('sImport').onclick=()=>impF.click();
+  impF.onchange=()=>{ const f=impF.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{ try{ const d=JSON.parse(rd.result);
+        if(d.app!=='CladMate') throw new Error('not a CladMate backup');
+        if(d.settings) { SET=Object.assign({},SET,d.settings); saveSet(); }
+        if(Array.isArray(d.jobs)) { JOBS=d.jobs; saveJobs(); }
+        if(d.pro && !PRO){ PRO=true; store.set('cm_pro',true); renderPro(); }
+        ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); });
+        toast('Backup restored'); repage(settingsPage);
+      }catch(e){ toast('That file isn’t a CladMate backup'); } };
+    rd.readAsText(f); impF.value=''; };
 }
 
 /* ================= boot ================= */
 if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+// ask the browser not to evict our storage (jobs + licence live in it)
+if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); window._installEvt=e; if(TAB==='fit'&&!CUR) route(); });
 window.addEventListener('appinstalled',()=>toast('CladMate installed'));
-renderPro(); route();
+applyTheme(); renderPro(); route();
+/* first run: the three rules that make templates come out right */
+if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
+  const bg=modal(`<h3>Before your first template</h3>
+    <ul class="prolist"><li>Sizes are BARE PIPE + insulation — patterns are worked to the outside of the lagging</li><li>Print at 100% ("Actual size"), never "Fit to page" — then measure the 100&nbsp;mm bar on the sheet</li><li>Offer the first template up to the metal before cutting a batch</li></ul>
+    <button class="btn primary" id="introGo">Got it</button>`);
+  bg.querySelector('#introGo').onclick=()=>bg.remove(); }
 </script>
 </body>
 </html>
