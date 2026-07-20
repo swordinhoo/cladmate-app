@@ -1584,25 +1584,33 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       calc: { slope, wall, base, ang, girth, width, cutLap: girth + 2 * lap, L, W, H, D },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (wrap - flip one over, mirror pair)' };
     // ---- end plates: lap half + plain half, raked tops
-    const mkPlate = (wp, hasLap, name) => {
+    // End plates. x=0 is the RIDGE side - the two halves lap over each other
+    // on the box centreline, at the high point, so the lap sits there (not out
+    // at the eaves). Folded-edge hems on the bottom, the eaves edge AND the
+    // raked roof edge - the height carries 2*FE for exactly that reason.
+    const mkPlate = (hasLap, name) => {
+      const lp = hasLap ? lap : 0, wp = lp + W / 2 + FE;
       const hLow = wall + 2 * FE, hHigh = hLow + D;
+      const yCut = x => hLow + (hHigh - hLow) * (wp - x) / (wp - lp);   // raked cut edge
       const pr = [], hl = [], tk = [];
-      pr.push({ style: 'cut', pts: [[0, 0], [wp, 0], [wp, hLow], [Math.min(W / 2, wp), hLow],
-        [0, hHigh], [0, 0]] });
-      pr.push({ style: 'fold', pts: [[0, FE], [wp, FE]] });                       // bottom hem
-      pr.push({ style: 'fold', pts: [[wp - FE, 0], [wp - FE, hLow]] });           // outer edge hem
-      if (hasLap) { pr.push({ style: 'fold', pts: [[wp - FE - lap, 0], [wp - FE - lap, hLow]] });
-        _lineHoles(hl, wp - FE - lap / 2, FE, wp - FE - lap / 2, hLow, hp, eg); }
-      tk.push({ x: wp / 2, y: hLow, label: R(hHigh) + ' high side · ' + R(hLow) + ' low' });
+      pr.push({ style: 'cut', pts: [[0, 0], [wp, 0], [wp, hLow], [lp, hHigh], [0, hHigh], [0, 0]] });
+      pr.push({ style: 'fold', pts: [[0, FE], [wp, FE]] });                          // bottom hem
+      pr.push({ style: 'fold', pts: [[wp - FE, FE], [wp - FE, yCut(wp - FE)]] });    // eaves hem
+      pr.push({ style: 'fold', pts: [[lp, hHigh - FE], [wp, hLow - FE]] });          // raked roof hem
+      if (hasLap) { pr.push({ style: 'fold', pts: [[lp, 0], [lp, hHigh]] });         // ridge lap line
+        _lineHoles(hl, lp / 2, FE, lp / 2, hHigh - FE, hp, eg); }
+      tk.push({ x: (lp + wp) / 2, y: (hLow + hHigh) / 2,
+        label: R(hHigh) + ' ridge · ' + R(hLow) + ' eaves' });
+      if (hasLap) tk.push({ x: lp / 2, y: hHigh * 0.72, label: 'LAP ' + lap });
       return { kind: 'wsbox', title: 'Water-shed Box  -  End Plate (' + name + ') 1:1',
-        meta: [`Plate ${R(hHigh)} × ${R(wp)}  -  raked top drops ${D} across the ridge half`,
-               `Folded edge ${FE} hems marked` + (hasLap ? `, lap ${lap} with holes` : ', plain half')],
-        calc: { wp, hLow, hHigh },
+        meta: [`Plate ${R(hHigh)} × ${R(wp)}  -  raked top drops ${D} from the ridge to the eaves`,
+               hasLap ? `Lap ${lap} on the RIDGE edge (left) - it laps over the plain half on the box centreline`
+                      : `Plain half - the lap half laps over this one at the ridge`,
+               `Folded edge ${FE} hems on the bottom, the eaves edge and the raked roof edge`],
+        calc: { wp, hLow, hHigh, lp },
         prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote: 'CUT 2 OFF (' + name + ')' };
     };
-    const out = [wrap,
-      mkPlate(W / 2 + lap + FE, true, 'lap half'),
-      mkPlate(W / 2 + FE, false, 'plain half')];
+    const out = [wrap, mkPlate(true, 'lap half'), mkPlate(false, 'plain half')];
     out.forEach(o => { o.calc.nWraps = 2; o.calc.kitPieces = out.length; });
     return out;
   }
@@ -2936,7 +2944,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.0.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.0.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -2965,7 +2973,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'3.0.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'3.0.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
