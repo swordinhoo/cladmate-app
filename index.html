@@ -1931,7 +1931,7 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
-let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:10, detail:false,
+let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:10, nDiv:12, detail:false,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model',
   lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10 }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
@@ -2004,20 +2004,20 @@ const DIVS=segd('nDiv','Ordinate divisions',[12,24]);
 const F={
  reducer:{name:'Reducer',sub:'Concentric taper',icon:I.cone,free:true,
   defaults:{swage:3,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20,seamClock:6,nDiv:12},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),DIVS],
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)')],
   build:s=>FP.reducer(s),
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Circ '+(Math.PI*c.bigOD).toFixed(0)+' → '+(Math.PI*c.smallOD).toFixed(0)],
   stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),FAST,DIVS],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),FAST],
   build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Middle gore — cut '+c.nMid],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Middle gore — cut '+c.nMid],
   note:'Generate prints the MIDDLE GORE template — wavy both edges. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'},DIVS],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('minLen','Min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
   build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
@@ -2027,8 +2027,8 @@ const F={
     num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
     num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
     num('midLen','Straight between bends (mm)'),
-    num('twist','Twist (°, -90 to +90)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),
-    {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'First bend type'},DIVS],
+    num('twist','Twist (°, -90 to +90)'),
+    {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'First bend type'}],
   build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
   kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage});
     // seams: bend-1 gores measure from bend 1's throat; end-bend gores must measure
@@ -2055,33 +2055,33 @@ const F={
   note:'Pick the FIRST and SECOND bend types and the diagram draws the fitting as it hangs — same class (A/D with A/D, or B/C with B/C) runs the same way, mixed classes make an S. Prints in fitting order: first bend (starter + middles), the TWISTER, end bend (middles + finisher). Twist rolls bend 2 out of plane. The end-bend seam is auto-rolled so the seam line runs true along the whole fitting.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.squareToRound(s),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
   note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('offsetX','Top offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('offsetX','Top offset (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.squareToRound(s),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox],
   note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  flatback:{name:'Flat Back Cone',sub:'Eccentric reducer',icon:I.econe,
   defaults:{swage:3,seamFromThroat:180,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'flatback'})),
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Circ '+(Math.PI*c.bigOD).toFixed(0)+' → '+(Math.PI*c.smallOD).toFixed(0)],
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  oblique:{name:'Oblique Cone',sub:'Offset-apex cone',icon:I.obl,
   defaults:{swage:3,seamFromThroat:180,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:70,lapTotal:50,holePitch:40,holeEndGap:20},
-  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('offset','Offset (mm)'),num('swage','Swage allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('offset','Offset (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'oblique'})),
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Circ '+(Math.PI*c.bigOD).toFixed(0)+' → '+(Math.PI*c.smallOD).toFixed(0)],
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  inctee:{name:'Tee',sub:'Any angle · any branch',icon:I.inctee,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
+  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)'),num('minLen','Min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'})),
   kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'}));
     const h=FP.branchHole(Object.assign({},s,{mode:'teehole'})); h.title='Inclined Tee - Hole in the Main 1:1'; return [br,h]; },
@@ -2090,7 +2090,7 @@ const F={
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  trunnion:{name:'Trunnion on Bend',sub:'Support stub under a lobster',icon:I.trunb,
   defaults:{trunnionPipeOD:114.3,bendPipeOD:219.1,insulation:25,centreRadius:305,segments:4,offset:200,minLen:200,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12,seamFromThroat:0},
-  fields:[pipe('trunnionPipeOD','Trunnion pipe'),pipe('bendPipeOD','Bend pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('segments','Bend segments'),num('offset','Offset from riser axis (mm)'),num('minLen','Trunnion length (mm)'),num('jointAllow','Joint allowance (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
+  fields:[pipe('trunnionPipeOD','Trunnion pipe'),pipe('bendPipeOD','Bend pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('segments','Bend segments'),num('offset','Offset from riser axis (mm)'),num('minLen','Trunnion length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.trunnionOnBend(s),
   kit:s=>{ const br=FP.trunnionOnBend(s);
     const h=FP.branchHole({mainPipeOD:s.bendPipeOD,branchPipeOD:s.trunnionPipeOD,insulation:s.insulation,angle:90,mode:'trunnionhole'});
@@ -2100,7 +2100,7 @@ const F={
   note:'Support trunnion into the BACK of a lobster bend. The trunnion is developed as a radial branch into the bend tube (a clean saddle), and Generate prints BOTH the trunnion pattern AND the hole to cut in the bend cladding — same geometry, so they match. Centre radius / offset just mark where the hole sits on the bend. Offer the first one up to the metal before cutting a batch.'},
  teereducer:{name:'Tee Reducer',sub:'Small branch tee',icon:I.teered,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Min length (mm)'),num('lapTotal','Seam lap total (mm)'),num('holePitch','Hole pitch (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true},DIVS],
+  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90})),
   kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90}));
     const h=FP.branchHole(Object.assign({},s,{mode:'teehole',angle:90})); h.title='Tee - Hole in the Main 1:1'; return [br,h]; },
@@ -2136,7 +2136,7 @@ const F={
   fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
     sego('capStyle','Cap style',[{v:'flat',label:'Flat'},{v:'cone',label:'Conical (watershed)'}]),
     {type:'pipe',k:'holeApipe',label:'Pipe through the cap',none:true},
-    num('holeAx','Hole offset X (mm)'),num('holeAy','Hole offset Y (mm)'),num('holePitch','Hole pitch (mm)')],
+    num('holeAx','Hole offset X (mm)'),num('holeAy','Hole offset Y (mm)')],
   build:s=>FP.endCapKit(capParams(s))[0],
   kit:s=>FP.endCapKit(capParams(s)),
   mini:c=>['Ø '+(c.dia?fmtDim(c.dia):(c.R?fmtDim(c.R*2):''))+' cap','2 halves'],
@@ -2145,7 +2145,7 @@ const F={
 };
 F.wsbox={name:'Water-shed Box',sub:'Shop method · ridged top',icon:I.wshed,
   defaults:{boxL:400,boxW:300,boxH:400,shedDepth:40,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20},
-  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('shedDepth','Water-shed depth (mm)'),num('foldedEdge','Folded edge (mm)'),num('lap','Lap (mm)'),num('holePitch','Hole pitch (mm)')],
+  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('shedDepth','Water-shed depth (mm)'),num('foldedEdge','Folded edge (mm)')],
   build:s=>FP.watershedBoxKit({...s,lockform:SET.lockform})[0],
   kit:s=>FP.watershedBoxKit({...s,lockform:SET.lockform}),
   mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 plates'],
@@ -2164,8 +2164,7 @@ function BOXFIELDS(dims){ return dims.concat([
   {type:'pipe',k:'holeApipe',label:'End A — pipe landing on',none:true},
   num('holeAx','A offset X (mm)'),num('holeAy','A offset Y (mm)'),
   {type:'pipe',k:'holeBpipe',label:'End B — pipe landing on',none:true},
-  num('holeBx','B offset X (mm)'),num('holeBy','B offset Y (mm)'),
-  num('holePitch','Hole pitch (mm)')]); }
+  num('holeBx','B offset X (mm)'),num('holeBy','B offset Y (mm)')]); }
 function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulation||0),ox:+x||0,oy:+y||0}:null;
   return Object.assign({},s,{shape,
   watershed:!!(+s.watershed), preset:s.preset||undefined,
@@ -2741,7 +2740,7 @@ function form(kind, presetParams){
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
   html+=`</div>`;
   if(fit.note) html+=`<div class="note">${fit.note}</div>`;
-  html+=`<label>Paper size</label><div class="seg" data-seg="__page"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div>`;
+  html+=`<div class="hint" style="margin-top:4px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">Preview is live — Pro unlocks the printable PDF, DXF and Jobs.</div>`;
   else html+=`<div class="genwrap"><button class="btn primary" id="genBtn">Generate printable PDF</button></div>
     <div class="btnrow" style="grid-template-columns:1fr 1fr 1fr"><button class="btn ghost" id="shareBtn">Share</button><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>+ Job${PRO?'':' (Pro)'}</button></div>
@@ -2802,6 +2801,13 @@ function form(kind, presetParams){
   }
   function refresh(){
     readAll();
+    // shared job values live in Settings - applied to every fitting
+    if('lapTotal' in s) s.lapTotal=SET.lapTotal;
+    if('lap' in s) s.lap=SET.lapTotal;                              // water-shed box
+    if('holePitch' in s) s.holePitch=SET.holePitch;
+    if('swage' in s) s.swage=SET.swage;
+    if('jointAllow' in s) s.jointAllow=SET.swage;
+    if('nDiv' in s) s.nDiv=SET.nDiv||12;
     if(kind==='inctee'||kind==='teereducer') s.flange=SET.flange;   // flat flange rollout from settings
     let pat;
     try{ pat=fit.build(s); }catch(e){ document.getElementById('pv').innerHTML='<div class="hint" style="padding:30px">'+e.message+'</div>'; return; }
@@ -2919,6 +2925,7 @@ function settingsPage(){
     <div><label>Paper</label><div class="seg" id="sPage"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div></div>
     <div class="row"><div><label>Bend swage allowance (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
     <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
+    <label>Ordinate divisions</label><div class="seg" id="sDiv"><button data-v="12" ${(SET.nDiv||12)==12?'class="on"':''}>12</button><button data-v="24" ${SET.nDiv==24?'class="on"':''}>24</button></div>
     <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
     <label>Canvas</label><div class="seg" id="sCanvas"><button data-v="model" ${SET.canvas!=='paper'?'class="on"':''}>Model space</button><button data-v="paper" ${SET.canvas==='paper'?'class="on"':''}>Paper space</button></div>
     <div class="hint" style="text-align:left">Basic shows just diameter &amp; circumference on the preview. Detailed adds mitre angles, ordinates, area, weight and sheet counts. Swage is added at every bend/lobster joint. The tee flange is a flat lip rolled out on the branch saddle to rivet onto the main (used instead of a swage).</div></div>
@@ -2944,7 +2951,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.0.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.1.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -2969,11 +2976,12 @@ function settingsPage(){
   app.querySelectorAll('input,select').forEach(e=>e.onchange=save);
   document.getElementById('sPage').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sPage').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.page=b.dataset.v; saveSet(); });
   document.getElementById('sDetail').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDetail').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.detail=b.dataset.v==='1'; saveSet(); });
+  document.getElementById('sDiv').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDiv').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.nDiv=+b.dataset.v; saveSet(); });
   document.getElementById('sCanvas').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sCanvas').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.canvas=b.dataset.v; saveSet(); applyCanvas(); route(); });
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'3.0.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'3.1.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
