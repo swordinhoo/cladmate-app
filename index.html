@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a0d10">
+<meta name="theme-color" content="#20262c">
 <meta name="description" content="True 1:1 printable flat patterns for industrial insulation cladding — lobster backs, elbows, tees, reducers and more, worked to the outside of the lagging.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CladMate">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a1e22'/%3E%3Cpath d='M16 5v22M5 16h22' stroke='%2321dede' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='none' stroke='%23ff6f61' stroke-width='1.6'/%3E%3C/svg%3E">
 <title>CladMate — Insulation Cladding Patterns</title>
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
 <script>
@@ -390,115 +391,158 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 <style>
 
   /* ================================================================
-     CladMate v3 — CAD workstation.
-     Light neutral chrome (the application) + AutoCAD model-space
+     CladMate v4 — CAD workstation, precision pass.
+     Graphite title bar over a light workspace + AutoCAD model-space
      viewports (the drawings): dark canvas, true layer colours.
      Printed output is unaffected — makePDF/toDXF stay black on white.
      Canvas can be switched to Paper space for bright sunlight.
      ================================================================ */
   :root{
+    --fd:'Bahnschrift','DIN Alternate','Avenir Next Condensed','Roboto Condensed','Segoe UI',system-ui,sans-serif;
     --fs:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
-    --fm:Consolas,'Cascadia Mono','Roboto Mono',ui-monospace,'Courier New',monospace;
+    --fm:'Cascadia Mono',Consolas,'Roboto Mono',ui-monospace,'Courier New',monospace;
 
-    /* application chrome */
-    --bg:#eceff2; --panel:#ffffff; --panel2:#f4f6f8; --rail:#f4f6f8;
-    --line:#ccd3da; --line2:#b3bcc5;
-    --ink:#1c2126; --sub:#5a646e;
-    --acc:#0b5cad; --acc-hi:#1a6fc4; --acc-ink:#ffffff; --acc-soft:#e7eff8;
-    --good:#1f7a44; --warn:#8a5a00; --danger:#b3261e; --danger-bg:#fdecea;
-    --note-bg:#fbf6e6; --note-line:#e3d4a4; --lock-bg:#e7eff8;
-    --zebra:#f6f8fa; --overlay:rgba(20,26,32,.45);
-    --shadow:0 1px 2px rgba(23,31,38,.10);
-    --shadow-lg:0 12px 32px rgba(23,31,38,.22);
-    --brand-dk:#252c33;
+    /* application chrome — light workspace framed by a graphite title bar */
+    --titlebar:#20262c; --titlebar-ink:#e8edf2; --titlebar-sub:#8b96a0; --titlebar-line:#14181c;
+    --bg:#e9ecef; --panel:#ffffff; --panel2:#f3f5f7; --rail:#f3f5f7;
+    --line:#cdd4da; --line2:#aeb8c1;
+    --ink:#16191d; --sub:#525c66;
+
+    /* engineering-blue accent ramp */
+    --acc-deep:#084a8c; --acc:#0a5aa8; --acc-hi:#1668bd; --acc-ink:#ffffff; --acc-soft:#e3edf7;
+    --focus:#1668bd;
+
+    --good:#1c7a43; --warn:#7a5200; --danger:#b3261e; --danger-bg:#fdecea;
+    --note-bg:#fbf6e6; --note-line:#e3d4a4; --lock-bg:#e3edf7;
+    --zebra:#f5f7f9; --overlay:rgba(16,22,28,.48);
+    --shadow:0 1px 2px rgba(16,22,28,.10);
+    --shadow-lg:0 12px 32px rgba(16,22,28,.24);
+    --brand-dk:var(--titlebar);
 
     /* ---- model space: the drawing canvas + CAD layer colours ---- */
-    --canvas:#1e2226; --grid:#2b3137; --grid2:#39424a;
-    --ly-object:#00e5e5;      /* cyan    - cut / visible edges  */
-    --ly-hidden:#e8d44d;      /* yellow  - hidden edges         */
-    --ly-centre:#ff5a52;      /* red     - centrelines, seams   */
+    --canvas:#1a1e22; --grid:#252b31; --grid2:#333b43;
+    --ly-object:#21dede;      /* cyan    - cut / visible edges  */
+    --ly-hidden:#e6d24b;      /* yellow  - hidden edges         */
+    --ly-centre:#ff6f61;      /* red     - centrelines, seams   */
     --ly-dim:#4cd964;         /* green   - dimensions           */
-    --ly-fold:#ff6bd6;        /* magenta - fold lines           */
-    --ly-text:#e6ebf0;
-    --ly-fill:rgba(0,229,229,.09);
-    --ly-fill2:rgba(0,229,229,.16);
+    --ly-fold:#ff7ddb;        /* magenta - fold lines           */
+    --ly-text:#dbe2e8;
+    --ly-fill:rgba(33,222,222,.08);
+    --ly-fill2:rgba(33,222,222,.15);
 
     /* icon tokens (fitting tiles draw as mini model-space views) */
     --ic-ink:var(--ly-object); --ic-fill:var(--ly-fill); --ic-fill2:var(--ly-fill2);
     --ic-paper:var(--canvas); --ic-gold:var(--ly-dim);
 
     /* legacy names still referenced in markup */
-    --card:var(--panel); --field:#ffffff; --seg-bg:#e4e9ee; --seg-on:#ffffff;
-    --chip-ink:#3c454e; --chip-line:#ccd3da; --icfill:#eef2f6;
+    --card:var(--panel); --field:#ffffff; --seg-bg:#e2e8ed; --seg-on:#ffffff;
+    --chip-ink:#39424b; --chip-line:#cdd4da; --icfill:#eef2f6;
     --gold:var(--acc); --gold-dk:var(--acc-hi); --accent:var(--acc); --paper:var(--canvas);
   }
-  /* ---- paper space: white canvas, black linework (sunlight mode) ---- */
+  /* ---- paper space: white canvas, print-ink linework (sunlight mode) ---- */
   :root[data-canvas="paper"]{
-    --canvas:#ffffff; --grid:#e8edf1; --grid2:#dbe2e8;
-    --ly-object:#101418; --ly-hidden:#101418; --ly-centre:#b02020;
-    --ly-dim:#0b5cad; --ly-fold:#a0209a; --ly-text:#101418;
-    --ly-fill:rgba(16,20,24,.05); --ly-fill2:rgba(16,20,24,.10);
+    --canvas:#ffffff; --grid:#e9edf1; --grid2:#dce2e8;
+    --ly-object:#0f1216; --ly-hidden:#0f1216; --ly-centre:#9e1b1b;
+    --ly-dim:#084a8c; --ly-fold:#8e1b88; --ly-text:#0f1216;
+    --ly-fill:rgba(15,18,22,.05); --ly-fill2:rgba(15,18,22,.10);
   }
 
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%}
   body{font-family:var(--fs);font-size:14px;background:var(--bg);color:var(--ink);
        display:flex;flex-direction:column}
+  ::selection{background:var(--acc);color:#fff}
+  @media(pointer:fine){
+    ::-webkit-scrollbar{width:11px;height:11px}
+    ::-webkit-scrollbar-track{background:var(--bg)}
+    ::-webkit-scrollbar-thumb{background:var(--line2);border:3px solid var(--bg);border-radius:6px}
+    ::-webkit-scrollbar-thumb:hover{background:var(--sub)}
+    .kitstrip::-webkit-scrollbar{height:8px}
+    .kitstrip::-webkit-scrollbar-thumb{background:var(--grid2);border:none;border-radius:4px}
+  }
 
-  /* ---- toolbar ---- */
-  header{position:sticky;top:0;z-index:30;background:var(--rail);
-         border-bottom:1px solid var(--line);
+  /* ---- title bar: the graphite CAD frame over the light workspace ---- */
+  header{position:sticky;top:0;z-index:30;background:linear-gradient(#262c32,#1f242a);
+         border-bottom:1px solid var(--titlebar-line);
+         box-shadow:inset 0 -1px 0 rgba(33,222,222,.16);
          padding:calc(8px + env(safe-area-inset-top)) 14px 8px;
          display:flex;align-items:center;gap:11px}
-  header .logo{width:28px;height:28px;border-radius:5px;flex:none;background:var(--brand-dk);
-         display:grid;place-items:center}
+  header .logo{width:28px;height:28px;border-radius:5px;flex:none;background:#0f1317;
+         border:1px solid #343c44;display:grid;place-items:center}
   header .logo svg{width:17px;height:17px}
-  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.01em;color:var(--ink)}
-  header .sub{font-family:var(--fm);font-size:9.5px;color:var(--sub);margin-top:2px;
+  header h1{font-size:16px;margin:0;font-weight:600;font-family:var(--fd);font-stretch:87.5%;
+         letter-spacing:.03em;color:var(--titlebar-ink)}
+  header .sub{font-family:var(--fm);font-size:9.5px;color:var(--titlebar-sub);margin-top:2px;
          letter-spacing:.09em;text-transform:uppercase}
-  .back{background:var(--panel);border:1px solid var(--line2);color:var(--ink);font-size:12.5px;
-        font-family:var(--fs);padding:7px 12px;border-radius:4px;font-weight:600;flex:none}
-  .back:hover{border-color:var(--acc);color:var(--acc)}
-  .probadge{margin-left:auto;font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:.12em;
-        padding:4px 8px;border-radius:3px;border:1px solid var(--line2);color:var(--sub);background:var(--panel)}
-  .probadge.pro{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
+  header .ver{font-family:var(--fm);font-size:9px;font-weight:600;color:var(--titlebar-sub);
+         letter-spacing:.08em;margin-left:auto}
+  .back{background:#2a3138;border:1px solid #3a434c;color:#dbe2e8;font-size:12.5px;
+        font-family:var(--fd);font-stretch:87.5%;padding:7px 12px;border-radius:4px;font-weight:600;flex:none}
+  .back:hover{border-color:var(--ly-object);color:var(--ly-object)}
+  .probadge{margin-left:8px;font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:.12em;
+        padding:4px 8px;border-radius:3px;border:1px solid #3a434c;color:#8b96a0;background:#171b1f}
+  .probadge.pro{border-color:#21dede;color:#21dede;background:rgba(33,222,222,.08)}
 
   main{flex:1;overflow-y:auto;padding:14px;max-width:680px;margin:0 auto;width:100%;
        padding-bottom:calc(84px + env(safe-area-inset-bottom))}
-  .page{animation:slidein .16s ease}
-  @keyframes slidein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .page{animation:slidein .22s cubic-bezier(.2,.7,.25,1)}
+  @keyframes slidein{from{opacity:0;transform:translate(var(--px,0px),var(--py,6px))}to{opacity:1;transform:none}}
 
-  /* ---- tab rail ---- */
+  /* ---- tab rail: sliding accent seek bar ---- */
   nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--rail);
       border-top:1px solid var(--line);display:flex;
-      padding:0 6px calc(5px + env(safe-area-inset-bottom))}
-  nav button{flex:1;border:none;background:none;font-family:var(--fs);font-size:11px;font-weight:600;
-      letter-spacing:.04em;color:var(--sub);padding:9px 0 6px;
+      padding:0 6px calc(5px + env(safe-area-inset-bottom));
+      box-shadow:0 50px 0 50px var(--rail)}
+  #navind{position:absolute;top:0;left:6px;width:calc((100% - 12px)/3);height:2px;background:var(--acc);
+      transform:translateX(0);transition:transform .22s cubic-bezier(.3,.8,.3,1);pointer-events:none}
+  nav button{flex:1;border:none;background:none;font-family:var(--fd);font-stretch:87.5%;
+      font-size:11px;font-weight:600;
+      letter-spacing:.05em;color:var(--sub);padding:9px 0 6px;
       display:flex;flex-direction:column;align-items:center;gap:4px;
-      box-shadow:inset 0 2px 0 transparent}
+      transition:color .14s ease}
   nav button svg{width:21px;height:21px;stroke:var(--sub);fill:none;stroke-width:1.7;
-      stroke-linecap:round;stroke-linejoin:round}
-  nav button.on{color:var(--acc);box-shadow:inset 0 2px 0 var(--acc)}
+      stroke-linecap:round;stroke-linejoin:round;transition:stroke .14s ease}
+  nav button.on{color:var(--acc)}
   nav button.on svg{stroke:var(--acc)}
 
-  /* ---- section headings + fitting palette ---- */
-  h2{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.14em;
-     color:var(--sub);margin:20px 1px 9px;display:flex;align-items:center;gap:9px;font-weight:700}
+  /* ---- section headings: CAD layer bars ---- */
+  h2{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;
+     color:#39424b;margin:20px 1px 9px;display:flex;align-items:center;gap:9px;font-weight:700}
+  h2::before{content:"";width:6px;height:6px;background:var(--acc);flex:none}
   h2::after{content:"";flex:1;height:1px;background:var(--line)}
   #app>h2:first-child{margin-top:0}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .tile{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:5px;
         padding:0 0 9px;box-shadow:var(--shadow);text-align:center;cursor:pointer;overflow:hidden;
-        transition:border-color .12s}
+        transition:border-color .12s,transform .16s cubic-bezier(.2,1.4,.4,1)}
+  .tile::before{content:"";position:absolute;top:5px;left:5px;width:10px;height:10px;
+        border-top:1.5px solid transparent;border-left:1.5px solid transparent;
+        transition:border-color .12s;pointer-events:none;z-index:1}
   .tile:hover{border-color:var(--acc)}
-  .tile:active{transform:scale(.985)}
+  .tile:hover::before,.tile:focus-visible::before{border-color:var(--ly-object)}
+  .tile:hover svg,.tile:focus-visible svg{box-shadow:inset 0 0 0 1px var(--ly-object)}
+  .tile:active{transform:scale(.985);transition-duration:.12s,.05s}
   .tile svg{width:100%;height:58px;display:block;margin:0 0 8px;padding:7px 0 3px;
         background:var(--canvas);border-bottom:1px solid var(--line)}
-  .tile .t{font-weight:600;font-size:13px;letter-spacing:.01em;padding:0 7px}
+  .tile .t{font-family:var(--fd);font-stretch:87.5%;font-weight:600;font-size:13.5px;
+        letter-spacing:.02em;padding:0 7px}
   .tile .d{font-family:var(--fm);font-size:9.5px;color:var(--sub);margin-top:2px;line-height:1.35;padding:0 7px}
   .tile .lock{position:absolute;top:6px;right:6px;width:19px;height:19px;border-radius:3px;
         background:var(--lock-bg);border:1px solid var(--line);display:grid;place-items:center;font-size:10px}
   .full{grid-column:1/-1}
+
+  /* ---- cold boot: the home screen draws itself in like a plotter ---- */
+  @media (prefers-reduced-motion:no-preference){
+    body.boot h2::after{transform-origin:left;animation:rulewipe .45s .12s both cubic-bezier(.2,.7,.25,1)}
+    @keyframes rulewipe{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+    body.boot .tile{animation:tilein .3s both ease-out;animation-delay:var(--d,0ms)}
+    @keyframes tilein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+    body.boot .tile svg *:not([stroke-dasharray]){
+      animation:draw .55s ease-out both,inkfill .25s ease-out both;
+      animation-delay:calc(var(--d,0ms) + 60ms),calc(var(--d,0ms) + 420ms)}
+    @keyframes draw{from{stroke-dasharray:280;stroke-dashoffset:280}to{stroke-dasharray:280;stroke-dashoffset:0}}
+    @keyframes inkfill{from{fill-opacity:0}to{fill-opacity:1}}
+  }
 
   /* ---- panels + controls ---- */
   .card{background:var(--panel);border:1px solid var(--line);border-radius:5px;box-shadow:var(--shadow);
@@ -506,52 +550,134 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   label{display:block;font-family:var(--fm);font-size:9.5px;font-weight:700;text-transform:uppercase;
         letter-spacing:.08em;color:var(--sub);margin:12px 0 5px}
   .card>label:first-child{margin-top:0}
-  input,select{width:100%;font-size:15px;font-family:var(--fm);padding:9px 10px;
-        border:1px solid var(--line2);border-radius:4px;background:var(--field);color:var(--ink)}
-  input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
-  button:focus-visible,.tile:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  input,select{width:100%;font-size:16px;font-family:var(--fm);padding:9px 10px;
+        border:1px solid var(--line2);border-radius:4px;background:var(--field);color:var(--ink);
+        font-variant-numeric:tabular-nums slashed-zero}
+  input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(10,90,168,.22)}
+  button:focus-visible,.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 
   .seg{display:flex;gap:0;background:var(--panel);padding:0;border-radius:4px;
         border:1px solid var(--line2);overflow:hidden}
   .seg button{flex:1;border:none;border-right:1px solid var(--line);background:var(--panel);
-        padding:9px 4px;font-family:var(--fs);font-weight:600;font-size:12.5px;
-        color:var(--sub);transition:.1s}
+        padding:9px 4px;font-family:var(--fd);font-stretch:87.5%;font-weight:600;font-size:12.5px;
+        color:var(--sub);
+        transition:background-color .14s ease,color .14s ease,transform .15s cubic-bezier(.2,1.2,.4,1)}
   .seg button:last-child{border-right:none}
   .seg button:hover{background:var(--panel2)}
+  .seg button:active{transform:scale(.96);transition-duration:.14s,.14s,.05s}
   .seg button.on{background:var(--acc);color:var(--acc-ink)}
 
-  /* ---- viewports: the drawing canvas ---- */
+  /* ---- viewports: the drawing canvas as a real CAD instrument ---- */
   .preview{background:var(--panel);border:1px solid var(--line);border-radius:5px;
         margin-bottom:11px;box-shadow:var(--shadow);overflow:hidden}
-  .pvhead{display:flex;justify-content:space-between;align-items:center;
+  .pvhead{display:flex;justify-content:space-between;align-items:center;gap:8px;
         background:var(--panel2);border-bottom:1px solid var(--line);padding:6px 9px}
   .pvhead .k{font-family:var(--fm);font-size:9px;color:var(--sub);font-weight:700;
-        text-transform:uppercase;letter-spacing:.09em}
-  .pvhead .v{font-family:var(--fm);font-size:10px;color:var(--acc);font-weight:700}
+        text-transform:uppercase;letter-spacing:.09em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pvhead .v{font-family:var(--fm);font-size:10px;color:var(--acc);font-weight:700;flex:none;
+        font-variant-numeric:tabular-nums}
+  #pvcoord{font-family:var(--fm);font-size:9.5px;color:var(--good);font-weight:700;flex:1;
+        text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pvz{color:var(--acc)}
+  .pvpill{font-family:var(--fm);font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--acc);
+        background:var(--acc-soft);border:1px solid var(--acc);border-radius:3px;padding:3px 7px;flex:none}
+  .pvwrap{position:relative}
   #pv{background:var(--canvas);
       background-image:linear-gradient(var(--grid) 1px,transparent 1px),
                        linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-      background-size:16px 16px;padding:8px;display:block}
-  #pv svg{display:block}
-  .stat{display:flex;flex-wrap:wrap;gap:5px;padding:9px;border-top:1px solid var(--line);background:var(--panel)}
-  .chip{font-family:var(--fm);font-size:10.5px;font-weight:600;
+      background-size:16px 16px;padding:8px;display:block;
+      overflow:hidden;touch-action:pan-y;cursor:crosshair;position:relative}
+  #pv:active{cursor:grabbing}
+  #pv svg{display:block;will-change:transform;transform-origin:0 0}
+  #pv::after{content:"MODEL";position:absolute;top:6px;left:9px;
+      font:700 8.5px/1 var(--fm);letter-spacing:.18em;color:#8b96a0;pointer-events:none}
+  :root[data-canvas="paper"] #pv::after{content:"PAPER";color:#5a646e}
+  #pv{--pvglow:drop-shadow(0 0 .6px rgba(33,222,222,.4))}
+  #pv svg{filter:saturate(1.08) var(--pvglow)}
+  :root[data-canvas="paper"] #pv svg{filter:none}
+  #fitdiag svg{filter:drop-shadow(0 0 2.5px rgba(33,222,222,.22))}
+  :root[data-canvas="paper"] #fitdiag svg{filter:none}
+  /* zoom HUD cluster (sibling of #pv inside .pvwrap - survives re-renders) */
+  .pvctl{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:5px;z-index:4}
+  .pvctl button{width:34px;height:34px;border-radius:5px;font-family:var(--fm);font-size:17px;font-weight:700;
+      color:var(--ly-object);background:rgba(10,13,16,.62);border:1px solid var(--ly-object);
+      line-height:1;display:grid;place-items:center;padding:0}
+  :root[data-canvas="paper"] .pvctl button{background:rgba(255,255,255,.78);border-color:var(--line2)}
+  .pvctl button:active{transform:scale(.92)}
+  /* live scale bar (true mm at current zoom) */
+  .pvscale{position:absolute;left:10px;bottom:10px;z-index:3;pointer-events:none;
+      display:flex;align-items:flex-end;gap:6px}
+  .pvscale .bar{height:7px;border:1px solid var(--ly-dim);border-top:none;display:block}
+  .pvscale .lab{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--ly-dim);line-height:1}
+  /* desktop crosshair (fine pointers only, driven by JS) */
+  .pvx{position:absolute;background:var(--ly-dim);opacity:.5;pointer-events:none;z-index:3;display:none}
+  .pvx.h{left:0;right:0;height:1px}
+  .pvx.v{top:0;bottom:0;width:1px}
+  /* layer legend: tap a chip to freeze that layer */
+  .pvlegend{display:flex;gap:6px;flex-wrap:wrap;padding:7px 9px;background:var(--panel2);
+      border-top:1px solid var(--line)}
+  .lgc{display:flex;align-items:center;gap:5px;font-family:var(--fm);font-size:9.5px;font-weight:700;
+      letter-spacing:.05em;color:var(--sub);border:1px solid var(--line);border-radius:3px;
+      padding:3px 7px;cursor:pointer;user-select:none;transition:opacity .12s;
+      appearance:none;background:none}
+  .lgc.off{opacity:.4;text-decoration:line-through}
+  .lgc i{width:15px;height:0;border-top-width:2.5px;border-top-style:solid;display:inline-block}
+  #pv.off-cut .ly-cut,#pv.off-fold .ly-fold,#pv.off-ord .ly-ord,#pv.off-hole .ly-hole{opacity:.08}
+  .kitpc:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  /* glove-sized targets on touch devices */
+  @media(pointer:coarse){
+    .pvctl button{width:44px;height:44px}
+    .lgc{min-height:40px;padding:8px 12px}
+    .pvpill{min-height:32px;padding:6px 12px}
+  }
+  /* the Plotter Pass: one-shot draw-in when a fitting (or kit piece) opens.
+     Lives inside no-preference so reduced motion NEVER hides linework. */
+  @media (prefers-reduced-motion:no-preference){
+    #pv.plot .ln-draw{stroke-dasharray:1;stroke-dashoffset:1;
+      animation:plotln .5s cubic-bezier(.4,0,.2,1) forwards;
+      animation-delay:calc(60ms + min(var(--i,0)*18ms,500ms))}
+    #pv.plot .ln-detail{opacity:0;animation:plotfade .28s ease forwards;
+      animation-delay:calc(.45s + min(var(--i,0)*7ms,350ms))}
+    @keyframes plotln{to{stroke-dashoffset:0}}
+    @keyframes plotfade{to{opacity:1}}
+  }
+  /* dead zone: keystroke re-renders must never strobe (plot pass excepted) */
+  #pv:not(.plot) svg *,#fitdiag *,.kitstrip:not(.reveal) .kitpc{animation:none!important}
+  /* status bar: readouts fused onto the canvas */
+  .stat{display:flex;flex-wrap:wrap;gap:5px;padding:9px;border-top:1px solid var(--grid2);background:var(--canvas)}
+  .stat .chip{background:transparent;border:1px solid var(--grid2);color:var(--ly-text);
+      letter-spacing:.02em}
+  .stat .chip.gold{background:transparent;border-color:var(--ly-dim);color:var(--ly-dim)}
+  @media (prefers-reduced-motion:no-preference){
+    #pvstat .chip{animation:recalc .35s ease}
+    @keyframes recalc{from{border-color:var(--ly-dim)}}
+  }
+  .chip{font-family:var(--fm);font-size:11px;font-weight:600;
         background:var(--panel2);border:1px solid var(--chip-line);border-radius:3px;
-        padding:4px 7px;color:var(--chip-ink)}
+        padding:4px 7px;color:var(--chip-ink);font-variant-numeric:tabular-nums slashed-zero}
   .chip.gold{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
 
   #fitdiag{background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:5px;
         background-image:linear-gradient(var(--grid) 1px,transparent 1px),
                          linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-        background-size:16px 16px}
-  [data-seamsvg]{background:var(--canvas);border:1px solid var(--line);border-radius:4px}
+        background-size:16px 16px;cursor:crosshair}
+  [data-seamsvg]{background:var(--canvas);border:1px solid var(--line);border-radius:4px;cursor:crosshair}
+  .seamdot{transition:r .16s cubic-bezier(.34,1.56,.5,1),fill .16s ease;
+        transform-box:fill-box;transform-origin:center}
+  [data-dot]:active .seamdot{transform:scale(1.15)}
+  .seamhalo{fill:none;stroke:var(--ly-centre);stroke-width:2;pointer-events:none;
+        transform-box:fill-box;transform-origin:center;animation:halo .38s ease-out forwards}
+  @keyframes halo{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(2)}}
 
-  /* ---- buttons ---- */
-  .btn{width:100%;border:none;font-family:var(--fs);font-size:14px;font-weight:600;
-        letter-spacing:.01em;padding:12px;border-radius:4px;transition:background .1s}
-  .btn:active{transform:scale(.99)}
+  /* ---- buttons: machined keys ---- */
+  .btn{width:100%;border:none;font-family:var(--fd);font-stretch:87.5%;font-size:14.5px;font-weight:600;
+        letter-spacing:.03em;padding:12px;border-radius:4px;
+        transition:background .1s,transform .18s cubic-bezier(.2,1.4,.4,1),box-shadow .18s ease}
+  .btn:active{transform:translateY(1px) scale(.995);transition-duration:.1s,.05s,.05s}
   .btn.primary{background:var(--acc);color:var(--acc-ink)}
   .btn.primary:hover{background:var(--acc-hi)}
+  .btn.primary:active{box-shadow:inset 0 2px 3px rgba(0,0,0,.16)}
   .btn.gold{background:var(--panel);color:var(--acc);border:1px solid var(--acc)}
   .btn.gold:hover{background:var(--acc-soft)}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
@@ -560,18 +686,37 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .btn.ghost:disabled,.btn.primary:disabled{opacity:.42}
   .genwrap{position:sticky;bottom:0;z-index:5;padding-top:8px;
         background:linear-gradient(transparent,var(--bg) 34%)}
+  /* Generate 'plots' the sheet before it saves */
+  .btn.primary{position:relative;overflow:hidden}
+  .btn.primary.plotting{color:transparent;pointer-events:none}
+  .btn.primary.plotting::before{content:"PLOTTING…";position:absolute;inset:0;display:grid;place-items:center;
+        color:var(--acc-ink);font-family:var(--fm);font-size:12px;font-weight:700;letter-spacing:.18em}
+  .btn.primary.plotting::after{content:"";position:absolute;top:0;bottom:0;left:0;width:38%;opacity:0;
+        background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
+        animation:plotsweep .45s linear 2}
+  @keyframes plotsweep{0%{opacity:1;transform:translateX(-110%)}100%{opacity:1;transform:translateX(320%)}}
 
   .hint{font-size:11.5px;color:var(--sub);text-align:center;margin-top:8px;line-height:1.5}
-  table{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--fm)}
+  /* engineering data table */
+  table{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--fm);
+        font-variant-numeric:tabular-nums slashed-zero}
   th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line)}
   th{background:var(--brand-dk);color:#e6ebf0;position:sticky;top:0;font-size:9.5px;
-     text-transform:uppercase;letter-spacing:.09em}
+     text-transform:uppercase;letter-spacing:.09em;border-bottom:2px solid var(--acc)}
   th:first-child,td:first-child{text-align:left}
+  th:not(:first-child),td:not(:first-child){border-left:1px solid var(--zebra)}
+  td:first-child{font-weight:700}
+  th:nth-child(3),td:nth-child(3){color:var(--acc);font-weight:700}
   tr:nth-child(even) td{background:var(--zebra)}
+  @media(hover:hover){tbody tr:hover td{background:var(--acc-soft);box-shadow:inset 2px 0 0 var(--acc)}}
   .note{font-size:11.5px;color:var(--warn);background:var(--note-bg);border:1px solid var(--note-line);
         border-left:3px solid var(--warn);border-radius:4px;padding:8px 10px;margin-top:10px;line-height:1.45}
   .hide{display:none}
   .empty{text-align:center;color:var(--sub);padding:38px 20px;font-size:13px;line-height:1.6}
+  .empty .sketch{background:var(--canvas);
+        background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+        background-size:16px 16px;border:1px solid var(--line);border-radius:5px;
+        padding:14px;max-width:260px;margin:0 auto 16px;display:grid;place-items:center}
 
   /* ---- jobs ---- */
   .jobrow{display:flex;align-items:center;gap:9px;padding:11px 3px;border-bottom:1px solid var(--line);cursor:pointer}
@@ -595,27 +740,50 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         padding:22px;animation:fadein .13s ease}
   @keyframes fadein{from{opacity:0}to{opacity:1}}
   .modal{background:var(--panel);border:1px solid var(--line2);border-radius:6px;padding:18px;width:100%;
-        max-width:380px;box-shadow:var(--shadow-lg);animation:slidein .16s ease}
-  .modal h3{margin:0 0 6px;font-size:16px;font-weight:600}
+        max-width:380px;box-shadow:var(--shadow-lg);animation:modalin .2s cubic-bezier(.2,.9,.25,1)}
+  @keyframes modalin{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  .modal-bg.closing{animation:bgout .15s ease-in forwards}
+  @keyframes bgout{to{opacity:0}}
+  .modal-bg.closing .modal{animation:modalout .15s ease-in forwards}
+  @keyframes modalout{to{opacity:0;transform:translateY(6px) scale(.99)}}
+  .modal h3{margin:0 0 6px;font-size:16px;font-weight:600;font-family:var(--fd);font-stretch:87.5%;letter-spacing:.015em}
   .modal p{margin:0 0 13px;font-size:12.5px;color:var(--sub);line-height:1.5}
+  /* drawing-sheet variant (first run): graphite title block, square corners */
+  .modal.sheet{border:2px solid var(--brand-dk);border-radius:2px;padding:0;overflow:hidden}
+  .modal.sheet .tb{display:flex;justify-content:space-between;background:var(--brand-dk);
+        color:#e6ebf0;font:700 9.5px var(--fm);letter-spacing:.14em;text-transform:uppercase;padding:7px 12px}
+  .modal.sheet .bd{padding:16px 18px}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));
         background:var(--brand-dk);border-left:3px solid var(--acc);
         color:#eef2f6;font-size:12.5px;font-weight:600;padding:10px 14px;border-radius:4px;
-        z-index:60;box-shadow:var(--shadow-lg);animation:slidein .18s ease;max-width:88vw}
+        z-index:60;box-shadow:var(--shadow-lg);animation:toastin .22s cubic-bezier(.2,.9,.3,1);max-width:88vw}
+  @keyframes toastin{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+  .toast::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--acc);
+        transform-origin:left;animation:toastlife 2.3s linear forwards}
+  @keyframes toastlife{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .toast.out{animation:toastout .16s ease-in forwards}
+  @keyframes toastout{to{opacity:0;transform:translate(-50%,8px)}}
   .prolist{margin:0 0 14px;padding:0;list-style:none}
   .prolist li{display:flex;gap:8px;align-items:center;font-size:13px;padding:4px 0;font-weight:500}
   .prolist li::before{content:"✓";color:var(--good);font-weight:800}
 
-  /* ---- kit strip ---- */
+  /* ---- kit strip: tappable pieces, dealt onto the bench on reveal ---- */
   .kitbar{width:100%;border:none;background:var(--panel2);border-top:1px solid var(--line);
         font-family:var(--fm);font-weight:700;font-size:9.5px;text-transform:uppercase;
         letter-spacing:.09em;color:var(--acc);padding:8px 4px;text-align:center;cursor:pointer}
   .kitstrip{display:flex;gap:8px;overflow-x:auto;padding:9px;background:var(--panel);border-top:1px solid var(--line)}
-  .kitpc{flex:none;width:176px;border:1px solid var(--line);border-radius:4px;background:var(--canvas);overflow:hidden}
+  .kitpc{flex:none;width:176px;border:1px solid var(--line);border-radius:4px;background:var(--canvas);
+        overflow:hidden;cursor:pointer;transition:border-color .12s}
+  .kitpc:hover{border-color:var(--acc)}
+  .kitpc.on{border-color:var(--ly-object);box-shadow:0 0 0 1px var(--ly-object) inset}
   .kitpc .kt{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--sub);
         background:var(--panel2);border-bottom:1px solid var(--line);padding:4px 5px;text-align:center;
         text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .kitpc svg{width:100%;height:auto;display:block;padding:5px}
+  @media (prefers-reduced-motion:no-preference){
+    .kitstrip.reveal .kitpc{animation:kitin .3s both ease-out;animation-delay:calc(var(--i,0)*45ms)}
+    @keyframes kitin{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+  }
 
   /* ---- wide screens ---- */
   .fld{min-width:0}
@@ -638,10 +806,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.0.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
+  <span id="navind"></span>
   <button data-tab="fit" class="on"><svg viewBox="0 0 24 24"><path d="M4 20 L12 4 L20 20 A12 12 0 0 1 4 20 Z"/></svg>Fittings</button>
   <button data-tab="jobs"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>Jobs</button>
   <button data-tab="set"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4L9.7 5.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.5-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z"/></svg>Settings</button>
@@ -2136,10 +2305,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // output (toDXF) are produced separately and are unaffected by this - they
   // always plot black on white.
   const CANVAS_LAYERS = {
-    model: { object:'#00e5e5', fold:'#ff6bd6', centre:'#ff5a52', lap:'#4cd964',
-             hole:'#4cd964', text:'#c3ccd4' },
-    paper: { object:'#101418', fold:'#a0209a', centre:'#b02020', lap:'#0b5cad',
-             hole:'#1f7a44', text:'#5a646e' }
+    model: { object:'#21dede', fold:'#ff7ddb', centre:'#ff6f61', lap:'#4cd964',
+             hole:'#4cd964', text:'#d5dde3', canvas:'#1a1e22' },
+    paper: { object:'#0f1216', fold:'#8e1b88', centre:'#9e1b1b', lap:'#084a8c',
+             hole:'#1c7a43', text:'#39424b', canvas:'#ffffff' }
   };
   let CANVAS = 'model';
   function setCanvas(mode) { CANVAS = (mode === 'paper') ? 'paper' : 'model'; }
@@ -2148,17 +2317,24 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const L = CANVAS_LAYERS[CANVAS], bb = pat.bbox, pad = 12;
     const scale = (wpx - 2 * pad) / bb.w, hpx = bb.h * scale + 2 * pad;
     const X = x => pad + (x - bb.x0) * scale, Y = y => pad + (bb.y1 - y) * scale;
-    let s = `<svg viewBox="0 0 ${wpx} ${hpx}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">`;
+    // data- attrs: px->mm mapping for the on-screen crosshair/scale-bar HUD.
+    // Layer classes (ly-*) drive the tap-to-isolate legend; ln-draw/ln-detail
+    // + --i drive the one-shot plotter animation. Screen only - print/CNC
+    // never see any of this.
+    let s = `<svg viewBox="0 0 ${wpx} ${hpx}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto"` +
+            ` data-scale="${scale}" data-x0="${bb.x0}" data-y1="${bb.y1}" data-pad="${pad}">`;
     const path = (pts) => pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join(' ');
+    let li = 0;
     pat.prim.forEach(pr => {
-      if (pr.style === 'cut') s += `<path d="${path(pr.pts)}" fill="none" stroke="${L.object}" stroke-width="1.7" stroke-linejoin="round"/>`;
-      else if (pr.style === 'fold') s += `<path d="${path(pr.pts)}" fill="none" stroke="${L.fold}" stroke-width="1.1" stroke-dasharray="7 4"/>`;
-      else if (pr.style === 'lap') s += `<path d="${path(pr.pts)}" fill="none" stroke="${L.lap}" stroke-width="1" stroke-dasharray="2 3"/>`;
-      else if (pr.style === 'ord') s += `<path d="${path(pr.pts)}" fill="none" stroke="${L.centre}" stroke-width="0.7" opacity="0.75"/>`;
-      else s += `<path d="${path(pr.pts)}" fill="none" stroke="${L.centre}" stroke-width="0.9" stroke-dasharray="9 3 2 3"/>`;
+      const ai = ` style="--i:${li++}"`;
+      if (pr.style === 'cut') s += `<path class="ly-cut ln-draw" pathLength="1"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.object}" stroke-width="1.7" stroke-linejoin="round"/>`;
+      else if (pr.style === 'fold') s += `<path class="ly-fold ln-detail"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.fold}" stroke-width="1.1" stroke-dasharray="7 4"/>`;
+      else if (pr.style === 'lap') s += `<path class="ly-hole ln-detail"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.lap}" stroke-width="1" stroke-dasharray="2 3"/>`;
+      else if (pr.style === 'ord') s += `<path class="ly-ord ln-draw" pathLength="1"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.centre}" stroke-width="0.7" opacity="0.75"/>`;
+      else s += `<path class="ly-ord ln-detail"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.centre}" stroke-width="0.9" stroke-dasharray="9 3 2 3"/>`;
     });
-    pat.holes.forEach(h => { const x=X(h[0]),y=Y(h[1]); s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="none" stroke="${L.hole}" stroke-width="1"/>`; });
-    pat.ticks.forEach(t => { s += `<text x="${X(t.x).toFixed(1)}" y="${(Y(t.y)-3).toFixed(1)}" font-size="7.5" font-family="Consolas,monospace" fill="${L.text}" text-anchor="middle">${t.label}</text>`; });
+    pat.holes.forEach(h => { const x=X(h[0]),y=Y(h[1]); s+=`<circle class="ly-hole ln-detail" style="--i:${li++}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="none" stroke="${L.hole}" stroke-width="1"/>`; });
+    pat.ticks.forEach(t => { s += `<text class="ly-txt ln-detail" style="--i:${li++}" x="${X(t.x).toFixed(1)}" y="${(Y(t.y)-3).toFixed(1)}" font-size="8" font-family="'Cascadia Mono',Consolas,monospace" fill="${L.text}" paint-order="stroke" stroke="${L.canvas}" stroke-width="2.4" stroke-linejoin="round" text-anchor="middle">${t.label}</text>`; });
     s += `</svg>`; return s;
   }
 
@@ -2202,15 +2378,74 @@ const app=document.getElementById('app'), backBtn=document.getElementById('backB
 const ttl=document.getElementById('ttl'), subttl=document.getElementById('subttl'), proBadge=document.getElementById('proBadge');
 const PM=10, OV=20;
 function renderPro(){ proBadge.textContent=PRO?'PRO':'FREE'; proBadge.classList.toggle('pro',!!PRO); }
-function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(()=>t.remove(),2300); }
+function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m;
+  document.body.appendChild(t);
+  setTimeout(()=>t.classList.add('out'),2150);
+  setTimeout(()=>t.remove(),2320); }
 function modal(html){ const bg=document.createElement('div'); bg.className='modal-bg'; bg.innerHTML=`<div class="modal">${html}</div>`;
-  bg.addEventListener('click',e=>{ if(e.target===bg) bg.remove(); }); document.body.appendChild(bg); return bg; }
+  bg.close=()=>{ bg.classList.add('closing'); setTimeout(()=>bg.remove(),160); };
+  bg.addEventListener('click',e=>{ if(e.target===bg) bg.close(); }); document.body.appendChild(bg); return bg; }
 function setView(t,s,back){ ttl.textContent=t; subttl.textContent=s; backBtn.classList.toggle('hide',!back); }
-function repage(fn){ const el=app; el.classList.remove('page'); void el.offsetWidth; el.classList.add('page'); fn(); }
+/* px = horizontal slide-in offset for direction-aware tab moves (0 = plain rise) */
+function repage(fn,px){ const el=app; el.style.setProperty('--px',(px||0)+'px');
+  el.classList.remove('page'); void el.offsetWidth; el.classList.add('page'); fn(); }
 function plan(pat,page){ const P=FP.PAGES[page]; let best=null,bn=1e9;
   [[P[0],P[1]],[P[1],P[0]]].forEach(c=>{ const sx=c[0]-2*PM-OV, sy=c[1]-2*PM-OV;
     const n=Math.ceil(pat.bbox.w/sx)*Math.ceil(pat.bbox.h/sy); if(n<bn){bn=n;best={n,c};}});
   return best; }
+
+/* ================= PVZoom: the viewport controller =================
+   Pinch / wheel / drag / double-tap on #pv. State lives HERE, not in the
+   DOM, so it survives the innerHTML swap refresh() does on every input -
+   a MutationObserver re-stamps the transform onto each new svg. */
+const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=null,obs=null,tapT=0;
+  const clamp=n=>Math.max(0.4,Math.min(12,n));
+  const svg=()=>box&&box.firstElementChild;
+  function apply(){ const g=svg(); if(g&&g.tagName==='svg'){
+      g.style.transform=`translate(${v.x}px,${v.y}px) scale(${v.s})`; }
+    /* fit-to-width (100%): one finger scrolls the PAGE, the +/- HUD is the
+       touch route into zoom. Once zoomed, the viewport owns every gesture. */
+    if(box) box.style.touchAction = v.s>1.001 ? 'none' : 'pan-y';
+    const hud=document.getElementById('pvzoom'); if(hud) hud.textContent=Math.round(v.s*100)+'%';
+    pvScale(); }
+  function reset(){ v={s:1,x:0,y:0}; apply(); }
+  function zoomAt(cx,cy,f){ const r=box.getBoundingClientRect(),px=cx-r.left,py=cy-r.top,ns=clamp(v.s*f);
+    v.x=px-(px-v.x)*(ns/v.s); v.y=py-(py-v.y)*(ns/v.s); v.s=ns; apply(); }
+  function down(e){ box.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e);
+    const t=Date.now(); if(t-tapT<300&&ptrs.size===1) reset(); tapT=t;
+    if(ptrs.size===1) last={x:e.clientX,y:e.clientY};
+    else if(ptrs.size===2){ const p=[...ptrs.values()];
+      pinch={d:Math.hypot(p[0].clientX-p[1].clientX,p[0].clientY-p[1].clientY),
+             mx:(p[0].clientX+p[1].clientX)/2,my:(p[0].clientY+p[1].clientY)/2}; } }
+  function move(e){ if(!ptrs.has(e.pointerId))return; ptrs.set(e.pointerId,e);
+    if(ptrs.size===2&&pinch){ const p=[...ptrs.values()],
+      d=Math.hypot(p[0].clientX-p[1].clientX,p[0].clientY-p[1].clientY);
+      if(pinch.d>0) zoomAt(pinch.mx,pinch.my,d/pinch.d); pinch.d=d; return; }
+    if(ptrs.size===1&&last&&v.s>1.001){ v.x+=e.clientX-last.x; v.y+=e.clientY-last.y;
+      last={x:e.clientX,y:e.clientY}; apply(); } }
+  function up(e){ ptrs.delete(e.pointerId); pinch=null;
+    last=ptrs.size===1?(()=>{const p=[...ptrs.values()][0];return{x:p.clientX,y:p.clientY};})():null; }
+  function wheel(e){ e.preventDefault(); zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*0.0015)); }
+  /* live scale bar: true on-screen mm at the current zoom */
+  function pvScale(){ const g=svg(),el=document.getElementById('pvscale');
+    if(!g||!el||g.tagName!=='svg'){ if(el) el.style.display='none'; return; }
+    const sc=+g.dataset.scale, vb=(g.getAttribute('viewBox')||'').split(' ');
+    if(!sc||vb.length<3){ el.style.display='none'; return; }
+    const pxPerMm=sc*(g.clientWidth/ +vb[2])*v.s;
+    if(!(pxPerMm>0)){ el.style.display='none'; return; }
+    let mm=100; for(const t of [500,200,100,50,20,10,5]){ mm=t; if(t*pxPerMm<box.clientWidth*0.42) break; }
+    el.style.display='flex';
+    el.querySelector('.bar').style.width=(mm*pxPerMm).toFixed(1)+'px';
+    el.querySelector('.lab').textContent=mm+' mm'; }
+  return { attach(el){ if(!el)return; box=el; v={s:1,x:0,y:0}; ptrs.clear(); pinch=null; last=null;
+      el.addEventListener('pointerdown',down); el.addEventListener('pointermove',move);
+      el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+      el.addEventListener('wheel',wheel,{passive:false}); el.addEventListener('dblclick',reset);
+      if(obs)obs.disconnect(); obs=new MutationObserver(apply); obs.observe(el,{childList:true}); apply(); },
+    reset, apply, get s(){return v.s;},
+    nudge(f){ if(!box)return; const r=box.getBoundingClientRect();
+      zoomAt(r.left+r.width/2,r.top+r.height/2,f); } };
+})();
 
 /* ================= icons ================= */
 const I={
@@ -2475,10 +2710,13 @@ function showUnlock(){
 
 /* ================= tabs / routing ================= */
 let TAB='fit', CUR=null;
-document.getElementById('nav').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+const TABS=['fit','jobs','set'];
+document.getElementById('nav').querySelectorAll('button[data-tab]').forEach(b=>b.onclick=()=>{
+  const oi=TABS.indexOf(TAB), ni=TABS.indexOf(b.dataset.tab);
+  const ind=document.getElementById('navind'); if(ind) ind.style.transform='translateX('+(ni*100)+'%)';
   TAB=b.dataset.tab; CUR=null;
   document.getElementById('nav').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-  repage(route);
+  repage(route, ni>oi?14:ni<oi?-14:0);
 });
 backBtn.onclick=()=>{ CUR=null; repage(route); };
 function route(){ if(CUR){ CUR(); return; } TAB==='fit'?home():TAB==='jobs'?jobsPage():settingsPage(); }
@@ -2486,13 +2724,17 @@ function route(){ if(CUR){ CUR(); return; } TAB==='fit'?home():TAB==='jobs'?jobs
 /* ================= home ================= */
 function home(){
   setView('CladMate','Insulation cladding patterns',false);
-  const tile=k=>`<div class="tile" data-go="${k}">${unlocked(k)?'':'<span class="lock">🔒</span>'}${F[k].icon}<div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div></div>`;
+  let ti=0;
+  const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}${F[k].icon}<div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div></div>`;
   let tiles=GROUPS.map(g=>`<h2>${g.t}</h2><div class="grid">${g.k.map(tile).join('')}</div>`).join('');
-  tiles+=`<h2>Reference</h2><div class="grid"><div class="tile full" data-go="chart">${I.chart}<div class="t">Standard Pipe Chart</div><div class="d">DN · OD · long &amp; short radius</div></div></div>`;
+  tiles+=`<h2>Reference</h2><div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms">${I.chart}<div class="t">Standard Pipe Chart</div><div class="d">DN · OD · long &amp; short radius</div></div></div>`;
   app.innerHTML=`${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}
     <div class="hint" style="margin-top:14px">Add to Home Screen from your browser menu to use CladMate offline, like a real app.</div>`;
+  /* cold boot: once per launch the tiles plot themselves in */
+  if(!window._booted){ window._booted=true; document.body.classList.add('boot');
+    setTimeout(()=>document.body.classList.remove('boot'),1000); }
   app.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>{ const g=e.dataset.go; repage(()=>{ g==='chart'?chart():form(g); }); });
   const ub=document.getElementById('upBtn'); if(ub) ub.onclick=showUnlock;
   if(window._installEvt){ const w=document.getElementById('installWrap'); w.classList.remove('hide');
@@ -2503,7 +2745,9 @@ function home(){
 function chart(){
   CUR=chart; setView('Pipe Chart','DN · OD · radii (mm)',true);
   const rows=FP.PIPE_CHART.map(p=>`<tr><td>${p.inch}"</td><td>${p.dn}</td><td>${p.od}</td><td>${p.lr}</td><td>${p.sr??'–'}</td></tr>`).join('');
-  app.innerHTML=`<div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Inch</th><th>DN</th><th>OD</th><th>Long R</th><th>Short R</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  app.innerHTML=`<div class="card" style="padding:0;overflow:hidden">
+    <div class="pvhead"><span class="k">ASME B36.10 · BS EN 10220</span><span class="v">ALL DIMS MM</span></div>
+    <table><thead><tr><th>Inch</th><th>DN</th><th>OD</th><th>Long R</th><th>Short R</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 
@@ -2517,17 +2761,19 @@ const _pl=(ps,st)=>`<polyline points="${ps.map(p=>p[0].toFixed(1)+','+p[1].toFix
    Screen drawing only - printed output (makePDF / toDXF) is untouched and
    still plots black on white. Model space = AutoCAD layer colours on a
    dark canvas; paper space = black linework on white for bright sunlight. */
-const LAYERS={
-  model:{object:'#00e5e5',hidden:'#e8d44d',centre:'#ff5a52',dim:'#4cd964',fold:'#ff6bd6',
-         text:'#e6ebf0',faint:'#7d8790',fill:'rgba(0,229,229,.10)',fill2:'rgba(0,229,229,.19)',
-         hi:'#ffd166',hidfaint:'#8c4a46',canvas:'#1e2226'},
-  paper:{object:'#101418',hidden:'#101418',centre:'#b02020',dim:'#0b5cad',fold:'#a0209a',
-         text:'#101418',faint:'#8a939c',fill:'rgba(16,20,24,.05)',fill2:'rgba(16,20,24,.11)',
-         hi:'#c98a00',hidfaint:'#d9a6a2',canvas:'#ffffff'}
-};
-let LY=LAYERS.model, INKST, SEAMST, HIDST, DIMC, DIMST;
+/* CSS :root is the single source of truth for layer colours - applyLayers()
+   reads the custom properties after data-canvas is stamped, so the diagrams
+   can never drift from the stylesheet. Only the hexes with no CSS token
+   (faint, hi, hidfaint) live here. */
+const XLAYERS={ model:{faint:'#7d8790',hi:'#ffd166',hidfaint:'#8c4a46'},
+                paper:{faint:'#8a939c',hi:'#c98a00',hidfaint:'#d9a6a2'} };
+let LY={}, INKST, SEAMST, HIDST, DIMC, DIMST;
 function applyLayers(){
-  LY=LAYERS[SET.canvas==='paper'?'paper':'model'];
+  const css=getComputedStyle(document.documentElement), cv=n=>css.getPropertyValue(n).trim();
+  const x=XLAYERS[SET.canvas==='paper'?'paper':'model'];
+  LY=Object.assign({object:cv('--ly-object'),hidden:cv('--ly-hidden'),centre:cv('--ly-centre'),
+      dim:cv('--ly-dim'),fold:cv('--ly-fold'),text:cv('--ly-text'),
+      fill:cv('--ly-fill'),fill2:cv('--ly-fill2'),canvas:cv('--canvas')},x);
   INKST=`stroke="${LY.object}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"`;
   SEAMST=`stroke="${LY.centre}" stroke-width="1.4" stroke-dasharray="11 3 3 3" stroke-linecap="round"`;
   HIDST=`stroke="${LY.hidden}" stroke-width="1.3" stroke-dasharray="6 4" stroke-linecap="round"`;
@@ -3049,7 +3295,7 @@ function fieldHTML(f,s){
 }
 function form(kind, presetParams){
   CUR=()=>form(kind);
-  let kitOpen=false;
+  let kitOpen=false, kitJustOpened=false, activePc=null, plotOnce=true;
   const fit=F[kind];
   if(presetParams) states[kind]=Object.assign({},presetParams,{__touched:true});
   const s=states[kind];
@@ -3058,7 +3304,22 @@ function form(kind, presetParams){
   setView(fit.name,fit.sub,true);
   const seamF=fit.fields.find(f=>f.type==='seam');
   let html=`<div class="workspace"><div class="pane-left">`;
-  html+=`<div class="preview"><div class="pvhead"><span class="k">Live preview (1:1 flat pattern)</span><span class="v" id="pvsheets"></span></div><div id="pv"></div><div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
+  html+=`<div class="preview">
+    <div class="pvhead"><span class="k" id="pvtitle">Live preview (1:1 flat pattern)</span>
+      <button id="pvback" class="pvpill" style="display:none">◂ FULL PATTERN</button>
+      <span id="pvcoord"></span>
+      <span class="v"><span id="pvzoom" class="pvz">100%</span> · <span id="pvsheets"></span></span></div>
+    <div class="pvwrap"><div id="pv"></div>
+      <div class="pvx h"></div><div class="pvx v"></div>
+      <div id="pvscale" class="pvscale" style="display:none"><span class="bar"></span><span class="lab"></span></div>
+      <div class="pvctl"><button id="pvIn" aria-label="Zoom in">+</button><button id="pvOut" aria-label="Zoom out">−</button><button id="pvFit" aria-label="Reset zoom to fit">⬚</button></div>
+    </div>
+    <div class="pvlegend">
+      <button type="button" class="lgc" aria-pressed="false" data-ly="cut"><i style="border-color:var(--ly-object)"></i>CUT</button>
+      <button type="button" class="lgc" aria-pressed="false" data-ly="fold"><i style="border-color:var(--ly-fold);border-top-style:dashed"></i>FOLD</button>
+      <button type="button" class="lgc" aria-pressed="false" data-ly="ord"><i style="border-color:var(--ly-centre);border-top-style:dashed"></i>SEAM/ORD</button>
+      <button type="button" class="lgc" aria-pressed="false" data-ly="hole"><i style="border-color:var(--ly-dim)"></i>HOLES</button></div>
+    <div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
   const hand2Html = kind!=='bendonbend' ? '' :
     `<label>Second bend type</label><div class="seg" data-seg="bendHand2">${['A','B','C','D'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
      <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
@@ -3079,8 +3340,39 @@ function form(kind, presetParams){
   html+=`</div></div>`;
   app.innerHTML=html;
 
+  /* --- the viewport instrument --- */
+  PVZoom.attach(app.querySelector('#pv'));
+  { const wire=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=e=>{ e.stopPropagation(); fn(); }; };
+    wire('pvIn',()=>PVZoom.nudge(1.25)); wire('pvOut',()=>PVZoom.nudge(0.8)); wire('pvFit',()=>PVZoom.reset());
+    wire('pvback',()=>{ activePc=null; plotOnce=true; PVZoom.reset(); refresh(); }); }
+  /* desktop crosshair with live mm readout */
+  if(matchMedia('(pointer:fine)').matches){
+    const pv=app.querySelector('#pv'), wrap=app.querySelector('.pvwrap'),
+          hx=app.querySelector('.pvx.h'), vx=app.querySelector('.pvx.v'),
+          rd=document.getElementById('pvcoord');
+    pv.addEventListener('pointermove',e=>{
+      const g=pv.firstElementChild; if(!g||g.tagName!=='svg') return;
+      const wr=wrap.getBoundingClientRect();
+      hx.style.top=(e.clientY-wr.top)+'px'; vx.style.left=(e.clientX-wr.left)+'px';
+      hx.style.display=vx.style.display='block';
+      try{ const m=g.getScreenCTM(); if(!m) return;
+        const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());
+        const sc=+g.dataset.scale, x0=+g.dataset.x0, y1=+g.dataset.y1, pad=+g.dataset.pad;
+        if(sc) rd.textContent='X '+(x0+(p.x-pad)/sc).toFixed(1)+'  Y '+(y1-(p.y-pad)/sc).toFixed(1)+' mm';
+      }catch(err){} });
+    pv.addEventListener('pointerleave',()=>{ hx.style.display=vx.style.display='none'; rd.textContent=''; });
+  }
+  /* layer legend: tap to freeze a layer */
+  app.querySelectorAll('.lgc').forEach(c=>c.onclick=()=>{ const pv=app.querySelector('#pv');
+    c.classList.toggle('off'); pv.classList.toggle('off-'+c.dataset.ly);
+    c.setAttribute('aria-pressed',String(c.classList.contains('off'))); });
+  /* debounced refresh: typing coalesces, taps stay instant, output always flushes */
+  let _rt=null,_pend=false;
+  const refreshSoon=()=>{ _pend=true; clearTimeout(_rt); _rt=setTimeout(()=>{_pend=false;refresh();},140); };
+  const flushRefresh=()=>{ if(_pend){ clearTimeout(_rt); _pend=false; refresh(); } };
+
   app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ touch(); app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(sel.dataset.pipe==='pipeOD'&&s._xd){ readAll(); applyXd(s._xd); } refresh(); });
-  app.querySelectorAll('input').forEach(i=>i.oninput=()=>{ touch(); refresh(); });
+  app.querySelectorAll('input').forEach(i=>i.oninput=()=>{ touch(); refreshSoon(); });
   app.querySelectorAll('[data-seg]').forEach(el=>{ const k=el.dataset.seg; el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { touch(); const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; } refresh(); }); });
@@ -3106,23 +3398,37 @@ function form(kind, presetParams){
         svg.querySelectorAll('.seamdot').forEach(d=>{ d.setAttribute('fill', (exact&&+d.dataset.dn===n)?LY.centre:LY.faint); d.setAttribute('r',(exact&&+d.dataset.dn===n)?'11':'9'); });
         mode.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.sv==='custom'? (v!==180&&v!==90) : +b.dataset.sv===v)); };
       mode.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.dataset.sv!=='custom'){ touch(); s.seamFromThroat=+b.dataset.sv; refresh(); } upd(); });
-      svg.querySelectorAll('[data-dot]').forEach(g=>g.onclick=()=>{ touch(); s.seamFromThroat=(+g.dataset.dot-1)*30; refresh(); upd(); });
+      svg.querySelectorAll('[data-dot]').forEach(g=>g.onclick=()=>{ touch(); s.seamFromThroat=(+g.dataset.dot-1)*30; refresh(); upd();
+        /* punch-mark confirm: one-shot halo ring on the chosen dot */
+        const dot=svg.querySelector(`.seamdot[data-dn="${+g.dataset.dot}"]`);
+        if(dot){ const h=document.createElementNS('http://www.w3.org/2000/svg','circle');
+          h.setAttribute('cx',dot.getAttribute('cx')); h.setAttribute('cy',dot.getAttribute('cy'));
+          h.setAttribute('r','11'); h.setAttribute('class','seamhalo');
+          dot.parentNode.appendChild(h); setTimeout(()=>h.remove(),420); } });
       upd(); } }
   const lb=document.getElementById('lockBtn'); if(lb) lb.onclick=showUnlock;
-  const buildDoc=()=>{ if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(s), {page:SET.page, orient:'auto', brand:SET.brand||undefined});
+  const buildDoc=()=>{ flushRefresh();
+    if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(s), {page:SET.page, orient:'auto', brand:SET.brand||undefined});
       return {out, name:'CladMate_'+kind+'_kit_'+SET.page+'.pdf', msg:'Full kit PDF — '+out.pieces+' patterns, '+out.sheets+' sheets'}; }
     const out=FP.makePDF(window.jspdf.jsPDF, form._pat, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
     return {out, name:'CladMate_'+kind+'_'+SET.page+'.pdf', msg:'PDF ready — '+out.sheets+' sheet'+(out.sheets>1?'s':'')}; };
-  const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{ const d=buildDoc(); d.out.doc.save(d.name); toast(d.msg); };
+  /* Generate 'plots' the sheet: sweep starts, then the synchronous jsPDF build */
+  const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{
+    if(gb.classList.contains('plotting')) return;
+    gb.classList.add('plotting');
+    setTimeout(()=>{ try{ const d=buildDoc(); d.out.doc.save(d.name); toast(d.msg); }
+      catch(e){ toast(e.message); }
+      finally{ setTimeout(()=>gb.classList.remove('plotting'),350); } },80); };
   const sb=document.getElementById('shareBtn'); if(sb) sb.onclick=async()=>{ const d=buildDoc();
     const file=new File([d.out.doc.output('blob')], d.name, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       try{ await navigator.share({files:[file], title:'CladMate template'}); }catch(e){} }
     else { d.out.doc.save(d.name); toast('Sharing not supported here — saved the PDF instead'); } };
   const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!PRO) return showUnlock();
+    flushRefresh();
     const blob=new Blob([FP.toDXF(form._pat)],{type:'application/dxf'}); const a=document.createElement('a');
     a.href=URL.createObjectURL(blob); a.download='CladMate_'+kind+'.dxf'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('DXF exported'); };
-  const jb=document.getElementById('jobBtn'); if(jb) jb.onclick=()=>{ if(!PRO) return showUnlock(); saveToJob(kind); };
+  const jb=document.getElementById('jobBtn'); if(jb) jb.onclick=()=>{ if(!PRO) return showUnlock(); flushRefresh(); saveToJob(kind); };
   refresh();
 
   function readAll(){
@@ -3144,9 +3450,24 @@ function form(kind, presetParams){
     let pat;
     try{ pat=fit.build(s); }catch(e){ document.getElementById('pv').innerHTML='<div class="hint" style="padding:30px">'+e.message+'</div>'; return; }
     form._pat=pat;
-    document.getElementById('pv').innerHTML=FP.svgPreview(pat,600);
+    /* kit-piece inspection: a tapped kit thumbnail is promoted into the viewport */
+    form._kit=null;
+    if(fit.kit&&(kitOpen||activePc!=null)){ try{ form._kit=fit.kit(s); }catch(e){ form._kit=null; } }
+    if(activePc!=null&&(!form._kit||activePc>=form._kit.length)) activePc=null;
+    const shown=activePc==null?pat:form._kit[activePc];
+    const pv=document.getElementById('pv');
+    pv.innerHTML=FP.svgPreview(shown,600);
+    if(plotOnce){ plotOnce=false; pv.classList.add('plot');
+      clearTimeout(form._plotT); form._plotT=setTimeout(()=>pv.classList.remove('plot'),1400); }
+    else{ clearTimeout(form._plotT); pv.classList.remove('plot'); }
+    const pill=document.getElementById('pvback');
+    if(pill) pill.style.display=activePc==null?'none':'inline-block';
+    const pvt=document.getElementById('pvtitle');
+    if(pvt) pvt.textContent=activePc==null?'Live preview (1:1 flat pattern)':kitCaption(shown);
     const pl=plan(pat,SET.page);
-    document.getElementById('pvsheets').textContent=pl.n+' × '+SET.page.toUpperCase()+' ('+(pl.c[0]>pl.c[1]?'landscape':'portrait')+')';
+    const pvs=document.getElementById('pvsheets'),
+          ptxt=pl.n+' × '+SET.page.toUpperCase()+' ('+(pl.c[0]>pl.c[1]?'landscape':'portrait')+')';
+    if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(pat,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,s);
     const ds=document.getElementById('dbseam');
@@ -3167,10 +3488,17 @@ function form(kind, presetParams){
   function renderKit(){ const kw=document.getElementById('kitwrap'); if(!kw) return;
     if(!fit.kit){ kw.innerHTML=''; return; }
     if(!kitOpen){ kw.innerHTML='<button class="kitbar" id="kitToggle">Show all kit pieces ▸</button>'; }
-    else{ let pats; try{ pats=fit.kit(s); }catch(e){ kw.innerHTML=''; return; }
-      kw.innerHTML='<button class="kitbar" id="kitToggle">Hide kit pieces ▾</button><div class="kitstrip">'+
-        pats.map(p=>`<div class="kitpc"><div class="kt" title="${kitCaption(p)}">${kitCaption(p)}</div>${FP.svgPreview(p,260)}</div>`).join('')+'</div>'; }
-    const t=document.getElementById('kitToggle'); if(t) t.onclick=()=>{ kitOpen=!kitOpen; renderKit(); }; }
+    else{ let pats=form._kit; if(!pats){ try{ pats=fit.kit(s); }catch(e){ kw.innerHTML=''; return; } }
+      kw.innerHTML='<button class="kitbar" id="kitToggle">Hide kit pieces ▾</button><div class="kitstrip'+(kitJustOpened?' reveal':'')+'">'+
+        pats.map((p,i)=>`<div class="kitpc${i===activePc?' on':''}" data-pc="${i}" role="button" tabindex="0" aria-pressed="${i===activePc}" style="--i:${Math.min(i,6)}"><div class="kt" title="${kitCaption(p)}">${kitCaption(p)}</div>${FP.svgPreview(p,260)}</div>`).join('')+'</div>';
+      kitJustOpened=false;
+      /* tap a piece to promote it into the big viewport */
+      kw.querySelectorAll('[data-pc]').forEach(el=>{ const act=()=>{
+          activePc=activePc===+el.dataset.pc?null:+el.dataset.pc;
+          plotOnce=true; PVZoom.reset(); refresh(); };
+        el.onclick=act;
+        el.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } }; }); }
+    const t=document.getElementById('kitToggle'); if(t) t.onclick=()=>{ kitOpen=!kitOpen; kitJustOpened=kitOpen; if(!kitOpen&&activePc!=null){ activePc=null; PVZoom.reset(); refresh(); return; } renderKit(); }; }
 }
 
 /* ================= jobs ================= */
@@ -3187,10 +3515,16 @@ function saveToJob(kind){
 }
 function jobsPage(){
   setView('Jobs','Saved fittings, ready to reprint',false);
-  if(!PRO){ app.innerHTML=`<div class="empty">Jobs are a Pro feature.<br>Save every fitting on a contract and reprint templates any time.</div><button class="btn gold" id="up2">Go Pro</button>`; document.getElementById('up2').onclick=showUnlock; return; }
-  if(!JOBS.length){ app.innerHTML=`<div class="empty">No jobs yet.<br>Open a fitting, set your sizes, then tap <b>Save to Job</b>.</div>`; return; }
+  const sketch=cap=>`<div class="sketch"><svg viewBox="0 0 200 90" style="width:100%;height:auto">
+    <rect x="8" y="8" width="184" height="64" rx="2" fill="none" stroke="var(--grid2)" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <path d="M26 58 Q60 40 100 52 Q140 64 174 30" fill="none" stroke="var(--ly-object)" stroke-width="1.4" stroke-dasharray="3 4" opacity=".55"/>
+    <line x1="20" y1="40" x2="180" y2="40" stroke="var(--ly-centre)" stroke-width="1" stroke-dasharray="11 3 3 3" opacity=".5"/>
+    <text x="100" y="86" font-family="Consolas,monospace" font-size="8" fill="var(--ly-text)" opacity=".6" text-anchor="middle" letter-spacing="2">${cap}</text>
+    </svg></div>`;
+  if(!PRO){ app.innerHTML=`<div class="empty">${sketch('PRO FEATURE — LOCKED')}Jobs are a Pro feature.<br>Save every fitting on a contract and reprint templates any time.</div><button class="btn gold" id="up2">Go Pro</button>`; document.getElementById('up2').onclick=showUnlock; return; }
+  if(!JOBS.length){ app.innerHTML=`<div class="empty">${sketch('NO DRAWINGS ON FILE')}No jobs yet.<br>Open a fitting, set your sizes, then tap <b>Save to Job</b>.</div>`; return; }
   app.innerHTML=`<div class="card" style="padding:4px 14px">${JOBS.map(j=>`
-    <div class="jobrow" data-open="${j.id}"><div class="ic">📁</div><div><div class="nm">${j.name}</div>
+    <div class="jobrow" data-open="${j.id}"><div class="ic"><svg viewBox="0 0 34 28" style="width:24px;height:20px"><path d="M3 7 L12 7 L15 4 L31 4 L31 24 L3 24 Z" fill="none" stroke="var(--ly-object)" stroke-width="1.8" stroke-linejoin="round"/><line x1="7" y1="15" x2="27" y2="15" stroke="var(--ly-centre)" stroke-width="1.2" stroke-dasharray="7 2 2 2"/></svg></div><div><div class="nm">${j.name}</div>
     <div class="meta">${j.items.length} fitting${j.items.length!==1?'s':''} · ${new Date(j.items[0]?j.items[0].ts:Date.now()).toLocaleDateString()}</div></div>
     <button class="x" data-del="${j.id}">✕</button></div>`).join('')}</div>`;
   app.querySelectorAll('[data-open]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.del) return; repage(()=>jobDetail(r.dataset.open)); });
@@ -3283,7 +3617,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.5.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.0.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3313,7 +3647,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'3.5.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.0.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
@@ -3342,10 +3676,12 @@ window.addEventListener('appinstalled',()=>toast('CladMate installed'));
 applyCanvas(); renderPro(); route();
 /* first run: the three rules that make templates come out right */
 if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
-  const bg=modal(`<h3>Before your first template</h3>
+  const bg=modal(`<div class="tb"><span>CladMate · First run</span><span>SHT 1/1</span></div>
+    <div class="bd"><h3>Before your first template</h3>
     <ul class="prolist"><li>Sizes are BARE PIPE + insulation — patterns are worked to the outside of the lagging</li><li>Print at 100% ("Actual size"), never "Fit to page" — then measure the 100&nbsp;mm bar on the sheet</li><li>Offer the first template up to the metal before cutting a batch</li></ul>
-    <button class="btn primary" id="introGo">Got it</button>`);
-  bg.querySelector('#introGo').onclick=()=>bg.remove(); }
+    <button class="btn primary" id="introGo">Read &amp; understood</button></div>`);
+  bg.querySelector('.modal').classList.add('sheet');
+  bg.querySelector('#introGo').onclick=()=>bg.close(); }
 </script>
 </body>
 </html>
