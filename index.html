@@ -1615,6 +1615,62 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return out;
   }
 
+  // ---- Square valve box, shop method (decoded from Pattern Maker) ---------
+  // Rectangular box split into two mirror halves. Each half-wrap goes
+  // half-top | 90deg fold | side | 90deg fold | half-bottom, lockformed on
+  // both cheek edges, lapped both girth ends. End plates are half-width with
+  // folded-edge hems and a lap. Proven exact against Pattern Maker
+  // (L900 W450 H550 lf25 fe5 lap50): wrap 1000/1100 x 950, plate 560 x 280.
+  function pmSquareBoxKit(p) {
+    const L = p.boxL, W = p.boxW, H = p.boxH;
+    const LF = p.lockform, FE = p.foldedEdge == null ? 5 : p.foldedEdge, lap = p.lap == null ? 50 : p.lap;
+    const hp = p.holePitch || 60, eg = p.holeEndGap || 20, R = Math.round;
+    const girth = W / 2 + H + W / 2, width = L + 2 * LF;
+    const prim = [], holes = [], ticks = [];
+    // half-wrap: y = 0..lap (lap) | lap..lap+girth (body) | +lap
+    const y0 = lap, yT = lap + girth;
+    prim.push({ style: 'cut', pts: [
+      [LF, 0], [width - LF, 0], [width - LF, lap], [width, lap], [width, yT],
+      [width - LF, yT], [width - LF, yT + lap], [LF, yT + lap], [LF, yT],
+      [0, yT], [0, lap], [LF, lap], [LF, 0] ] });
+    prim.push({ style: 'fold', pts: [[0, y0], [width, y0]] });                     // lap fold (bottom)
+    prim.push({ style: 'fold', pts: [[0, yT], [width, yT]] });                     // lap fold (top)
+    [y0 + W / 2, y0 + W / 2 + H].forEach(y => prim.push({ style: 'fold', pts: [[0, y], [width, y]] }));  // 90deg corners
+    [LF, width - LF].forEach(x => prim.push({ style: 'fold', pts: [[x, lap], [x, yT]] }));                // lockform lines
+    _lineHoles(holes, LF, lap / 2, width - LF, lap / 2, hp, eg);
+    _lineHoles(holes, LF, yT + lap / 2, width - LF, yT + lap / 2, hp, eg);
+    ticks.push({ x: width / 2, y: y0 + W / 4, label: 'HALF TOP ' + R(W / 2) });
+    ticks.push({ x: width / 2, y: y0 + W / 2 + H / 2, label: 'SIDE ' + R(H) });
+    ticks.push({ x: width / 2, y: yT - W / 4, label: 'HALF BOTTOM ' + R(W / 2) });
+    ticks.push({ x: LF / 2, y: (lap + yT) / 2, label: 'LOCKFORM ' + LF });
+    ticks.push({ x: width - LF / 2, y: (lap + yT) / 2, label: 'LOCKFORM ' + LF });
+    const wrap = { kind: 'pmbox', title: 'Square Box  -  Half Wrap 1:1',
+      meta: [`Box ${L} × ${W} × ${H} - shop method, two mirror halves`,
+             `CUT SIZE with laps ${R(girth + 2 * lap)} × ${R(width)}   ·   no laps ${R(girth)} × ${R(width)}`,
+             `Fold 90° at the two corners: half-top ${R(W / 2)} | side ${R(H)} | half-bottom ${R(W / 2)}`,
+             `Lockform ${LF} both cheek edges, laps ${lap} both girth ends`],
+      calc: { girth, width, cutLap: girth + 2 * lap, L, W, H },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (wrap - mirror pair)' };
+    // end plate: half of the W x H end, folded-edge hems, lap on the split edge
+    const pw = W / 2 + FE + lap, ph = H + 2 * FE;
+    const pr = [], hl = [], tk = [];
+    pr.push({ style: 'cut', pts: [[0, 0], [pw, 0], [pw, ph], [0, ph], [0, 0]] });
+    pr.push({ style: 'fold', pts: [[0, FE], [pw, FE]] });                          // bottom hem
+    pr.push({ style: 'fold', pts: [[0, ph - FE], [pw, ph - FE]] });                // top hem
+    pr.push({ style: 'fold', pts: [[pw - FE, 0], [pw - FE, ph]] });                // outer (fold-round) hem
+    pr.push({ style: 'fold', pts: [[lap, 0], [lap, ph]] });                        // split lap line
+    _lineHoles(hl, lap / 2, FE, lap / 2, ph - FE, hp, eg);
+    tk.push({ x: (lap + pw) / 2, y: ph / 2, label: R(W / 2) + ' × ' + R(H) + ' end (half)' });
+    const plate = { kind: 'pmbox', title: 'Square Box  -  End Plate (half) 1:1',
+      meta: [`End plate ${R(ph)} × ${R(pw)} - half the ${W} × ${H} end`,
+             `Folded edge ${FE} hems all round, lap ${lap} on the split edge`],
+      calc: { pw, ph },
+      prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote: 'CUT 4 OFF (2 halves per end)' };
+    const out = [wrap, plate];
+    out.forEach(o => { o.calc.nWraps = 2; o.calc.kitPieces = out.length; });
+    return out;
+  }
+
   // ---- Dome / dished vessel end (decoded from Pattern Maker) --------------
   // Torispherical head developed as N segment gores. Proven on two datasets
   // (D2500/H500 and D3000/H500), 16/16 outputs exact. The maker's rule:
@@ -1975,7 +2031,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -2173,14 +2229,14 @@ const F={
   mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
   stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
   note:'Lockformed construction: the barrel edges carry the lockform allowance, the cheeks slot in and the lock hammers shut. Splits per Settings → Boxes. Watershed on a vertical box makes the top a shallow cone.'},
- squarebox:{name:'Square Box',sub:'Valve / flange box',icon:I.sbox,
-  defaults:{boxL:300,boxW:250,boxH:250,orientation:'vertical',pieces:2,preset:'',watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
-  fields:BOXFIELDS([num('boxL','Box length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)')]),
-  build:s=>FP.boxKit(boxParams('square',s))[0],
-  kit:s=>FP.boxKit(boxParams('square',s)),
-  mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
-  stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
-  note:'Lockformed construction: wraps fold at the corners and carry the lockform allowance on both cheek edges; cheeks slot in. Watershed slopes the top — on its side the top face tilts, upright the wrap top edge runs on the rake.'},
+ squarebox:{name:'Square Box',sub:'Shop method · lockformed',icon:I.sbox,
+  defaults:{boxL:900,boxW:450,boxH:550,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20},
+  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('foldedEdge','Folded edge (mm)'),num('lap','Lap (mm)')],
+  build:s=>FP.pmSquareBoxKit({...s,lockform:SET.lockform})[0],
+  kit:s=>FP.pmSquareBoxKit({...s,lockform:SET.lockform}),
+  mini:c=>['Cut '+fmtDim(c.cutLap)+' × '+fmtDim(c.width),'2 wraps + 4 plates'],
+  stats:c=>['With laps '+fmtDim(c.cutLap)+'×'+fmtDim(c.width),'No laps '+fmtDim(c.girth)+'×'+fmtDim(c.width),'Girth '+fmtDim(c.girth),'Lockform '+SET.lockform],
+  note:'Shop method (Pattern Maker): rectangular box in two mirror halves. Each wrap folds 90° at the corners — half-top, side, half-bottom — lockformed on both cheek edges, lapped both girth ends. End plates are half-width with folded-edge hems. Lockform from Settings → Boxes.'},
  dbox:{name:'D-Box',sub:'Valve / flange box',icon:I.dboxI,
   defaults:{boxW:250,boxH:300,boxLen:400,orientation:'vertical',pieces:2,preset:'',watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('boxLen','Length (mm)')]),
@@ -2895,9 +2951,10 @@ function form(kind, presetParams){
   }
   function refresh(){
     readAll();
-    // shared job values live in Settings - applied to every fitting
+    // shared job values live in Settings - applied to every fitting.
+    // NOTE: box 'lap' is its OWN per-box field (a valve-box lap is not the
+    // pipe seam-lap) - it must NOT be overwritten from SET.lapTotal.
     if('lapTotal' in s) s.lapTotal=SET.lapTotal;
-    if('lap' in s) s.lap=SET.lapTotal;                              // water-shed box
     if('holePitch' in s) s.holePitch=SET.holePitch;
     if('swage' in s) s.swage=SET.swage;
     if('jointAllow' in s) s.jointAllow=SET.swage;
@@ -3045,7 +3102,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.2.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.3.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3075,7 +3132,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'3.2.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'3.3.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
