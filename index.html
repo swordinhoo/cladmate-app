@@ -806,7 +806,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.0.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.1.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -2609,22 +2609,16 @@ const F={
   mini:c=>['Cut '+fmtDim(c.cutLap)+' × '+fmtDim(c.width),'2 wraps + 4 plates'],
   stats:c=>['With laps '+fmtDim(c.cutLap)+'×'+fmtDim(c.width),'No laps '+fmtDim(c.girth)+'×'+fmtDim(c.width),'Girth '+fmtDim(c.girth),'Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): rectangular box in two mirror halves. Each wrap folds 90° at the corners — half-top, side, half-bottom — lockformed on both cheek edges, lapped both girth ends. End plates are half-width with folded-edge hems. Lockform from Settings → Boxes.'},
- valvebox:{name:'Valve Box',sub:'Shop method · flat top',icon:I.vbox,
-  defaults:{boxL:810,boxW:505,boxH:720,foldedEdge:6,lap:13,simpleEdge:4,holePitch:60,holeEndGap:20},
-  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('foldedEdge','Folded edge (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
-  build:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform})[0],
-  kit:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform}),
+ valvebox:{name:'Valve Box',sub:'Shop method · D-box · flat or risen',icon:I.wvbox,
+  defaults:{boxL:700,boxW:380,boxH:610,topStyle:'risen',wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,holePitch:60,holeEndGap:20},
+  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),
+    sego('topStyle','Top',[{v:'flat',label:'Flat'},{v:'risen',label:'Risen (watershed)'}]),
+    num('wsHeight','Watershed height (mm)'),num('foldedEdge','Folded edge (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
+  build:s=>FP.pmValveBoxKit({...s,wsHeight:s.topStyle==='flat'?0:(+s.wsHeight||0),lockform:SET.lockform})[0],
+  kit:s=>FP.pmValveBoxKit({...s,wsHeight:s.topStyle==='flat'?0:(+s.wsHeight||0),lockform:SET.lockform}),
   mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 ends'],
   stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.foldAng)+'°','Lockform '+SET.lockform],
-  note:'Shop method (Pattern Maker): flat top, straight sides, round bottom (a D on its side). Two mirror halves — fold 90° at the top corner, roll the quarter-round from the mark, lockformed cheeks, laps both ends. D-shaped end plates, height H + lockform. Lockform from Settings → Boxes.'},
- wvalvebox:{name:'Watershed Valve Box',sub:'Shop method · ridge top',icon:I.wvbox,
-  defaults:{boxL:700,boxW:380,boxH:610,wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,holePitch:60,holeEndGap:20},
-  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('wsHeight','Watershed height (mm)'),num('foldedEdge','Folded edge (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
-  build:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform})[0],
-  kit:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform}),
-  mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 ends'],
-  stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.foldAng)+'°','Lockform '+SET.lockform],
-  note:'Shop method (Pattern Maker): the D-shield valve box — round bottom, straight sides, watershed ridge top. Two mirror halves, fold at the marked angle to raise the ridge, roll the quarter-round. The cut follows the program (flat top run, the lap takes up the few mm). D-end plates carry the watershed peak.'},
+  note:'Shop method (Pattern Maker): the D-box — round bottom, straight sides. Top toggles Flat or Risen (watershed ridge). Two mirror halves, fold at the marked angle, roll the quarter-round, lockformed cheeks, laps both ends. D-end plates carry the top profile. Lockform from Settings → Boxes.'},
  flangebox:{name:'Flange Box',sub:'Shop method · round, flanged ends',icon:I.vbox,
   defaults:{dia:234,boxW:567,simpleEdge:4,lap:13,holePitch:60,holeEndGap:20},
   fields:[num('dia','Diameter (mm)'),num('boxW','Width (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap size required (mm)')],
@@ -2684,8 +2678,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
-const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','wvalvebox','flangebox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','wvalvebox','flangebox','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','flangebox','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
@@ -3201,7 +3195,7 @@ function diagDome(s){
   return _svgWrap(parts,all,210);
 }
 function diagValveBox(s){
-  const W=Math.max(1,+s.boxW||500), H=Math.max(1,+s.boxH||700), L=Math.max(1,+s.boxLen||s.boxL||800), ws=+s.wsHeight||0;
+  const W=Math.max(1,+s.boxW||500), H=Math.max(1,+s.boxH||700), L=Math.max(1,+s.boxLen||s.boxL||800), ws=(s.topStyle==='flat'?0:(+s.wsHeight||0));
   const sc=Math.min(70/H,70/W), w=W*sc, h=H*sc, r=w/2;
   const parts=[], all=[];
   const x0=-w/2, x1=w/2, y0=-h/2, yr=y0+h-r;   // round bottom radius r=w/2
@@ -3621,7 +3615,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.0.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.1.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3651,7 +3645,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.0.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.1.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
