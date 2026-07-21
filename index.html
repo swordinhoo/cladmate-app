@@ -806,7 +806,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.0.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.0.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1841,8 +1841,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     pr.push({ style: 'cut', pts: [[-lap, 0], [-lap, topSplit], [rad, topOut], [rad, rad]]
       .concat(arc.slice(1), [[0, 0], [-lap, 0]]) });
     pr.push({ style: 'fold', pts: [[0, 0], [0, topSplit]] });                  // split line (lap folds here)
-    pr.push({ style: 'fold', pts: [[rad - FE, rad], [rad - FE, Math.min(topOut, ph) - 0]] }); // outer hem
-    pr.push({ style: 'fold', pts: _arcPts(0, rad, rad - FE, 0, -Math.PI / 2, NA) });          // round hem
+    pr.push({ style: 'fold', pts: [[rad - FE, rad], [rad - FE, Math.min(topOut, ph) - 0]] }); // outer hem (straight side)
+    pr.push({ style: 'fold', pts: _arcPts(0, rad, rad - FE, 0, -Math.PI / 2, NA) });          // round hem (bottom)
+    // top hem: the same FE fold-out along the (sloped or flat) top edge - the
+    // cheek flange that slots into the wrap's lockform. Every edge but the lap.
+    const lenT = Math.hypot(rad, topOut - topSplit), dyT = FE * lenT / rad;
+    pr.push({ style: 'fold', pts: [[0, topSplit - dyT], [rad, topOut - dyT]] });
     _lineHoles(hl, -lap / 2, eg, -lap / 2, topSplit - eg, hp, eg);
     tk.push({ x: rad / 2, y: rad + (topOut - rad) / 2, label: 'straight ' + R(wall + FE) });
     tk.push({ x: rad * 0.5, y: rad * 0.4, label: 'R ' + R(rad) });
@@ -1850,7 +1854,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const plate = { kind: 'pmbox', title: name + '  -  End Plate (half) 1:1',
       meta: [`End plate ${R(ph)} × ${R(pw)} - half the ${name.toLowerCase()} end`,
              `Round bottom radius ${R(rad)} (W/2 + edge ${se}), straight side ${R(wall + FE)}${ws > 0 ? ', watershed peak ' + ws : ''}`,
-             `Folded edge ${FE} hems, lap ${lap} on the split edge`],
+             `${FE} mm fold-out flange on the top, straight and round edges (slots into the wrap lockform); ${lap} lap on the split edge - no fold there`],
       calc: { ph, pw, rad, straight: wall + FE },
       prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote: 'CUT 4 OFF (2 halves per end)' };
     const out = [wrap, plate];
@@ -3617,7 +3621,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.0.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.0.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3647,7 +3651,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.0.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.0.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
