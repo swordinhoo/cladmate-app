@@ -1745,6 +1745,63 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return out;
   }
 
+  // ---- Flange box, shop method (decoded from Pattern Maker) ---------------
+  // A round-section spool with a flat flange disc at each end. The body is
+  // ONE seam only (not two, unlike Square/Valve box): a "lap half" carrying
+  // the lap allowance on its girth and a plain "plain half" with none - both
+  // half-circumference, cut 1 off each, lockformed cheeks. Flange discs are
+  // split into halves, cut 4 off (2 halves x 2 ends): radius = D/2 + simple
+  // edge, plate height = radius + lockform, plate width = 2*radius + 25 (a
+  // fixed shop trim allowance - confirmed constant across two datasets with
+  // DIFFERENT simple edge/lockform/lap: D234 W567 se7 lf30 lap20 -> wrap
+  // 388/368 x 627, disc plate 273 x 154 (R124); the +25 held even though
+  // se/lf/lap all changed, so it is NOT derived from them).
+  function pmFlangeBoxKit(p) {
+    const D = p.dia, W = p.boxW, LF = p.lockform, se = p.simpleEdge == null ? 4 : p.simpleEdge;
+    const lap = p.lap == null ? 13 : p.lap, hp = p.holePitch || 60, eg = p.holeEndGap || 20, R = Math.round;
+    const girth = Math.PI * D / 2, width = W + 2 * LF;
+    // ---- body: lap half (girth+lap) + plain half (girth), cut 1 off each
+    const mkWrap = (hasLap, name) => {
+      const g = hasLap ? girth + lap : girth;
+      const prim = [], holes = [], ticks = [];
+      if (hasLap) {
+        prim.push({ style: 'cut', pts: [
+          [LF, 0], [width - LF, 0], [width - LF, lap], [width, lap], [width, g],
+          [width, g], [0, g], [0, lap], [LF, lap], [LF, 0] ] });
+        prim.push({ style: 'fold', pts: [[0, lap], [width, lap]] });
+        _lineHoles(holes, LF, lap / 2, width - LF, lap / 2, hp, eg);
+      } else {
+        prim.push({ style: 'cut', pts: [[0, 0], [width, 0], [width, g], [0, g], [0, 0]] });
+      }
+      [LF, width - LF].forEach(x => prim.push({ style: 'fold', pts: [[x, hasLap ? lap : 0], [x, g]] }));
+      ticks.push({ x: width / 2, y: (hasLap ? lap : 0) + (g - (hasLap ? lap : 0)) / 2, label: 'GIRTH ' + R(girth) });
+      ticks.push({ x: LF / 2, y: g / 2, label: 'LOCKFORM ' + LF });
+      return { kind: 'pmbox', title: 'Flange Box  -  Body (' + name + ') 1:1',
+        meta: [`Body ${R(D)} dia x ${W} - shop method, one seam only`,
+               hasLap ? `This half carries the lap ${lap} - it laps over the plain half at the seam`
+                      : `Plain half - the lap half laps over this one at the seam`,
+               `Half circumference ${R(girth)}, lockform ${LF} both cheek edges`],
+        calc: { girth, width, g, L: D, W }, prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 1 OFF (' + name + ')' };
+    };
+    const wrapLap = mkWrap(true, 'lap half'), wrapPlain = mkWrap(false, 'plain half');
+    // ---- flange disc: half-plate, radius D/2+se, cut 4 off
+    const rad = D / 2 + se, ph = rad + LF, pw = 2 * rad + 25, NA = 44;
+    const pr = [], hl = [], tk = [];
+    const arc = _arcPts(rad, 0, rad, Math.PI, 0, NA);                        // (0,0) -> (2rad,0), bulging up to (rad,rad)
+    pr.push({ style: 'cut', pts: [[0, 0]].concat(arc.slice(1)).concat([[pw, 0], [0, 0]]) });
+    pr.push({ style: 'fold', pts: [[(pw - 2 * rad) / 2, 0], [(pw - 2 * rad) / 2 + 2 * rad, 0]] });   // split/base edge
+    _lineHoles(hl, (pw - 2 * rad) / 2, 0, (pw - 2 * rad) / 2 + 2 * rad, 0, hp, eg);
+    tk.push({ x: pw / 2, y: rad * 0.55, label: 'R ' + R(rad) });
+    tk.push({ x: pw / 2, y: ph - 4, label: R(pw) + ' × ' + R(ph) });
+    const plate = { kind: 'pmbox', title: 'Flange Box  -  Disc (half) 1:1',
+      meta: [`Flange disc ${R(ph)} × ${R(pw)} - half the flange, one of two ends`,
+             `Radius ${R(rad)} (D/2 + simple edge ${se}), lockform ${LF} allowance on the flat edge`],
+      calc: { rad, ph, pw }, prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote: 'CUT 4 OFF (2 halves per end)' };
+    const out = [wrapLap, wrapPlain, plate];
+    out.forEach(o => { o.calc.nWraps = 1; o.calc.kitPieces = out.length; });
+    return out;
+  }
+
   // ---- Dome / dished vessel end (decoded from Pattern Maker) --------------
   // Torispherical head developed as N segment gores. Proven on two datasets
   // (D2500/H500 and D3000/H500), 16/16 outputs exact. The maker's rule:
@@ -2105,7 +2162,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -2329,6 +2386,14 @@ const F={
   mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 ends'],
   stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.foldAng)+'°','Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): the D-shield valve box — round bottom, straight sides, watershed ridge top. Two mirror halves, fold at the marked angle to raise the ridge, roll the quarter-round. The cut follows the program (flat top run, the lap takes up the few mm). D-end plates carry the watershed peak.'},
+ flangebox:{name:'Flange Box',sub:'Shop method · round, flanged ends',icon:I.vbox,
+  defaults:{dia:234,boxW:567,simpleEdge:4,lap:13,holePitch:60,holeEndGap:20},
+  fields:[num('dia','Diameter (mm)'),num('boxW','Width (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap size required (mm)')],
+  build:s=>FP.pmFlangeBoxKit({...s,lockform:SET.lockform})[0],
+  kit:s=>FP.pmFlangeBoxKit({...s,lockform:SET.lockform}),
+  mini:c=>['Cut '+Math.round(c.g)+' × '+Math.round(c.width),'Lap half + plain half + disc'],
+  stats:c=>['Cut '+Math.round(c.g)+'×'+Math.round(c.width),'Girth '+Math.round(c.girth),'Lockform '+SET.lockform],
+  note:'Shop method (Pattern Maker): a round spool with a flat flange disc at each end. One seam only — a lap half and a plain half, half circumference each, lockformed cheeks. Flange discs split into halves (radius D/2 + simple edge), cut 4 off. Lockform from Settings → Boxes.'},
  endcap:{name:'End Cap',sub:'Flat or conical · rim',icon:I.ecap,
   defaults:{capPipe:168.3,insulation:25,capStyle:'flat',holeApipe:0,holeAx:0,holeAy:0,holePitch:60,holeEndGap:20},
   fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
@@ -2380,8 +2445,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
-const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','wvalvebox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','wvalvebox','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','wvalvebox','flangebox','wsbox','endcap','dome'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','wvalvebox','flangebox','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
@@ -2790,6 +2855,21 @@ function diagSquareBox(s){
   if(+s.holeApipe>0) dimLead(parts,all,[x1+dx*0.5,(y0+y1)/2+dy*0.5],20,16,'hole Ø'+fmtDim(+s.holeApipe+2*(+s.insulation||0)));
   return _svgWrap(parts,all,200);
 }
+function diagFlangeBox(s){
+  const D=Math.max(1,+s.dia||234), W=Math.max(1,+s.boxW||567);
+  const sc=64/Math.max(D,W*0.6), r=D*sc/2, w=Math.min(W*sc,100), ry=r*0.28;
+  const x0=-w/2, x1=w/2, fx=r*0.22;
+  const parts=[], all=[[x0-fx,-r],[x1+fx,r]];
+  parts.push(`<ellipse cx="${(x0-fx).toFixed(1)}" cy="0" rx="${ry.toFixed(1)}" ry="${r.toFixed(1)}" fill="none" ${INKST}/>`);
+  parts.push(`<ellipse cx="${(x1+fx).toFixed(1)}" cy="0" rx="${ry.toFixed(1)}" ry="${r.toFixed(1)}" fill="none" ${INKST}/>`);
+  parts.push(`<ellipse cx="${x0.toFixed(1)}" cy="0" rx="${(ry*0.5).toFixed(1)}" ry="${(r*0.86).toFixed(1)}" fill="none" ${INKST}/>`);
+  parts.push(`<ellipse cx="${x1.toFixed(1)}" cy="0" rx="${(ry*0.5).toFixed(1)}" ry="${(r*0.86).toFixed(1)}" fill="none" ${INKST}/>`);
+  parts.push(_ln([x0,-r*0.86],[x1,-r*0.86],INKST),_ln([x0,r*0.86],[x1,r*0.86],INKST));
+  parts.push(_ln([-w/2*0.55,0-r*0.86],[-w/2*0.55,r*0.86],SEAMST));
+  dimLin(parts,all,[x0-fx,-r],[x1+fx,-r],-14,fmtDim(W));
+  dimLin(parts,all,[x0-fx,-r],[x0-fx,r],-(14+ry),'Ø'+fmtDim(D));
+  return _svgWrap(parts,all,190);
+}
 function diagDBox(s){
   const W=Math.max(1,+s.boxW||250), H=Math.max(1,+s.boxH||300), L=Math.max(1,+s.boxLen||400);
   const sc=60/Math.max(W,H,L*0.7), w=W*sc, h=H*sc, r=w/2, len=Math.min(L*sc,80), dx=len*0.6, dy=-len*0.42;
@@ -2935,6 +3015,7 @@ function fittingDiagram(kind,s){
     if(kind==='dbox') return diagDBox(s);
     if(kind==='endcap') return diagEndCap(s);
     if(kind==='wsbox') return diagWsBox(s);
+    if(kind==='flangebox') return diagFlangeBox(s);
     if(kind==='inctee'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90,
       {d1:'Ø'+fmtDim(clad(s.mainPipeOD)),d:'Ø'+fmtDim(clad(s.branchPipeOD)),a:fmtDim(s.angle||90)+'°'});
     if(kind==='teehole'||kind==='trunnionhole') return diagHole(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
@@ -3202,7 +3283,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.4.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.5.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3232,7 +3313,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'3.4.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'3.5.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
