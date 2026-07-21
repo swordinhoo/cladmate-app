@@ -1615,6 +1615,80 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return out;
   }
 
+  // ---- Valve box + Watershed valve box, shop method (Pattern Maker) -------
+  // Flat top OR watershed ridge, straight sides, round bottom (a D on its
+  // side). Two mirror halves. Half-wrap girth = half-top (W/2) + wall (H-W/2)
+  // + quarter roll (piW/4) = H + piW/4 - and Pattern Maker uses the FLAT W/2
+  // for the top run even on the watershed (the displayed slope is longer; the
+  // cut is a few mm short and the lap takes it up - matched deliberately).
+  // Fold 90deg (valve) or 90+atan(ws/(W/2)) (watershed). D-end plates:
+  // height H+lockform, width (W/2+simple edge)+lap. Proven exact on two
+  // datasets each (valve 810/505/720 & 655/445/605; watershed 700/380/610/45
+  // & 640/445/530/55).
+  function pmValveBoxKit(p) {
+    const L = p.boxL, W = p.boxW, H = p.boxH, ws = p.wsHeight || 0;
+    const LF = p.lockform, FE = p.foldedEdge == null ? 6 : p.foldedEdge;
+    const lap = p.lap == null ? 13 : p.lap, se = p.simpleEdge == null ? 4 : p.simpleEdge;
+    const hp = p.holePitch || 60, eg = p.holeEndGap || 20, R = Math.round;
+    if (!(H > W / 2)) throw new Error('Height must be more than half the width (the round bottom is radius W/2).');
+    const halfTop = W / 2, wall = H - W / 2, roll = Math.PI * (W / 2) / 2, girth = halfTop + wall + roll;
+    const width = L + 2 * LF;
+    const foldAng = ws > 0 ? 90 + Math.atan2(ws, W / 2) * 180 / Math.PI : 90;
+    const name = ws > 0 ? 'Watershed Valve Box' : 'Valve Box';
+    // ---- half wrap (cut 2, mirror pair)
+    const prim = [], holes = [], ticks = [];
+    const y0 = lap, yFold = lap + halfTop, yRoll = lap + halfTop + wall, yT = lap + girth;
+    prim.push({ style: 'cut', pts: [
+      [LF, 0], [width - LF, 0], [width - LF, lap], [width, lap], [width, yT],
+      [width - LF, yT], [width - LF, yT + lap], [LF, yT + lap], [LF, yT],
+      [0, yT], [0, lap], [LF, lap], [LF, 0] ] });
+    prim.push({ style: 'fold', pts: [[0, y0], [width, y0]] });
+    prim.push({ style: 'fold', pts: [[0, yT], [width, yT]] });
+    prim.push({ style: 'fold', pts: [[0, yFold], [width, yFold]] });          // the top-corner fold
+    prim.push({ style: 'centre', pts: [[0, yRoll], [width, yRoll]] });         // roll starts here
+    for (let i = 1; i < 4; i++) { const y = yRoll + roll * i / 4; prim.push({ style: 'ord', pts: [[0, y], [width, y]] }); }
+    [LF, width - LF].forEach(x => prim.push({ style: 'fold', pts: [[x, lap], [x, yT]] }));
+    _lineHoles(holes, LF, lap / 2, width - LF, lap / 2, hp, eg);
+    _lineHoles(holes, LF, yT + lap / 2, width - LF, yT + lap / 2, hp, eg);
+    ticks.push({ x: width / 2, y: (y0 + yFold) / 2, label: 'HALF TOP ' + R(halfTop) });
+    ticks.push({ x: width / 2, y: (yFold + yRoll) / 2, label: 'WALL ' + R(wall) });
+    ticks.push({ x: width / 2, y: (yRoll + yT) / 2, label: 'ROLL ' + R(roll) });
+    ticks.push({ x: width / 2, y: yFold, label: 'FOLD ' + R(foldAng) + '°' });
+    ticks.push({ x: LF / 2, y: (lap + yT) / 2, label: 'LOCKFORM ' + LF });
+    const wrap = { kind: 'pmbox', title: name + '  -  Half Wrap 1:1',
+      meta: [`Box ${L} × ${W} × ${H}${ws > 0 ? ', watershed ' + ws : ''} - shop method, two mirror halves`,
+             `CUT SIZE with laps ${R(girth + 2 * lap)} × ${R(width)}   ·   no laps ${R(girth)} × ${R(width)}`,
+             `Fold ${R(foldAng)}° at the top corner: half-top ${R(halfTop)} | wall ${R(wall)} | ROLL the quarter ${R(roll)} from the mark`,
+             `Lockform ${LF} both cheek edges, laps ${lap} both girth ends`],
+      calc: { girth, width, cutLap: girth + 2 * lap, foldAng, L, W, H, ws },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (wrap - mirror pair)' };
+    // ---- D-end plate (half): flat/peaked top, straight outer, round bottom
+    const rad = W / 2 + se, ph = H + LF, pw = rad + lap, NA = 44;
+    const pr = [], hl = [], tk = [];
+    // origin: split centreline x=0 (lap to x=-lap), outer at x=rad; y up, 0=bottom
+    // round quarter: centre (0, rad), radius rad, from (rad,rad) to (0,0)
+    const arc = _arcPts(0, rad, rad, 0, -Math.PI / 2, NA);                     // (rad,rad)->(0,0)
+    const topSplit = ws > 0 ? ph : ph, topOut = ws > 0 ? ph - ws : ph;         // watershed: top slopes down from the split peak
+    pr.push({ style: 'cut', pts: [[-lap, 0], [-lap, topSplit], [rad, topOut], [rad, rad]]
+      .concat(arc.slice(1), [[0, 0], [-lap, 0]]) });
+    pr.push({ style: 'fold', pts: [[0, 0], [0, topSplit]] });                  // split line (lap folds here)
+    pr.push({ style: 'fold', pts: [[rad - FE, rad], [rad - FE, Math.min(topOut, ph) - 0]] }); // outer hem
+    pr.push({ style: 'fold', pts: _arcPts(0, rad, rad - FE, 0, -Math.PI / 2, NA) });          // round hem
+    _lineHoles(hl, -lap / 2, eg, -lap / 2, topSplit - eg, hp, eg);
+    tk.push({ x: rad / 2, y: rad + (topOut - rad) / 2, label: 'straight ' + R(wall + FE) });
+    tk.push({ x: rad * 0.5, y: rad * 0.4, label: 'R ' + R(rad) });
+    if (ws > 0) tk.push({ x: 0, y: ph - ws / 2, label: 'watershed ' + ws });
+    const plate = { kind: 'pmbox', title: name + '  -  End Plate (half) 1:1',
+      meta: [`End plate ${R(ph)} × ${R(pw)} - half the ${name.toLowerCase()} end`,
+             `Round bottom radius ${R(rad)} (W/2 + edge ${se}), straight side ${R(wall + FE)}${ws > 0 ? ', watershed peak ' + ws : ''}`,
+             `Folded edge ${FE} hems, lap ${lap} on the split edge`],
+      calc: { ph, pw, rad, straight: wall + FE },
+      prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote: 'CUT 4 OFF (2 halves per end)' };
+    const out = [wrap, plate];
+    out.forEach(o => { o.calc.nWraps = 2; o.calc.kitPieces = out.length; });
+    return out;
+  }
+
   // ---- Square valve box, shop method (decoded from Pattern Maker) ---------
   // Rectangular box split into two mirror halves. Each half-wrap goes
   // half-top | 90deg fold | side | 90deg fold | half-bottom, lockformed on
@@ -2031,7 +2105,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -2104,7 +2178,9 @@ const I={
  dboxI:`<svg viewBox="0 0 100 80"><path d="M22 30 L40 18 L76 18 L76 34 A18 18 0 0 1 62 51 M22 30 L58 30 L58 46 A18 18 0 0 1 22 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M58 30 L76 18" fill="none" stroke="var(--ic-ink)" stroke-width="3"/><line x1="40" y1="30" x2="40" y2="62" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="40" y1="30" x2="58" y2="18" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  ecap:`<svg viewBox="0 0 100 80"><path d="M16 40 L16 50 A34 13 0 0 0 84 50 L84 40" fill="var(--ic-fill2)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="50" cy="40" rx="34" ry="13" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="50" cy="40" rx="12" ry="4.5" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="2.4"/><line x1="16" y1="40" x2="84" y2="40" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  wshed:`<svg viewBox="0 0 100 80"><path d="M22 34 L50 22 L78 34 L78 64 L22 64 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="22" x2="50" y2="64" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="27" y1="38" x2="27" y2="60" stroke="var(--ic-ink)" stroke-width="2"/><line x1="73" y1="38" x2="73" y2="60" stroke="var(--ic-ink)" stroke-width="2"/></svg>`,
- dome:`<svg viewBox="0 0 100 80"><path d="M14 58 A36 40 0 0 1 86 58 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M50 20 L50 58 M32 22 L32 58 M68 22 L68 58 M20 34 L20 58 M80 34 L80 58" fill="none" stroke="var(--ic-ink)" stroke-width="1.8"/><line x1="14" y1="58" x2="86" y2="58" stroke="var(--ic-ink)" stroke-width="3"/></svg>`
+ dome:`<svg viewBox="0 0 100 80"><path d="M14 58 A36 40 0 0 1 86 58 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M50 20 L50 58 M32 22 L32 58 M68 22 L68 58 M20 34 L20 58 M80 34 L80 58" fill="none" stroke="var(--ic-ink)" stroke-width="1.8"/><line x1="14" y1="58" x2="86" y2="58" stroke="var(--ic-ink)" stroke-width="3"/></svg>`,
+ vbox:`<svg viewBox="0 0 100 80"><path d="M24 20 L76 20 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="20" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
+ wvbox:`<svg viewBox="0 0 100 80"><path d="M24 30 L50 18 L76 30 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="18" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`
 };
 
 /* ================= fitting registry ================= */
@@ -2237,14 +2313,22 @@ const F={
   mini:c=>['Cut '+fmtDim(c.cutLap)+' × '+fmtDim(c.width),'2 wraps + 4 plates'],
   stats:c=>['With laps '+fmtDim(c.cutLap)+'×'+fmtDim(c.width),'No laps '+fmtDim(c.girth)+'×'+fmtDim(c.width),'Girth '+fmtDim(c.girth),'Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): rectangular box in two mirror halves. Each wrap folds 90° at the corners — half-top, side, half-bottom — lockformed on both cheek edges, lapped both girth ends. End plates are half-width with folded-edge hems. Lockform from Settings → Boxes.'},
- dbox:{name:'D-Box',sub:'Valve / flange box',icon:I.dboxI,
-  defaults:{boxW:250,boxH:300,boxLen:400,orientation:'vertical',pieces:2,preset:'',watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
-  fields:BOXFIELDS([num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('boxLen','Length (mm)')]),
-  build:s=>FP.boxKit(boxParams('dbox',s))[0],
-  kit:s=>FP.boxKit(boxParams('dbox',s)),
-  mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
-  stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
-  note:'Lockformed construction; the round bottom is half the width. Default split runs down the face centres (flat front / round back) — switch to side centres for a side handle. Roll the quarter-round from the marked line. Watershed upright = risen ridge top: two tilted panels + shaped skirt, lockform stays level.'},
+ valvebox:{name:'Valve Box',sub:'Shop method · flat top',icon:I.vbox,
+  defaults:{boxL:810,boxW:505,boxH:720,foldedEdge:6,lap:13,simpleEdge:4,holePitch:60,holeEndGap:20},
+  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('foldedEdge','Folded edge (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
+  build:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform})[0],
+  kit:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform}),
+  mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 ends'],
+  stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.foldAng)+'°','Lockform '+SET.lockform],
+  note:'Shop method (Pattern Maker): flat top, straight sides, round bottom (a D on its side). Two mirror halves — fold 90° at the top corner, roll the quarter-round from the mark, lockformed cheeks, laps both ends. D-shaped end plates, height H + lockform. Lockform from Settings → Boxes.'},
+ wvalvebox:{name:'Watershed Valve Box',sub:'Shop method · ridge top',icon:I.wvbox,
+  defaults:{boxL:700,boxW:380,boxH:610,wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,holePitch:60,holeEndGap:20},
+  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('wsHeight','Watershed height (mm)'),num('foldedEdge','Folded edge (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
+  build:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform})[0],
+  kit:s=>FP.pmValveBoxKit({...s,lockform:SET.lockform}),
+  mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 ends'],
+  stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.foldAng)+'°','Lockform '+SET.lockform],
+  note:'Shop method (Pattern Maker): the D-shield valve box — round bottom, straight sides, watershed ridge top. Two mirror halves, fold at the marked angle to raise the ridge, roll the quarter-round. The cut follows the program (flat top run, the lap takes up the few mm). D-end plates carry the watershed peak.'},
  endcap:{name:'End Cap',sub:'Flat or conical · rim',icon:I.ecap,
   defaults:{capPipe:168.3,insulation:25,capStyle:'flat',holeApipe:0,holeAx:0,holeAy:0,holePitch:60,holeEndGap:20},
   fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
@@ -2296,8 +2380,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
-const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','dbox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','dbox','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','wvalvebox','wsbox','endcap','dome'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','wvalvebox','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
@@ -2786,9 +2870,25 @@ function diagDome(s){
   dimLead(parts,all,[0,-h*0.5],R*0.6,-8,N+' gores');
   return _svgWrap(parts,all,210);
 }
+function diagValveBox(s){
+  const W=Math.max(1,+s.boxW||500), H=Math.max(1,+s.boxH||700), L=Math.max(1,+s.boxLen||s.boxL||800), ws=+s.wsHeight||0;
+  const sc=Math.min(70/H,70/W), w=W*sc, h=H*sc, r=w/2;
+  const parts=[], all=[];
+  const x0=-w/2, x1=w/2, y0=-h/2, yr=y0+h-r;   // round bottom radius r=w/2
+  // section: top (flat or ridge) -> straight sides -> round bottom
+  if(ws>0){ const pk=y0-ws*sc; parts.push(`<path d="M${x0} ${y0} L0 ${pk.toFixed(1)} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="none" ${INKST}/>`); all.push([0,pk]); }
+  else parts.push(`<path d="M${x0} ${y0} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="none" ${INKST}/>`);
+  parts.push(_ln([0,y0-(ws>0?ws*sc:0)],[0,y0+h],SEAMST));   // split centreline
+  dimLin(parts,all,[x0,y0],[x1,y0],-16,'W '+fmtDim(W));
+  dimLin(parts,all,[x1,y0],[x1,y0+h],-14,'H '+fmtDim(H));
+  if(ws>0) dimLead(parts,all,[0,y0-ws*sc],w*0.55,-6,'ws '+fmtDim(ws));
+  all.push([x0,y0],[x1,y0+h]);
+  return _svgWrap(parts,all,190);
+}
 function fittingDiagram(kind,s){
   try{
     if(kind==='dome') return diagDome(s);
+    if(kind==='valvebox'||kind==='wvalvebox') return diagValveBox(s);
     const clad=x=>x+2*(s.insulation||0);
     if(kind==='lobster'){ const N=Math.max(1,Math.round(s.segments||4)), phi=s.bendDeg||90;
       const r=clad(s.pipeOD)/2, k=Math.min(0.8, r/Math.max(s.centreRadius||r*2, r+5));
@@ -3102,7 +3202,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.3.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v3.4.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3132,7 +3232,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'3.3.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'3.4.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
