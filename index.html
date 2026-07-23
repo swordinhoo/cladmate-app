@@ -833,7 +833,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.7.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.8.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -2939,6 +2939,13 @@ function dimLead(parts,all,p,dx,dy,label){
   _dimText(parts,all,e[0]+tail+(dx>=0?label.length*2.4:-label.length*2.4),e[1]+3,label);
 }
 
+// shared diagram piece palette - distinct translucent fills + matching inks so
+// multi-piece fittings read their pieces apart (same language as the double bend)
+const DPAL={ blue:{f:'rgba(64,150,255,0.28)',i:'#59a6ff'}, green:{f:'rgba(56,214,122,0.28)',i:'#37d873'},
+  gold:{f:'rgba(255,186,26,0.40)',i:'#ffc21e'}, violet:{f:'rgba(184,132,255,0.26)',i:'#b884ff'},
+  grey:{f:'rgba(150,161,173,0.16)',i:'#95a3b0'} };
+const _poly=(parts,all,pts,c)=>{ pts.forEach(p=>all.push(p));
+  parts.push(`<polygon points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${c.f}" stroke="${c.i}" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/>`); };
 function diagBend(va, k, seamDeg, hand, dims){
   const Rc=60, r=Math.max(8,Math.min(Rc*k,Rc*0.8)), Ri=Rc-r, Ro=Rc+r;
   // trade convention (Craig, bench-checked): C = B rotated 180, D = A rotated 180
@@ -2951,12 +2958,12 @@ function diagBend(va, k, seamDeg, hand, dims){
     let dx=d[0][0]-d[1][0],dy=d[0][1]-d[1][1],L=Math.hypot(dx,dy)||1; dx/=L;dy/=L; const e=r*1.15;
     const i0=first?inner[0]:inner[inner.length-1], o0=first?outer[0]:outer[outer.length-1];
     const i1=[i0[0]+dx*e,i0[1]+dy*e], o1=[o0[0]+dx*e,o0[1]+dy*e];
-    all.push(i1,o1); parts.push(_ln(i0,i1,INKST),_ln(o0,o1,INKST),_ln(i1,o1,INKST)); };
+    _poly(parts,all,[i0,i1,o1,o0],DPAL.grey); };                  // straight pipe stub (grey)
+  // gore bands: the starter + finisher (half gores) in gold, the middles in
+  // blue - so 'starter + finisher + middles' reads straight off the colour
+  for(let j=0;j<va.length-1;j++){ const end=(j===0||j===va.length-2);
+    _poly(parts,all,[outer[j],outer[j+1],inner[j+1],inner[j]], end?DPAL.gold:DPAL.blue); }
   stub(va[0],true); stub(va[va.length-1],false);
-  parts.push(_pl(outer,INKST),_pl(inner,INKST));
-  // mitre joints only - no line where the bend meets the straight, so the
-  // starter / finisher read as one piece with their tangent
-  for(let j=1;j<va.length-1;j++) parts.push(_ln(inner[j],outer[j],INKST));
   const Rs=Rc-r*Math.cos(rad(seamDeg||0)); const sp=[];
   const t0=va[0],t1=va[va.length-1];
   for(let i=0;i<=24;i++) sp.push(P(Rs,t0+(t1-t0)*i/24));
@@ -2987,11 +2994,10 @@ function diagElbow(phi,seamDeg,hand,dims){
   const Mt=isect([r*p1[0],r*p1[1]],u1), Mb=isect([-r*p1[0],-r*p1[1]],u1);   // throat & back mitre corners
   const mx=p=>[sgn*p[0],ym*p[1]];
   const parts=[], all=[];
-  const poly=P=>{ const pl=P.map(mx); pl.forEach(q=>all.push(q));
-    parts.push(`<polygon points="${pl.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="${LY.fill}" ${INKST} stroke-linejoin="round"/>`); };
-  poly([A(E1,r,p1),Mt,Mb,A(E1,-r,p1)]);                          // inlet piece
-  poly([Mt,A(E2,r,p2),A(E2,-r,p2),Mb]);                          // outlet piece
-  parts.push(_ln(mx(Mt),mx(Mb),INKST));                          // the mitre joint
+  const poly=(P,c)=>_poly(parts,all,P.map(mx),c);
+  poly([A(E1,r,p1),Mt,Mb,A(E1,-r,p1)],DPAL.blue);                // inlet piece (blue)
+  poly([Mt,A(E2,r,p2),A(E2,-r,p2),Mb],DPAL.green);               // outlet piece (green)
+  parts.push(_ln(mx(Mt),mx(Mb),`stroke="${LY.text}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"`)); // mitre joint
   const e=r*Math.cos(rad(seamDeg==null?180:seamDeg));            // seam offset: throat=+r, back=-r, side=centre
   const Ms=isect([e*p1[0],e*p1[1]],u1);
   parts.push(_pl([mx(A(E1,e,p1)),mx(Ms),mx(A(E2,e,p2))],SEAMST));
@@ -3006,6 +3012,8 @@ function diagCone(bigW,smallW,h,mode,off,seamDeg,dims){
   let cT=0;
   if(mode==='flatback') cT=b-sm; else if(mode==='oblique'||mode==='obliqueround') cT=(off||0)*sc;
   const ry=b*0.22, ryT=sm*0.22, parts=[], all=[[-b,ry],[b,ry],[cT-sm,-H-ryT],[cT+sm,-H-ryT]];
+  // soft body fill so the cone reads as a solid piece, not a wireframe
+  parts.push(`<polygon points="${(-b).toFixed(1)},0 ${(cT-sm).toFixed(1)},${(-H).toFixed(1)} ${(cT+sm).toFixed(1)},${(-H).toFixed(1)} ${b.toFixed(1)},0" fill="${DPAL.blue.f}" stroke="none"/>`);
   if(mode==='sqround'||mode==='obliqueround'){ parts.push(`<path d="M${(-b).toFixed(1)} 0 L${b.toFixed(1)} 0 L${(b*0.92).toFixed(1)} ${(ry*1.6).toFixed(1)} L${(-b*0.92).toFixed(1)} ${(ry*1.6).toFixed(1)} Z" fill="none" ${INKST}/>`); all.push([-b,ry*1.7],[b,ry*1.7]); }
   else parts.push(`<ellipse cx="0" cy="0" rx="${b.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
   parts.push(`<ellipse cx="${cT.toFixed(1)}" cy="${(-H).toFixed(1)}" rx="${sm.toFixed(1)}" ry="${ryT.toFixed(1)}" fill="none" ${INKST}/>`);
@@ -3025,11 +3033,12 @@ function diagCone(bigW,smallW,h,mode,off,seamDeg,dims){
 function diagTee(mainOD,brOD,ang,dims){
   const W=150, mr=28, br=Math.max(8,Math.min(mr*brOD/Math.max(mainOD,1),mr));
   const parts=[], all=[[-W/2,-mr],[W/2,mr]];
-  parts.push(`<rect x="${-W/2}" y="${-mr}" width="${W}" height="${2*mr}" rx="4" fill="none" ${INKST}/>`);
+  parts.push(`<rect x="${-W/2}" y="${-mr}" width="${W}" height="${2*mr}" rx="4" fill="${DPAL.blue.f}" stroke="${DPAL.blue.i}" stroke-width="1.9" stroke-linejoin="round"/>`);
   const a=(180-(ang||90))*Math.PI/180, L=52, dx=Math.cos(a), dy=-Math.sin(a);
   const b0=[-br,-mr], b1=[br,-mr];
   const t0=[b0[0]+dx*L,b0[1]+dy*L], t1=[b1[0]+dx*L,b1[1]+dy*L];
-  parts.push(_ln(b0,t0,INKST),_ln(b1,t1,INKST),_ln(t0,t1,INKST));
+  _poly(parts,all,[b0,t0,t1,b1],DPAL.green);                     // branch saddle (green)
+  parts.push(`<ellipse cx="${((t0[0]+t1[0])/2).toFixed(1)}" cy="${((t0[1]+t1[1])/2).toFixed(1)}" rx="${(br*Math.abs(Math.sin(a))+0.1).toFixed(1)}" ry="${(br*0.34+2).toFixed(1)}" fill="none" stroke="${DPAL.green.i}" stroke-width="1.6"/>`);
   all.push(t0,t1);
   if(dims){
     dimLin(parts,all,[-W/2,-mr],[-W/2,mr],-14,dims.d1);
@@ -3846,7 +3855,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.7.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.8.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3877,7 +3886,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.7.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.8.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
