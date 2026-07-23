@@ -662,6 +662,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         background-image:linear-gradient(var(--grid) 1px,transparent 1px),
                          linear-gradient(90deg,var(--grid) 1px,transparent 1px);
         background-size:16px 16px;cursor:crosshair}
+  .boxhero{padding:12px}
+  .boxhero .pvhead{margin:0 2px 8px}
+  .boxhero #fitdiag{width:100%;display:flex;align-items:center;justify-content:center;padding:14px 8px;min-height:220px}
+  .boxhero #fitdiag svg{width:100%!important;max-width:440px!important;max-height:340px}
   [data-seamsvg]{background:var(--canvas);border:1px solid var(--line);border-radius:4px;cursor:crosshair}
   .seamdot{transition:r .16s cubic-bezier(.34,1.56,.5,1),fill .16s ease;
         transform-box:fill-box;transform-origin:center}
@@ -806,7 +810,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.3.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.4.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3146,20 +3150,32 @@ function diagDouble(st){
   return _svgWrap(parts,all,230);
 }
 
+// split angles round the barrel (degrees clockwise from the TOP), matching
+// engine _boxSplits: 2 = sides, 3 = half + two quarters (3/6/9 o'clock),
+// 4 = four quarters. frontback preset puts a 2-split on top/bottom instead.
+function roundSplitAngles(s){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
+  if(n===2) return s.preset==='frontback'?[0,180]:[90,270];
+  if(n===3) return [90,180,270];
+  return [45,135,225,315]; }
 function diagRoundBox(s){
   const D=Math.max(1,+s.dia||200), H=Math.max(1,+s.height||300), horiz=s.orientation==='horizontal', ws=!!(+s.watershed);
   const sc=64/Math.max(D,H);
   let rx=D*sc/2, h=H*sc;
-  const parts=[], all=[];
-  if(horiz){ // lying down: split on the level, top half lifts off
+  const parts=[], all=[], angs=roundSplitAngles(s);
+  const SPL=`stroke="${LY.fold}" stroke-width="2.4" stroke-dasharray="7 4" stroke-linecap="round"`;
+  if(horiz){ // lying down, end-on to the left. Splits run the length.
     const ry2=Math.max(4,h*0.16), x0=-h/2, x1=h/2;
     parts.push(`<path d="M${x0} ${-rx} L${x1} ${-rx} A${ry2} ${rx} 0 0 1 ${x1} ${rx} L${x0} ${rx} A${ry2} ${rx} 0 0 1 ${x0} ${-rx}" fill="none" ${INKST}/>`);
     parts.push(`<ellipse cx="${x0}" cy="0" rx="${ry2}" ry="${rx}" fill="none" ${INKST}/>`);
-    parts.push(_ln([x0-ry2,0],[x1+ry2*0.8,0],SEAMST));
+    angs.forEach(a=>{ const r=(a-90)*Math.PI/180, ca=Math.cos(a*Math.PI/180);
+      parts.push(_ln([x0,0],[x0+ry2*Math.cos(r),rx*Math.sin(r)],SPL));   // radial pie-cut on the end disc
+      const ly=-rx*ca;                                                   // seam runs the length at this height
+      if(Math.abs(Math.abs(ca)-1)>0.02) parts.push(_ln([x0,ly],[x1,ly],SPL)); // skip top/bottom (on the silhouette)
+    });
     all.push([x0-ry2,-rx],[x1+ry2,rx]);
     dimLin(parts,all,[x0,-rx],[x1,-rx],-14,fmtDim(H));
     dimLin(parts,all,[x0,-rx],[x0,rx],-(14+ry2),'Ø'+fmtDim(D));
-  } else {
+  } else { // stood up, looking at the front. Splits run top to bottom.
     const ry=Math.max(4,rx*0.3), y0=-h/2, y1=h/2;
     parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L${(-rx).toFixed(1)} ${y1.toFixed(1)} A${rx.toFixed(1)} ${ry.toFixed(1)} 0 0 0 ${rx.toFixed(1)} ${y1.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
     if(ws){ const apex=y0-rx*0.28; // shallow cone cap
@@ -3167,7 +3183,11 @@ function diagRoundBox(s){
       parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
       all.push([0,apex-3]); }
     else parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
-    parts.push(_ln([0,y0+ry],[0,y1+ry*0.85],SEAMST));
+    angs.forEach(a=>{ const x=rx*Math.sin(a*Math.PI/180);               // vertical split on the front face
+      if(x<-rx+0.5||x>rx-0.5) return;                                    // skip the silhouette edges
+      parts.push(_ln([x,y0+ry*Math.cos(a*Math.PI/180)*0],[x,y1],SPL)); });
+    // top-face radial marks so you can read the pie split from above
+    angs.forEach(a=>{ const r=(a-90)*Math.PI/180; parts.push(_ln([0,y0],[rx*Math.cos(r),y0+ry*Math.sin(r)],SPL)); });
     all.push([-rx,y0-ry],[rx,y1+ry]);
     dimLin(parts,all,[-rx,y0],[rx,y0],-(ws?22:14),'Ø'+fmtDim(D));
     dimLin(parts,all,[rx,y0],[rx,y1],-14,fmtDim(H));
@@ -3413,9 +3433,14 @@ function form(kind, presetParams){
   const locked=!unlocked(kind);
   setView(fit.name,fit.sub,true);
   const seamF=fit.fields.find(f=>f.type==='seam');
+  const BOXHERO={roundbox:1,squarebox:1,valvebox:1,flangebox:1,wsbox:1};
+  const boxHero=!!BOXHERO[kind];
   let html=`<div class="workspace"><div class="pane-left">`;
+  if(boxHero) html+=`<div class="card boxhero">
+    <div class="pvhead"><span class="k">Box shape — all splits shown</span><span class="v" id="boxsplitlab"></span></div>
+    <div id="fitdiag"></div></div>`;
   html+=`<div class="preview">
-    <div class="pvhead"><span class="k" id="pvtitle">Live preview (1:1 flat pattern)</span>
+    <div class="pvhead"><span class="k" id="pvtitle">${boxHero?'Cut patterns (1:1)':'Live preview (1:1 flat pattern)'}</span>
       <button id="pvback" class="pvpill" style="display:none">◂ FULL PATTERN</button>
       <span id="pvcoord"></span>
       <span class="v"><span id="pvzoom" class="pvz">100%</span> · <span id="pvsheets"></span></span></div>
@@ -3434,7 +3459,7 @@ function form(kind, presetParams){
     `<label>Second bend type</label><div class="seg" data-seg="bendHand2">${['A','B','C','D'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
      <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
   if(seamF) html+=`<div class="card">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
-  else html+=`<div class="card" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
+  else if(!boxHero) html+=`<div class="card" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   html+=`</div><div class="pane-right">`;
   html+=`<div class="card"><div class="grid2">`;
   html+=fit.fields.filter(f=>f.type!=='seam').map(f=>{
@@ -3573,13 +3598,18 @@ function form(kind, presetParams){
     const pill=document.getElementById('pvback');
     if(pill) pill.style.display=activePc==null?'none':'inline-block';
     const pvt=document.getElementById('pvtitle');
-    if(pvt) pvt.textContent=activePc==null?'Live preview (1:1 flat pattern)':kitCaption(shown);
+    if(pvt) pvt.textContent=activePc==null?(boxHero?'Cut patterns (1:1)':'Live preview (1:1 flat pattern)'):kitCaption(shown);
     const pl=plan(pat,SET.page);
     const pvs=document.getElementById('pvsheets'),
           ptxt=pl.n+' × '+SET.page.toUpperCase()+' ('+(pl.c[0]>pl.c[1]?'landscape':'portrait')+')';
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(pat,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,s);
+    const bsl=document.getElementById('boxsplitlab');
+    if(bsl){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
+      const desc={2:'2-way · two halves',3:'3-way · one half + two quarters',4:'4-way · four quarters'}[n];
+      bsl.textContent=(fit.fields.some(f=>f.k==='pieces')?desc:'');
+      if(fit.fields.some(f=>f.k==='pieces')&&s.orientation) bsl.textContent+=' · '+(s.orientation==='horizontal'?'horizontal':'vertical'); }
     const ds=document.getElementById('dbseam');
     if(ds){ const dir=dirOf(s), sm=(+s.seamFromThroat||0), tw2=(+s.twist||0), d2=(dir==='same'?0:180)+tw2;
       const s2=(((sm-d2)%360)+360)%360;
@@ -3727,7 +3757,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.3.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.4.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3757,7 +3787,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.3.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.4.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
