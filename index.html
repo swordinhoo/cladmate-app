@@ -833,7 +833,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.7.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.7.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -2623,12 +2623,13 @@ const F={
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
-  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,bendHand:'A',nDiv:12},
+  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
     num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
     num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
     num('midLen','Straight between bends (mm)'),
     num('twist','Twist (°, -90 to +90)'),
+    sego('orientation','How it hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),
     {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'First bend type'}],
   build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
   kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage});
@@ -3111,10 +3112,12 @@ function diagDouble(st){
   for(let i=0;i<S.length-1;i++){ const c=bandSec(i); cols.push(c.fill); inks.push(c.ink); }
   const secInkAt=i=>bandSec(Math.min(i,S.length-2)).ink;
   // --- rings, projection, painter ---
-  const NS=26, vb=rad(24), va=rad(15);
+  const NS=26, vb=rad(24), va=rad(15), vert=st.orientation==='vertical';
   const proj=p=>{ const x1=p[0]*Math.cos(vb)-p[2]*Math.sin(vb), z1=p[0]*Math.sin(vb)+p[2]*Math.cos(vb);
     const y1=p[1]*Math.cos(va)+z1*Math.sin(va), z2=-p[1]*Math.sin(va)+z1*Math.cos(va);
-    return {p:[sgn*x1,ym*y1], z:z2}; };
+    let X=sgn*x1, Y=ym*y1;
+    if(vert){ const t=X; X=-Y; Y=t; }   // stand it up: rotate the view 90deg (drawing only)
+    return {p:[X,Y], z:z2}; };
   const vd=(()=>{ // view direction in model space (unit, toward viewer)
     const b=vb, a=va; return nrm([Math.sin(b)*Math.cos(a), -Math.sin(a), Math.cos(b)*Math.cos(a)]); })();
   S.forEach(s=>{ let e1=nrm(sub(s.th,mul(s.u,dot(s.th,s.u)))); const e2=nrm(crs(s.u,e1));
@@ -3843,7 +3846,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.7.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.7.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3874,7 +3877,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.7.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.7.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
