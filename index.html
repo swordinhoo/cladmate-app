@@ -449,7 +449,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%}
-  body{font-family:var(--fs);font-size:14px;background:var(--bg);color:var(--ink);
+  body{font-family:var(--fs);font-size:14px;color:var(--ink);
+       background:
+         radial-gradient(120% 80% at 100% 0,rgba(47,123,214,.06),transparent 55%),
+         radial-gradient(120% 80% at 0 100%,rgba(18,154,166,.05),transparent 55%),
+         linear-gradient(180deg,#eef1f4,#e6eaee);
+       background-attachment:fixed;
        display:flex;flex-direction:column}
   ::selection{background:var(--acc);color:#fff}
   @media(pointer:fine){
@@ -504,31 +509,42 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       stroke-linecap:round;stroke-linejoin:round;transition:stroke .14s ease}
   nav button.on{color:var(--acc)}
   nav button.on svg{stroke:var(--acc)}
+  nav button.on::before{content:"";position:absolute;top:6px;width:46px;height:30px;border-radius:9px;
+      background:color-mix(in srgb,var(--acc) 12%,transparent);z-index:-1}
+  nav button{position:relative}
+  #navind{height:3px;border-radius:0 0 3px 3px;
+      box-shadow:0 0 10px color-mix(in srgb,var(--acc) 70%,transparent)}
 
-  /* ---- section headings: CAD layer bars ---- */
+  /* ---- section headings: category-coded rule bars ---- */
+  .grp{margin:0 0 4px}
   h2{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;
-     color:#39424b;margin:20px 1px 9px;display:flex;align-items:center;gap:9px;font-weight:700}
-  h2::before{content:"";width:6px;height:6px;background:var(--acc);flex:none}
-  h2::after{content:"";flex:1;height:1px;background:var(--line)}
-  #app>h2:first-child{margin-top:0}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-  .tile{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:5px;
-        padding:0 0 9px;box-shadow:var(--shadow);text-align:center;cursor:pointer;overflow:hidden;
-        transition:border-color .12s,transform .16s cubic-bezier(.2,1.4,.4,1)}
-  .tile::before{content:"";position:absolute;top:5px;left:5px;width:10px;height:10px;
-        border-top:1.5px solid transparent;border-left:1.5px solid transparent;
-        transition:border-color .12s;pointer-events:none;z-index:1}
-  .tile:hover{border-color:var(--acc)}
-  .tile:hover::before,.tile:focus-visible::before{border-color:var(--ly-object)}
-  .tile:hover svg,.tile:focus-visible svg{box-shadow:inset 0 0 0 1px var(--ly-object)}
-  .tile:active{transform:scale(.985);transition-duration:.12s,.05s}
-  .tile svg{width:100%;height:58px;display:block;margin:0 0 8px;padding:7px 0 3px;
-        background:var(--canvas);border-bottom:1px solid var(--line)}
-  .tile .t{font-family:var(--fd);font-stretch:87.5%;font-weight:600;font-size:13.5px;
-        letter-spacing:.02em;padding:0 7px}
-  .tile .d{font-family:var(--fm);font-size:9.5px;color:var(--sub);margin-top:2px;line-height:1.35;padding:0 7px}
-  .tile .lock{position:absolute;top:6px;right:6px;width:19px;height:19px;border-radius:3px;
-        background:var(--lock-bg);border:1px solid var(--line);display:grid;place-items:center;font-size:10px}
+     color:#3a444e;margin:22px 1px 11px;display:flex;align-items:center;gap:9px;font-weight:700}
+  h2::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--cat,var(--acc));
+     box-shadow:0 0 0 3px color-mix(in srgb,var(--cat,var(--acc)) 18%,transparent);flex:none}
+  h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--cat,var(--acc)) 42%,transparent),transparent)}
+  .grp:first-child h2,#app>h2:first-child{margin-top:2px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .tile{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:11px;
+        padding:0;box-shadow:0 1px 2px rgba(16,22,28,.06),0 6px 16px -8px rgba(16,22,28,.18);
+        text-align:left;cursor:pointer;overflow:hidden;isolation:isolate;
+        transition:border-color .15s,transform .18s cubic-bezier(.2,1.3,.4,1),box-shadow .18s}
+  .tile::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;z-index:2;
+        background:linear-gradient(90deg,var(--cat,var(--acc)),color-mix(in srgb,var(--cat,var(--acc)) 45%,transparent));
+        opacity:.9;pointer-events:none}
+  .tile:hover{border-color:color-mix(in srgb,var(--cat,var(--acc)) 60%,var(--line));
+        transform:translateY(-2px);box-shadow:0 2px 4px rgba(16,22,28,.08),0 16px 30px -12px color-mix(in srgb,var(--cat,var(--acc)) 55%,rgba(16,22,28,.4))}
+  .tile:active{transform:translateY(0) scale(.99);transition-duration:.1s}
+  .ticon{position:relative;background:
+        radial-gradient(120% 140% at 50% -20%,color-mix(in srgb,var(--cat,var(--acc)) 12%,var(--canvas)),var(--canvas));
+        border-bottom:1px solid var(--line);padding:11px 0 7px}
+  .tile svg{width:100%;height:60px;display:block}
+  .tmeta{padding:9px 11px 11px}
+  .tile .t{font-family:var(--fd);font-stretch:87.5%;font-weight:600;font-size:14px;
+        letter-spacing:.01em;color:var(--ink)}
+  .tile .d{font-family:var(--fm);font-size:9.5px;color:var(--sub);margin-top:3px;line-height:1.35}
+  .tile .lock{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;z-index:3;
+        background:color-mix(in srgb,var(--canvas) 82%,#000);border:1px solid var(--line);
+        display:grid;place-items:center;font-size:11px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
   .full{grid-column:1/-1}
 
   /* ---- cold boot: the home screen draws itself in like a plotter ---- */
@@ -545,8 +561,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   /* ---- panels + controls ---- */
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:5px;box-shadow:var(--shadow);
-        padding:13px;margin-bottom:11px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+        box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);
+        padding:14px;margin-bottom:12px}
   label{display:block;font-family:var(--fm);font-size:9.5px;font-weight:700;text-transform:uppercase;
         letter-spacing:.08em;color:var(--sub);margin:12px 0 5px}
   .card>label:first-child{margin-top:0}
@@ -569,8 +586,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .seg button.on{background:var(--acc);color:var(--acc-ink)}
 
   /* ---- viewports: the drawing canvas as a real CAD instrument ---- */
-  .preview{background:var(--panel);border:1px solid var(--line);border-radius:5px;
-        margin-bottom:11px;box-shadow:var(--shadow);overflow:hidden}
+  .preview{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+        margin-bottom:12px;box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);overflow:hidden}
   .pvhead{display:flex;justify-content:space-between;align-items:center;gap:8px;
         background:var(--panel2);border-bottom:1px solid var(--line);padding:6px 9px}
   .pvhead .k{font-family:var(--fm);font-size:9px;color:var(--sub);font-weight:700;
@@ -681,11 +698,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   /* ---- buttons: machined keys ---- */
   .btn{width:100%;border:none;font-family:var(--fd);font-stretch:87.5%;font-size:14.5px;font-weight:600;
-        letter-spacing:.03em;padding:12px;border-radius:4px;
+        letter-spacing:.03em;padding:13px;border-radius:9px;
         transition:background .1s,transform .18s cubic-bezier(.2,1.4,.4,1),box-shadow .18s ease}
   .btn:active{transform:translateY(1px) scale(.995);transition-duration:.1s,.05s,.05s}
-  .btn.primary{background:var(--acc);color:var(--acc-ink)}
-  .btn.primary:hover{background:var(--acc-hi)}
+  .btn.primary{background:linear-gradient(180deg,var(--acc-hi),var(--acc));color:var(--acc-ink);
+        box-shadow:0 1px 2px rgba(16,22,28,.12),0 10px 22px -12px color-mix(in srgb,var(--acc) 80%,transparent)}
+  .btn.primary:hover{background:linear-gradient(180deg,#2076cc,var(--acc-hi))}
   .btn.primary:active{box-shadow:inset 0 2px 3px rgba(0,0,0,.16)}
   .btn.gold{background:var(--panel);color:var(--acc);border:1px solid var(--acc)}
   .btn.gold:hover{background:var(--acc-soft)}
@@ -815,7 +833,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.5.3</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.6.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -2828,9 +2846,10 @@ function route(){ if(CUR){ CUR(); return; } TAB==='fit'?home():TAB==='jobs'?jobs
 function home(){
   setView('CladMate','Insulation cladding patterns',false);
   let ti=0;
-  const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}${F[k].icon}<div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div></div>`;
-  let tiles=GROUPS.map(g=>`<h2>${g.t}</h2><div class="grid">${g.k.map(tile).join('')}</div>`).join('');
-  tiles+=`<h2>Reference</h2><div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms">${I.chart}<div class="t">Standard Pipe Chart</div><div class="d">DN · OD · long &amp; short radius</div></div></div>`;
+  const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}<div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div></div></div>`;
+  const CATCOL=['#2f7bd6','#129aa6','#d08a12','#7b5be0','#1f9b57','#d1495b'];
+  let tiles=GROUPS.map((g,gi)=>`<section class="grp" style="--cat:${CATCOL[gi%CATCOL.length]}"><h2>${g.t}</h2><div class="grid">${g.k.map(tile).join('')}</div></section>`).join('');
+  tiles+=`<section class="grp" style="--cat:#5b6b7a"><h2>Reference</h2><div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN · OD · long &amp; short radius</div></div></div></div></section>`;
   app.innerHTML=`${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}
@@ -3814,7 +3833,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.5.3</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.6.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3844,7 +3863,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.5.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.6.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
