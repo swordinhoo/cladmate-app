@@ -681,6 +681,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         background-size:16px 16px;cursor:crosshair}
   .boxhero{padding:12px}
   .boxhero .pvhead{margin:0 2px 8px}
+  .boxhead{flex-direction:column;align-items:flex-start;gap:2px}
+  .boxhead .k{white-space:normal;overflow:visible}
+  .boxhead .v{white-space:normal;text-align:left;flex:none}
   .boxheromain{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   .boxhero #fitdiag{flex:1 1 260px;display:flex;align-items:center;justify-content:center;padding:12px 6px;min-height:210px}
   .boxhero #fitdiag svg{width:100%!important;max-width:420px!important;max-height:320px}
@@ -833,7 +836,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.8.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.8.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3220,56 +3223,62 @@ function splitWheelCuts(s){
   return out; }
 function diagRoundBox(s){
   const D=Math.max(1,+s.dia||200), H=Math.max(1,+s.height||300), horiz=s.orientation==='horizontal', ws=!!(+s.watershed);
-  const sc=64/Math.max(D,H);
+  const sc=118/Math.max(D,H);                                          // bigger drawing -> dims read smaller
   let rx=D*sc/2, h=H*sc;
-  const parts=[], all=[], angs=roundSplitAngles(s);
-  const SPL=`stroke="${LY.fold}" stroke-width="2.4" stroke-dasharray="7 4" stroke-linecap="round"`;
+  const parts=[], all=[], angs=roundSplitAngles(s), cs=angs.slice().sort((a,b)=>a-b);
+  const SPL=`stroke="${LY.fold}" stroke-width="2.2" stroke-dasharray="7 4" stroke-linecap="round"`;
+  const BODY=`fill="url(#rbcyl)" stroke="${LY.object}" stroke-width="2" stroke-linejoin="round"`;
+  const LID=`fill="${LY.fill2}" stroke="${LY.object}" stroke-width="2"`;
+  const PC=[DPAL.gold,DPAL.blue,DPAL.green,DPAL.violet];
+  // cross-canvas cylinder sheen (lighter down the middle, darker at the edges)
+  parts.push(`<defs><linearGradient id="rbcyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${LY.object}" stop-opacity="0.04"/><stop offset="0.42" stop-color="${LY.object}" stop-opacity="0.17"/><stop offset="0.6" stop-color="${LY.object}" stop-opacity="0.12"/><stop offset="1" stop-color="${LY.object}" stop-opacity="0.03"/></linearGradient></defs>`);
   if(horiz){ // lying down, end-on to the left. Splits run the length.
-    const ry2=Math.max(4,h*0.16), x0=-h/2, x1=h/2;
-    parts.push(`<path d="M${x0} ${-rx} L${x1} ${-rx} A${ry2} ${rx} 0 0 1 ${x1} ${rx} L${x0} ${rx} A${ry2} ${rx} 0 0 1 ${x0} ${-rx}" fill="none" ${INKST}/>`);
-    parts.push(`<ellipse cx="${x0}" cy="0" rx="${ry2}" ry="${rx}" fill="none" ${INKST}/>`);
+    const ry2=Math.max(6,h*0.16), x0=-h/2, x1=h/2;
+    parts.push(`<path d="M${x0} ${-rx} L${x1} ${-rx} A${ry2} ${rx} 0 0 1 ${x1} ${rx} L${x0} ${rx} A${ry2} ${rx} 0 0 1 ${x0} ${-rx} Z" ${BODY}/>`);
+    parts.push(`<ellipse cx="${x0}" cy="0" rx="${ry2}" ry="${rx}" ${LID}/>`);
     // colour each piece on the end disc: gold = sits on top / sheds OVER, red = lower / laps under
     const ep=a=>[x0+ry2*Math.sin(a*Math.PI/180), -rx*Math.cos(a*Math.PI/180)];
-    const cs=angs.slice().sort((p,q)=>p-q);
     for(let i=0;i<cs.length;i++){ const a0=cs[i], a1=(i+1<cs.length?cs[i+1]:cs[0]+360), up=Math.cos(((a0+a1)/2)*Math.PI/180)>0.02;
+      const pts=[[x0,0]]; for(let a=a0;a<=a1+0.01;a+=(a1-a0)/10) pts.push(ep(a%360));
+      parts.push(`<polygon points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${up?DPAL.gold.f:DPAL.grey.f}" stroke="none"/>`);
       let pl=''; for(let a=a0;a<=a1+0.01;a+=(a1-a0)/10){ const q=ep(a%360); pl+=(pl?' ':'')+q[0].toFixed(1)+','+q[1].toFixed(1); }
-      parts.push(`<polyline points="${pl}" fill="none" stroke="${up?LY.hi:LY.centre}" stroke-width="${up?3.4:2.2}" stroke-linecap="round" opacity="${up?0.95:0.5}"/>`); }
+      parts.push(`<polyline points="${pl}" fill="none" stroke="${up?LY.hi:LY.centre}" stroke-width="${up?3.2:2}" stroke-linecap="round" opacity="${up?0.95:0.55}"/>`); }
     angs.forEach(a=>{ const r=(a-90)*Math.PI/180, ca=Math.cos(a*Math.PI/180);
-      parts.push(_ln([x0,0],[x0+ry2*Math.cos(r),rx*Math.sin(r)],SPL));   // radial pie-cut on the end disc
-      const ly=-rx*ca;                                                   // seam runs the length at this height
-      if(Math.abs(Math.abs(ca)-1)>0.02) parts.push(_ln([x0,ly],[x1,ly],SPL)); // skip top/bottom (on the silhouette)
-    });
+      parts.push(_ln([x0,0],[x0+ry2*Math.cos(r),rx*Math.sin(r)],SPL));
+      const ly=-rx*ca; if(Math.abs(Math.abs(ca)-1)>0.02) parts.push(_ln([x0,ly],[x1,ly],SPL)); });
     all.push([x0-ry2,-rx],[x1+ry2,rx]);
-    dimLin(parts,all,[x0,-rx],[x1,-rx],-14,fmtDim(H));
-    dimLin(parts,all,[x0,-rx],[x0,rx],-(14+ry2),'Ø'+fmtDim(D));
+    dimLin(parts,all,[x0,-rx],[x1,-rx],-13,fmtDim(H));
+    dimLin(parts,all,[x0,-rx],[x0,rx],-(13+ry2),'Ø'+fmtDim(D));
   } else { // stood up, looking at the front. Splits run top to bottom.
-    const ry=Math.max(4,rx*0.3), y0=-h/2, y1=h/2;
-    parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L${(-rx).toFixed(1)} ${y1.toFixed(1)} A${rx.toFixed(1)} ${ry.toFixed(1)} 0 0 0 ${rx.toFixed(1)} ${y1.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
-    if(ws){ const apex=y0-rx*0.28; // shallow cone cap
-      parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L0 ${apex.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)}" fill="none" ${INKST}/>`);
-      parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
+    const ry=Math.max(6,rx*0.3), y0=-h/2, y1=h/2;
+    const lidPt=a=>[rx*Math.sin(a*Math.PI/180), y0-ry*Math.cos(a*Math.PI/180)];   // point on the top lid at clock a
+    parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L${(-rx).toFixed(1)} ${y1.toFixed(1)} A${rx.toFixed(1)} ${ry.toFixed(1)} 0 0 0 ${rx.toFixed(1)} ${y1.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)} Z" ${BODY}/>`);
+    // top lid: colour each pie piece a distinct tint so the split reads at a glance
+    for(let i=0;i<cs.length;i++){ const a0=cs[i], a1=(i+1<cs.length?cs[i+1]:cs[0]+360);
+      const pts=[[0,y0]]; for(let a=a0;a<=a1+0.01;a+=(a1-a0)/10) pts.push(lidPt(a%360));
+      parts.push(`<polygon points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${PC[i%PC.length].f}" stroke="none"/>`); }
+    if(ws){ const apex=y0-rx*0.32;                                     // shallow cone cap
+      parts.push(`<path d="M${(-rx).toFixed(1)} ${y0.toFixed(1)} L0 ${apex.toFixed(1)} L${rx.toFixed(1)} ${y0.toFixed(1)} Z" fill="${DPAL.gold.f}" stroke="${LY.object}" stroke-width="2" stroke-linejoin="round"/>`);
       all.push([0,apex-3]); }
-    else parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
-    angs.forEach(a=>{ const x=rx*Math.sin(a*Math.PI/180);               // vertical split on the front face
-      if(x<-rx+0.5||x>rx-0.5) return;                                    // skip the silhouette edges
-      parts.push(_ln([x,y0+ry*Math.cos(a*Math.PI/180)*0],[x,y1],SPL)); });
-    // top-face radial marks so you can read the pie split from above
-    angs.forEach(a=>{ const r=(a-90)*Math.PI/180; parts.push(_ln([0,y0],[rx*Math.cos(r),y0+ry*Math.sin(r)],SPL)); });
+    parts.push(`<ellipse cx="0" cy="${y0.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" ${INKST}/>`);
+    angs.forEach(a=>{ const x=rx*Math.sin(a*Math.PI/180);
+      if(x<-rx+0.5||x>rx-0.5) return; parts.push(_ln([x,y0],[x,y1],SPL)); });   // vertical seam on the front face
+    angs.forEach(a=>parts.push(_ln([0,y0],lidPt(a),SPL)));             // pie spokes on the lid
     all.push([-rx,y0-ry],[rx,y1+ry]);
-    dimLin(parts,all,[-rx,y0],[rx,y0],-(ws?22:14),'Ø'+fmtDim(D));
-    dimLin(parts,all,[rx,y0],[rx,y1],-14,fmtDim(H));
+    dimLin(parts,all,[-rx,y0],[rx,y0],-(ws?20:13),'Ø'+fmtDim(D));
+    dimLin(parts,all,[rx,y0],[rx,y1],-13,fmtDim(H));
   }
   if(+s.holeApipe>0) dimLead(parts,all,[0,(horiz? rx: h/2)-2],18,14,'hole Ø'+fmtDim(+s.holeApipe+2*(+s.insulation||0)));
-  return _svgWrap(parts,all,200);
+  return _svgWrap(parts,all,240);
 }
 function diagSquareBox(s){
   const L=Math.max(1,+s.boxL||300), W=Math.max(1,+s.boxW||250), H=Math.max(1,+s.boxH||250);
   const sc=62/Math.max(L,W,H), l=L*sc, w=W*sc, h=H*sc, dx=w*0.55, dy=-w*0.4;
   const x0=-l/2, x1=l/2, y0=-h/2, y1=h/2;
   const parts=[], all=[[x0,y1],[x1+dx,y0+dy]];
-  parts.push(`<polygon points="${x0} ${y0} ${x0+dx} ${y0+dy} ${x1+dx} ${y0+dy} ${x1} ${y0}" fill="none" ${INKST}/>`);
-  parts.push(`<polygon points="${x1} ${y0} ${x1+dx} ${y0+dy} ${x1+dx} ${y1+dy} ${x1} ${y1}" fill="none" ${INKST}/>`);
-  parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="none" ${INKST}/>`);
+  parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="${LY.fill2}" ${INKST}/>`);                                    // front face
+  parts.push(`<polygon points="${x1} ${y0} ${x1+dx} ${y0+dy} ${x1+dx} ${y1+dy} ${x1} ${y1}" fill="${LY.fill}" ${INKST}/>`);          // side face (darker)
+  parts.push(`<polygon points="${x0} ${y0} ${x0+dx} ${y0+dy} ${x1+dx} ${y0+dy} ${x1} ${y0}" fill="${DPAL.blue.f}" ${INKST}/>`);      // top face
   parts.push(_ln([0,y0],[0,y1],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
   if(+s.watershed) parts.push(_ln([x0,y0-6],[x1,y0],`stroke="${LY.hi}" stroke-width="2.4" stroke-linecap="round"`));
   dimLin(parts,all,[x0,y1],[x1,y1],14,fmtDim(L));
@@ -3283,10 +3292,11 @@ function diagFlangeBox(s){
   const sc=64/Math.max(D,W*0.6), r=D*sc/2, w=Math.min(W*sc,100), ry=r*0.28;
   const x0=-w/2, x1=w/2, fx=r*0.22;
   const parts=[], all=[[x0-fx,-r],[x1+fx,r]];
-  parts.push(`<ellipse cx="${(x0-fx).toFixed(1)}" cy="0" rx="${ry.toFixed(1)}" ry="${r.toFixed(1)}" fill="none" ${INKST}/>`);
-  parts.push(`<ellipse cx="${(x1+fx).toFixed(1)}" cy="0" rx="${ry.toFixed(1)}" ry="${r.toFixed(1)}" fill="none" ${INKST}/>`);
-  parts.push(`<ellipse cx="${x0.toFixed(1)}" cy="0" rx="${(ry*0.5).toFixed(1)}" ry="${(r*0.86).toFixed(1)}" fill="none" ${INKST}/>`);
-  parts.push(`<ellipse cx="${x1.toFixed(1)}" cy="0" rx="${(ry*0.5).toFixed(1)}" ry="${(r*0.86).toFixed(1)}" fill="none" ${INKST}/>`);
+  parts.push(`<rect x="${x0.toFixed(1)}" y="${(-r*0.86).toFixed(1)}" width="${(x1-x0).toFixed(1)}" height="${(r*1.72).toFixed(1)}" fill="${LY.fill2}"/>`); // barrel body
+  parts.push(`<ellipse cx="${(x0-fx).toFixed(1)}" cy="0" rx="${ry.toFixed(1)}" ry="${r.toFixed(1)}" fill="${DPAL.blue.f}" ${INKST}/>`);   // flange discs
+  parts.push(`<ellipse cx="${(x1+fx).toFixed(1)}" cy="0" rx="${ry.toFixed(1)}" ry="${r.toFixed(1)}" fill="${DPAL.blue.f}" ${INKST}/>`);
+  parts.push(`<ellipse cx="${x0.toFixed(1)}" cy="0" rx="${(ry*0.5).toFixed(1)}" ry="${(r*0.86).toFixed(1)}" fill="${LY.fill2}" ${INKST}/>`);
+  parts.push(`<ellipse cx="${x1.toFixed(1)}" cy="0" rx="${(ry*0.5).toFixed(1)}" ry="${(r*0.86).toFixed(1)}" fill="${LY.fill2}" ${INKST}/>`);
   parts.push(_ln([x0,-r*0.86],[x1,-r*0.86],INKST),_ln([x0,r*0.86],[x1,r*0.86],INKST));
   parts.push(_ln([-w/2*0.55,0-r*0.86],[-w/2*0.55,r*0.86],SEAMST));
   dimLin(parts,all,[x0-fx,-r],[x1+fx,-r],-14,fmtDim(W));
@@ -3298,9 +3308,9 @@ function diagDBox(s){
   const sc=60/Math.max(W,H,L*0.7), w=W*sc, h=H*sc, r=w/2, len=Math.min(L*sc,80), dx=len*0.6, dy=-len*0.42;
   const x0=-w/2, x1=w/2, y0=-h/2, yr=y0+h-r;
   const parts=[], all=[[x0,y0+h],[x1+dx,y0+dy]];
-  parts.push(`<path d="M${x0} ${y0} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="none" ${INKST}/>`);
-  parts.push(`<polygon points="${x0} ${y0} ${x0+dx} ${y0+dy} ${x1+dx} ${y0+dy} ${x1} ${y0}" fill="none" ${INKST}/>`);
-  parts.push(`<path d="M${x1} ${y0} L${x1+dx} ${y0+dy} L${x1+dx} ${(yr+dy)}" fill="none" ${INKST}/>`);
+  parts.push(`<path d="M${x1} ${y0} L${x1+dx} ${y0+dy} L${x1+dx} ${(yr+dy)} L${x1} ${yr} Z" fill="${LY.fill}" ${INKST}/>`);   // side face (darker)
+  parts.push(`<path d="M${x0} ${y0} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="${LY.fill2}" ${INKST}/>`); // front D face
+  parts.push(`<polygon points="${x0} ${y0} ${x0+dx} ${y0+dy} ${x1+dx} ${y0+dy} ${x1} ${y0}" fill="${DPAL.blue.f}" ${INKST}/>`); // top face
   parts.push(`<path d="M${x1+dx} ${(yr+dy)} A${r} ${r} 0 0 1 ${(x0+dx+r*0.55)} ${(yr+dy+r*0.8)}" fill="none" ${INKST}/>`);
   parts.push(_ln([0,y0],[0,y0+h*0.98],SEAMST),_ln([0,y0],[dx,y0+dy],SEAMST));
   if(+s.watershed) parts.push(_ln([x0,y0-6],[x1,y0],`stroke="${LY.hi}" stroke-width="2.4" stroke-linecap="round"`));
@@ -3330,14 +3340,15 @@ function diagWsBox(s){
   const parts=[], all=[];
   // front view: L x H with lockform columns
   const l=L*sc, h=H*sc, x0=-l-14, x1=-14, y0=-h/2, y1=h/2, lf=Math.max(3,(SET.lockform||25)*sc);
-  parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="none" ${INKST}/>`);
+  parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="${LY.fill2}" ${INKST}/>`);
   parts.push(_ln([x0+lf,y0],[x0+lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`),_ln([x1-lf,y0],[x1-lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`));
   all.push([x0,y0],[x1,y1]);
   dimLin(parts,all,[x0,y1],[x1,y1],13,fmtDim(L));
   dimLin(parts,all,[x0,y0],[x0,y1],-12,fmtDim(H));
   // side view: W with the ridge peak (shed depth above)
   const w=W*sc, d=D*sc, sx0=14, sx1=14+w, sy1=y1, syE=y1-h, syP=syE-d, mid=(sx0+sx1)/2;
-  parts.push(`<path d="M${sx0} ${sy1} L${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} L${sx1} ${sy1} Z" fill="none" ${INKST}/>`);
+  parts.push(`<path d="M${sx0} ${sy1} L${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} L${sx1} ${sy1} Z" fill="${LY.fill2}" ${INKST}/>`);
+  parts.push(`<path d="M${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} Z" fill="${DPAL.gold.f}" stroke="none"/>`); // watershed roof
   parts.push(_ln([mid,syP],[mid,sy1],SEAMST));
   all.push([sx0,sy1],[sx1,syP]);
   dimLin(parts,all,[sx0,sy1],[sx1,sy1],13,fmtDim(W));
@@ -3379,8 +3390,10 @@ function diagValveBox(s){
   const parts=[], all=[];
   const x0=-w/2, x1=w/2, y0=-h/2, yr=y0+h-r;   // round bottom radius r=w/2
   // section: top (flat or ridge) -> straight sides -> round bottom
-  if(ws>0){ const pk=y0-ws*sc; parts.push(`<path d="M${x0} ${y0} L0 ${pk.toFixed(1)} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="none" ${INKST}/>`); all.push([0,pk]); }
-  else parts.push(`<path d="M${x0} ${y0} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="none" ${INKST}/>`);
+  if(ws>0){ const pk=y0-ws*sc;
+    parts.push(`<path d="M${x0} ${y0} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="${LY.fill2}" ${INKST}/>`);
+    parts.push(`<path d="M${x0} ${y0} L0 ${pk.toFixed(1)} L${x1} ${y0} Z" fill="${DPAL.gold.f}" ${INKST}/>`); all.push([0,pk]); }
+  else parts.push(`<path d="M${x0} ${y0} L${x1} ${y0} L${x1} ${yr} A${r} ${r} 0 0 1 ${x0} ${yr} Z" fill="${LY.fill2}" ${INKST}/>`);
   parts.push(_ln([0,y0-(ws>0?ws*sc:0)],[0,y0+h],SEAMST));   // split centreline
   dimLin(parts,all,[x0,y0],[x1,y0],-16,'W '+fmtDim(W));
   dimLin(parts,all,[x1,y0],[x1,y0+h],-14,'H '+fmtDim(H));
@@ -3540,7 +3553,7 @@ function form(kind, presetParams){
     <div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
   let html=`<div class="workspace"><div class="pane-left">`;
   if(boxHero) html+=`<div class="card boxhero">
-    <div class="pvhead"><span class="k">Box shape — all splits shown</span><span class="v" id="boxsplitlab"></span></div>
+    <div class="pvhead boxhead"><span class="k">Box view — all splits</span><span class="v" id="boxsplitlab"></span></div>
     <div class="boxheromain"><div id="fitdiag"></div>${hasSplits?`<div class="boxwheel">${fieldHTML({type:'splitwheel',k:'splitRot',label:'Split position (clock)',compact:true},s)}</div>`:''}</div></div>`;
   else html+=previewCard;
   const hand2Html = kind!=='bendonbend' ? '' :
@@ -3855,7 +3868,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.8.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.8.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3886,7 +3899,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.8.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.8.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
