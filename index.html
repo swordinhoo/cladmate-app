@@ -810,7 +810,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.4.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.5.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1399,12 +1399,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const G = sec.G, n = Math.max(2, Math.min(4, Math.round(p.pieces || 2)));
     const fb = p.preset === 'frontback';
     if (p.shape === 'round') {
-      if (n === 2) return fb ? [0, G / 2] : [G / 4, 3 * G / 4];
       // 3-way = one HALF + two QUARTERS (not three thirds). Splits at 3/6/9
       // o'clock: the half caps the top, the two quarters meet at the bottom
       // (either side of a bottom clamp). g=0 is the top, g runs clockwise.
-      if (n === 3) return [G / 4, G / 2, 3 * G / 4];
-      return [G / 8, 3 * G / 8, 5 * G / 8, 7 * G / 8];
+      const base = n === 2 ? (fb ? [0, G / 2] : [G / 4, 3 * G / 4])
+                 : n === 3 ? [G / 4, G / 2, 3 * G / 4]
+                 : [G / 8, 3 * G / 8, 5 * G / 8, 7 * G / 8];
+      // splitRot rotates the whole pattern round the barrel in clock steps
+      // (0-11, each 30deg / G/12). Lets the fitter drop the cuts anywhere on
+      // the numbered wheel to clear a clamp/flange and choose which pieces
+      // sit on top. The watershed lap follows the geometry (over = higher).
+      const rot = (((+p.splitRot || 0) % 12) + 12) % 12 * (G / 12);
+      return rot ? base.map(g => ((g + rot) % G + G) % G).sort((a, b) => a - b) : base;
     }
     // square / dbox segs: 0 top-right half, 1 right side, 2 bottom, 3 left
     // side, 4 top-left half. Positions read off the segments so tilted
@@ -2680,7 +2686,7 @@ const F={
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  roundbox:{name:'Round Box',sub:'Valve / flange box',icon:I.rbox,
-  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,preset:'',watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,preset:'',splitRot:0,watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('dia','Box diameter (mm)'),num('height','Height / length (mm)')]),
   build:s=>FP.boxKit(boxParams('round',s))[0],
   kit:s=>FP.boxKit(boxParams('round',s)),
@@ -2757,6 +2763,7 @@ function BOXFIELDS(dims){ return dims.concat([
   sego('orientation','Orientation',[{v:'vertical',label:'Vertical'},{v:'horizontal',label:'Horizontal'}]),
   segd('pieces','Pieces',[2,3,4]),
   sego('preset','Split runs',[{v:'',label:'Auto'},{v:'frontback',label:'Face centres'},{v:'sides',label:'Side centres'}]),
+  {type:'splitwheel',k:'splitRot',label:'Split position (clock)'},
   sego('watershed','Watershed top',[{v:0,label:'Flat'},{v:1,label:'Sloped'}]),
   num('insulation','Insulation on the pipe (mm)'),
   {type:'pipe',k:'holeApipe',label:'End A — pipe landing on',none:true},
@@ -2765,7 +2772,7 @@ function BOXFIELDS(dims){ return dims.concat([
   num('holeBx','B offset X (mm)'),num('holeBy','B offset Y (mm)')]); }
 function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulation||0),ox:+x||0,oy:+y||0}:null;
   return Object.assign({},s,{shape,
-  watershed:!!(+s.watershed), preset:s.preset||undefined,
+  watershed:!!(+s.watershed), preset:s.preset||undefined, splitRot:+s.splitRot||0,
   splitStyle:SET.splitStyle, splitSize:SET.splitSize, lockform:SET.lockform, slotFlange:SET.slotFlange, wsAngle:SET.wsAngle,
   holeA:holeOf(s.holeApipe,s.holeAx,s.holeAy),
   holeB:holeOf(s.holeBpipe,s.holeBx,s.holeBy)}); }
@@ -3154,9 +3161,22 @@ function diagDouble(st){
 // engine _boxSplits: 2 = sides, 3 = half + two quarters (3/6/9 o'clock),
 // 4 = four quarters. frontback preset puts a 2-split on top/bottom instead.
 function roundSplitAngles(s){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
-  if(n===2) return s.preset==='frontback'?[0,180]:[90,270];
-  if(n===3) return [90,180,270];
-  return [45,135,225,315]; }
+  const base = n===2 ? (s.preset==='frontback'?[0,180]:[90,270]) : n===3 ? [90,180,270] : [45,135,225,315];
+  const rot=((((+s.splitRot||0)%12)+12)%12)*30;
+  return rot?base.map(a=>(a+rot)%360):base; }
+// live cut spokes + upper-piece highlight for the split-position wheel.
+// g=0/12 o'clock at the top, clockwise. Upper pieces (centre in the top half)
+// shed OVER the lower ones, so they carry the lap — drawn in the watershed hi.
+function splitWheelCuts(s){
+  const cuts=roundSplitAngles(s).slice().sort((a,b)=>a-b), R=55, C=80;
+  const pol=(a,r)=>[C+r*Math.sin(a*Math.PI/180), C-r*Math.cos(a*Math.PI/180)];
+  let out='';
+  for(let i=0;i<cuts.length;i++){ const a0=cuts[i], a1=(i+1<cuts.length?cuts[i+1]:cuts[0]+360);
+    const mid=(a0+a1)/2, upper=Math.cos(mid*Math.PI/180)>0.02;
+    const pA=pol(a0,R), pB=pol(a1%360,R), large=(a1-a0)>180?1:0;
+    out+=`<path d="M${pA[0].toFixed(1)} ${pA[1].toFixed(1)} A${R} ${R} 0 ${large} 1 ${pB[0].toFixed(1)} ${pB[1].toFixed(1)}" fill="none" stroke="${upper?LY.hi:LY.centre}" stroke-width="${upper?4.5:2.4}" stroke-linecap="round" opacity="${upper?0.95:0.45}"/>`; }
+  cuts.forEach(a=>{ const p=pol(a,R); out+=`<line x1="${C}" y1="${C}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="${LY.fold}" stroke-width="2" stroke-dasharray="5 3"/>`; });
+  return out; }
 function diagRoundBox(s){
   const D=Math.max(1,+s.dia||200), H=Math.max(1,+s.height||300), horiz=s.orientation==='horizontal', ws=!!(+s.watershed);
   const sc=64/Math.max(D,H);
@@ -3167,6 +3187,12 @@ function diagRoundBox(s){
     const ry2=Math.max(4,h*0.16), x0=-h/2, x1=h/2;
     parts.push(`<path d="M${x0} ${-rx} L${x1} ${-rx} A${ry2} ${rx} 0 0 1 ${x1} ${rx} L${x0} ${rx} A${ry2} ${rx} 0 0 1 ${x0} ${-rx}" fill="none" ${INKST}/>`);
     parts.push(`<ellipse cx="${x0}" cy="0" rx="${ry2}" ry="${rx}" fill="none" ${INKST}/>`);
+    // colour each piece on the end disc: gold = sits on top / sheds OVER, red = lower / laps under
+    const ep=a=>[x0+ry2*Math.sin(a*Math.PI/180), -rx*Math.cos(a*Math.PI/180)];
+    const cs=angs.slice().sort((p,q)=>p-q);
+    for(let i=0;i<cs.length;i++){ const a0=cs[i], a1=(i+1<cs.length?cs[i+1]:cs[0]+360), up=Math.cos(((a0+a1)/2)*Math.PI/180)>0.02;
+      let pl=''; for(let a=a0;a<=a1+0.01;a+=(a1-a0)/10){ const q=ep(a%360); pl+=(pl?' ':'')+q[0].toFixed(1)+','+q[1].toFixed(1); }
+      parts.push(`<polyline points="${pl}" fill="none" stroke="${up?LY.hi:LY.centre}" stroke-width="${up?3.4:2.2}" stroke-linecap="round" opacity="${up?0.95:0.5}"/>`); }
     angs.forEach(a=>{ const r=(a-90)*Math.PI/180, ca=Math.cos(a*Math.PI/180);
       parts.push(_ln([x0,0],[x0+ry2*Math.cos(r),rx*Math.sin(r)],SPL));   // radial pie-cut on the end disc
       const ly=-rx*ca;                                                   // seam runs the length at this height
@@ -3419,6 +3445,14 @@ function fieldHTML(f,s){
     return `${f.noHand?`<label>${f.label}</label>`:handHtml.replace('HANDLABEL',f.label)}<div class="seg" data-seammode="1">
       <button data-sv="180">Back fastener</button><button data-sv="90">Side fastener</button><button data-sv="custom">Custom</button></div>
       <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><svg data-seamsvg="1" viewBox="0 0 160 160" style="width:170px;height:170px"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/><text x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>${dots}</svg><div id="fitdiag"></div></div>`; }
+  if(f.type==='splitwheel'){ const cur=(((+s[f.k]||0)%12)+12)%12;
+    let dots='';
+    for(let h=1;h<=12;h++){ const v=h%12, ph=v*30*Math.PI/180;
+      const x=80+55*Math.sin(ph), y=80-55*Math.cos(ph), lx=80+72*Math.sin(ph), ly=80-72*Math.cos(ph);
+      dots+=`<g data-sdot="${v}" style="cursor:pointer"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="15" fill="transparent"/><circle class="sdot" data-sn="${v}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${cur===v?10:8.5}" fill="${cur===v?LY.fold:LY.faint}"/><text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" font-size="11" font-weight="700" fill="${LY.text}" text-anchor="middle">${h}</text></g>`; }
+    return `<label>${f.label}</label>
+      <div class="hint" style="margin-top:2px">Tap a clock number to spin the splits round the barrel — line the cuts up to clear a clamp or flange. <b style="color:${LY.hi}">Gold</b> pieces sit on top and shed water OVER the joint; the lower pieces tuck under and carry the lap.</div>
+      <div style="display:flex;justify-content:center;margin-top:8px"><svg data-splitsvg="1" viewBox="0 0 160 160" style="width:184px;height:184px"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/><g id="splitcuts"></g>${dots}</svg></div>`; }
   if(f.type==='xd'){ const cur=s._xd, basis=s._xdbasis||'dn';
     return `<label>${f.label}</label><div class="seg" data-xd="1">${[1,1.5,2,3,5].map(m=>`<button data-m="${m}" ${cur==m?'class="on"':''}>${m}D</button>`).join('')}</div><div class="seg" data-xdbasis="1" style="margin-top:6px"><button data-b="dn" ${basis==='dn'?'class="on"':''}>Nominal</button><button data-b="od" ${basis==='od'?'class="on"':''}>OD</button></div>`; }
   return '';
@@ -3541,6 +3575,11 @@ function form(kind, presetParams){
           h.setAttribute('r','11'); h.setAttribute('class','seamhalo');
           dot.parentNode.appendChild(h); setTimeout(()=>h.remove(),420); } });
       upd(); } }
+  { const sw=app.querySelector('[data-splitsvg]');
+    if(sw) sw.querySelectorAll('[data-sdot]').forEach(g=>g.onclick=()=>{ touch(); s.splitRot=+g.dataset.sdot;
+      sw.querySelectorAll('.sdot').forEach(d=>{ const on=+d.dataset.sn===(((+s.splitRot||0)%12)+12)%12;
+        d.setAttribute('fill',on?LY.fold:LY.faint); d.setAttribute('r',on?'10':'8.5'); });
+      refresh(); }); }
   const lb=document.getElementById('lockBtn'); if(lb) lb.onclick=showUnlock;
   const buildDoc=()=>{ flushRefresh();
     if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(s), {page:SET.page, orient:'auto', brand:SET.brand||undefined});
@@ -3605,6 +3644,7 @@ function form(kind, presetParams){
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(pat,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,s);
+    const scu=document.getElementById('splitcuts'); if(scu) scu.innerHTML=splitWheelCuts(s);
     const bsl=document.getElementById('boxsplitlab');
     if(bsl){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
       const desc={2:'2-way · two halves',3:'3-way · one half + two quarters',4:'4-way · four quarters'}[n];
@@ -3757,7 +3797,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.4.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.5.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3787,7 +3827,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.4.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.5.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
