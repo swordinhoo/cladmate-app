@@ -815,7 +815,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.5.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.5.2</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3079,15 +3079,18 @@ function diagDouble(st){
   j2.forEach((ps,i)=>S.push({c:Q2(ps),u:T2(ps),th:mul(nrm(sub(Q2(ps),C2)),-1),joint:i<n2}));
   const Te=T2(phi2);
   S.push({c:add(Q2(phi2),mul(Te,Lst)),u:Te,th:mul(nrm(sub(Q2(phi2),C2)),-1),cap:true});
-  // band colours: stubs + starter white, bend-1 mids alt, twister gold x3, bend-2 alt, stub
-  const iTw0=1+n1, cols=[];
-  for(let i=0;i<S.length-1;i++){
-    if(i===0) cols.push(LY.fill);                                 // inlet stub
-    else if(i<iTw0) cols.push(i===1?LY.fill:(i%2?LY.fill2:LY.fill));        // bend 1
-    else if(i<iTw0+2+(Ls>0.5?1:0)) cols.push(LY.hi);              // the twister
-    else if(i===S.length-2) cols.push(LY.fill);                   // outlet stub
-    else cols.push((i%2)?LY.fill2:LY.fill);                       // end bend
-  }
+  // three noticeably-different sections in fitting order: first bend (blue),
+  // the twister / shared piece (gold), end bend (green). Straight stubs grey.
+  const SEC={ stub:{fill:'rgba(150,161,173,0.15)',ink:'#95a3b0'},
+              b1:  {fill:'rgba(64,150,255,0.30)', ink:'#59a6ff'},
+              tw:  {fill:'rgba(255,186,26,0.42)', ink:'#ffc21e'},
+              b2:  {fill:'rgba(56,214,122,0.30)', ink:'#37d873'} };
+  const iTw0=1+n1, iTwEnd=iTw0+2+(Ls>0.5?1:0);
+  const bandSec=i=> i===0 ? SEC.stub : i<iTw0 ? SEC.b1
+                  : i<iTwEnd ? SEC.tw : i===S.length-2 ? SEC.stub : SEC.b2;
+  const cols=[], inks=[];
+  for(let i=0;i<S.length-1;i++){ const c=bandSec(i); cols.push(c.fill); inks.push(c.ink); }
+  const secInkAt=i=>bandSec(Math.min(i,S.length-2)).ink;
   // --- rings, projection, painter ---
   const NS=26, vb=rad(24), va=rad(15);
   const proj=p=>{ const x1=p[0]*Math.cos(vb)-p[2]*Math.sin(vb), z1=p[0]*Math.sin(vb)+p[2]*Math.cos(vb);
@@ -3123,13 +3126,13 @@ function diagDouble(st){
     bands.pop();
   }
   bands.sort((A,B)=>A.depth-B.depth);                             // far first
-  const ringArc=s=>{ // visible front arcs of a ring
+  const ringArc=(s,ink)=>{ // visible front arcs of a ring (mitre ellipse)
     const segs=[]; let cur=null;
     for(let k=0;k<=NS;k++){ const q=s.ring[k%NS]; const vis=dot(nrm(sub(q,s.c)),vd)>0.05;
       const pp=proj(q).p;
       if(vis){ if(!cur)cur=[]; cur.push(pp); } else if(cur){ segs.push(cur); cur=null; } }
     if(cur) segs.push(cur);
-    segs.forEach(sg=>{ if(sg.length>1){ sg.forEach(p=>all.push(p)); parts.push(_pl(sg,'stroke="${LY.object}" stroke-width="1.7" stroke-linecap="round"')); } });
+    segs.forEach(sg=>{ if(sg.length>1){ sg.forEach(p=>all.push(p)); parts.push(_pl(sg,`stroke="${ink||LY.object}" stroke-width="1.7" stroke-linecap="round"`)); } });
   };
   const seamSeg=(sa,sb,angA,angB)=>{ // seam between two stations, hidden part faded
     const N=8;
@@ -3140,25 +3143,28 @@ function diagDouble(st){
       const mid=mul(add(qa,qb),0.5), cmid=mul(add(sa.c,sb.c),0.5);
       const vis=dot(nrm(sub(mid,cmid)),vd)>0;
       const A=proj(qa).p,B=proj(qb).p; all.push(A,B);
-      parts.push(_ln(A,B,vis?SEAMST:'stroke="${LY.hidfaint}" stroke-width="1.6" stroke-dasharray="2 5" stroke-linecap="round"'));
+      parts.push(_ln(A,B,vis?SEAMST:`stroke="${LY.hidfaint}" stroke-width="1.6" stroke-dasharray="2 5" stroke-linecap="round"`));
     } };
   const sAng=i=>{ // seam angle in the local frame of station i (e1 points at the throat)
     const inB2 = i>= (iTw0+1+(Ls>0.5?1:0));                       // stations from first bend-2 ring on
     return inB2? seam2 : seam; };
   bands.forEach(b=>{
     const pl=b.pts; pl.forEach(p=>all.push(p));
-    parts.push(`<polygon points="${pl.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${cols[b.i]}" stroke="${LY.object}" stroke-width="1.8" stroke-linejoin="round"/>`);
+    parts.push(`<polygon points="${pl.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${cols[b.i]}" stroke="${inks[b.i]}" stroke-width="1.9" stroke-linejoin="round"/>`);
   });
-  S.forEach(st=>{ if(st.joint||st.cap) ringArc(st); });
+  S.forEach((st,i)=>{ if(st.joint||st.cap) ringArc(st,secInkAt(i)); });
   for(let i=0;i<S.length-1;i++) seamSeg(S[i],S[i+1],sAng(i),sAng(i+1));
   // labels
-  const label=(q,txt,sz)=>{ const p=proj(q).p; all.push([p[0],p[1]-6],[p[0]+14,p[1]],[p[0]-14,p[1]]);
-    parts.push(`<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" font-size="${sz||9.5}" font-weight="800" fill="${LY.dim}" text-anchor="middle">${txt}</text>`); };
-  label(add(P1(90-phi1*0.4),mul(nrm(sub(P1(90-phi1*0.4),C1)),r+11)),'1·'+fmtDim(phi1)+'°');
-  label(add(Q2(phi2*0.6),mul(nrm(sub(Q2(phi2*0.6),C2)),r+11)),'2·'+fmtDim(phi2)+'°');
-  if(tau) label(add(M2,mul(a2,r+16)),'twist '+tau+'°'+(tau>0?' (towards you)':' (away)'),8.5);
-  dimLead(parts,all,proj(S[0].c).p,-24,-10,'Ø'+fmtDim(st.pipeOD+2*(st.insulation||0)));
-  return _svgWrap(parts,all,230);
+  const label=(q,txt,sz,col)=>{ const p=proj(q).p; all.push([p[0],p[1]-7],[p[0]+20,p[1]],[p[0]-20,p[1]]);
+    parts.push(`<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" font-size="${sz||9.5}" font-weight="800" fill="${col||LY.dim}" text-anchor="middle" paint-order="stroke" stroke="${LY.canvas}" stroke-width="3.4" stroke-linejoin="round" font-family="Consolas,'Roboto Mono',monospace">${txt}</text>`); };
+  // one clear tag per section, each in its own colour so the three parts read apart
+  label(add(P1(90-phi1*0.6),mul(nrm(sub(P1(90-phi1*0.6),C1)),r+18)),'1st bend '+fmtDim(phi1)+'°',9,SEC.b1.ink);
+  label(add((Ls>0.5?M2:M),mul(radialM,r+17)),'twister'+(tau?' · '+(tau>0?'+':'')+tau+'°':''),9,SEC.tw.ink);
+  label(add(Q2(phi2*0.55),mul(nrm(sub(Q2(phi2*0.55),C2)),r+17)),'end bend '+fmtDim(phi2)+'°',9,SEC.b2.ink);
+  // diameter: a plain tag just off the inlet cap, no leader (leader was colliding)
+  { const pin=proj(S[0].c).p; all.push([pin[0]-22,pin[1]-20],[pin[0]+22,pin[1]-6]);
+    parts.push(`<text x="${pin[0].toFixed(1)}" y="${(pin[1]-12).toFixed(1)}" font-size="9" font-weight="800" fill="${LY.dim}" text-anchor="middle" paint-order="stroke" stroke="${LY.canvas}" stroke-width="3.4" stroke-linejoin="round" font-family="Consolas,'Roboto Mono',monospace">Ø${fmtDim(st.pipeOD+2*(st.insulation||0))}</text>`); }
+  return _svgWrap(parts,all,240);
 }
 
 // split angles round the barrel (degrees clockwise from the TOP), matching
@@ -3808,7 +3814,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.5.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.5.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3838,7 +3844,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.5.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.5.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
