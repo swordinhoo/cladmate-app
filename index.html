@@ -806,7 +806,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.1.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.2.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1337,6 +1337,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (span <= 0) { holes.push([(x0 + x1) / 2, (y0 + y1) / 2]); return; }
     const n = Math.max(1, Math.round(span / pitch));
     for (let k = 0; k <= n; k++) holes.push([x0 + ux * (endGap + span * k / n), y0 + uy * (endGap + span * k / n)]);
+  }
+  // two intersection points of circle(c1,r1) and circle(c2,r2) - the triangulation
+  // "swing two arcs" operation. Returns [] if they don't meet.
+  function _circInt2(c1, r1, c2, r2) {
+    const dx = c2[0] - c1[0], dy = c2[1] - c1[1], dd = Math.hypot(dx, dy) || 1e-9;
+    const a = (r1 * r1 - r2 * r2 + dd * dd) / (2 * dd), h2 = r1 * r1 - a * a;
+    if (h2 < 0) return [];
+    const h = Math.sqrt(h2), xm = c1[0] + a * dx / dd, ym = c1[1] + a * dy / dd;
+    const ox = -dy / dd * h, oy = dx / dd * h;
+    return [[xm + ox, ym + oy], [xm - ox, ym - oy]];
   }
 
   // ---- section: clockwise from top-centre, y up ---------------------------
@@ -1975,6 +1985,74 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return out;
   }
 
+  // ---- Valve end - watershed peaked D lid (decoded from Pattern Maker) ----
+  // The peaked lid that sheds water off a vertical D / valve box: a hip
+  // surface rising from the D-shaped mouth to a single peak A over the nose
+  // centre at the watershed height ws. Developed by triangulation as the HALF
+  // lid (centreline -> one side), cut 2 and mirror on the ridge. Proven EXACT
+  // vs Pattern Maker on five datasets - W775/D960/ws70, W995/D1200/ws150,
+  // W667/D458/ws45, W455/D555/ws66, W300/D350/ws45 - every displayed true
+  // length to the mm (only the redundant 1:4 check rounds ~1mm).
+  //   r   = W/2 + simpleEdge         nose radius (simple edge on the curved rim)
+  //   run = Depth - W/2 + foldedEdge back-to-nose run (folded edge on the back)
+  //   A:1 = A:4 = hypot(r, ws)       slant off the peak to the nose
+  //   C:B = r                        half the back edge
+  //   C:1 = run                      back corner to nose top
+  //   A:B = hypot(run, ws)           peak to back centre
+  //   A:C = hypot(run, r, ws)        peak to back corner (hypotenuse)
+  //   girth step 1..4 = r*pi/6       30-deg divisions round the nose quarter
+  // The right angle the program names is exact: A:1^2 + C:1^2 == A:C^2.
+  function pmValveEndKit(p) {
+    const W = p.boxW, D = p.boxD, ws = p.wsHeight;
+    // Pattern Maker is VB6 - its displayed integers use banker's rounding
+    // (round half to even): 578.5->578, 333.5->334. Match it so the printed
+    // labels read identical to Craig's program (the drawn geometry is exact).
+    const R = x => { const f = Math.floor(x); return Math.abs(x - f - 0.5) < 1e-9 ? (f % 2 === 0 ? f : f + 1) : Math.round(x); };
+    const se = p.simpleEdge == null ? 4 : p.simpleEdge;
+    const fe = p.foldedEdge == null ? 6 : p.foldedEdge;
+    if (!(W > 0 && D > 0 && ws > 0)) throw new Error('Width, depth and watershed height must all be more than 0.');
+    if (!(D > W / 2)) throw new Error('Depth must be more than half the width (the nose is a half-round, radius W/2).');
+    const r = W / 2 + se, run = D - W / 2 + fe;
+    const L = Math.hypot(r, ws), AB = Math.hypot(run, ws), AC = Math.hypot(run, r, ws);
+    const girth = r * Math.PI / 6, NDIV = 3;
+    // develop the half lid, fanning from the apex A at the origin.
+    // seed right triangle A-1-C (square at 1): C:1 horizontal, A:1 straight up.
+    const A = [0, 0], one = [0, L], C = [-run, L];
+    // nose 1..4 sit on the developed cone arc (radius L about A): 1 at 90deg,
+    // step the developed angle so each true chord = 2*r*sin15deg (30deg on r).
+    const d = 2 * Math.asin(Math.min(1, r * Math.sin(Math.PI / 12) / L));
+    const nose = [];
+    for (let i = 0; i <= NDIV; i++) { const a = Math.PI / 2 - i * d; nose.push([L * Math.cos(a), L * Math.sin(a)]); }
+    const tip = nose[NDIV];
+    // back centre B: swing C:B=r from C and A:B from A, take the side away from the nose
+    const cand = _circInt2(C, r, A, AB);
+    const sideOf = (P, Q, X) => (Q[0] - P[0]) * (X[1] - P[1]) - (Q[1] - P[1]) * (X[0] - P[0]);
+    const s1 = sideOf(A, C, one);
+    const B = (cand.length && sideOf(A, C, cand[0]) * s1 < 0) ? cand[0] : (cand[1] || [-AB, 0]);
+    const noseEdge = _arcPts(0, 0, L, Math.PI / 2, Math.PI / 2 - NDIV * d, 40);   // smooth 1..4 rim
+    const prim = [], ticks = [];
+    // cut outline: A -> B (ridge) -> C (back) -> 1 (side) -> nose arc -> 4 -> A (ridge)
+    prim.push({ style: 'cut', pts: [A, B, C].concat(noseEdge, [A]) });
+    // triangulation seams fanning from the apex (dashed reference lines)
+    [C, one, nose[1], nose[2]].forEach(pt => prim.push({ style: 'centre', pts: [A, pt] }));
+    const mid = (u, v) => [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2];
+    [['A', A], ['B', B], ['C', C], ['1', one], ['2', nose[1]], ['3', nose[2]], ['4', tip]]
+      .forEach(v => ticks.push({ x: v[1][0], y: v[1][1], label: v[0] }));
+    ticks.push({ x: mid(A, one)[0] - 22, y: mid(A, one)[1], label: 'A:1 ' + R(L) });
+    ticks.push({ x: mid(C, one)[0], y: mid(C, one)[1] + 5, label: 'C:1 ' + R(run) });
+    ticks.push({ x: mid(A, C)[0] - 6, y: mid(A, C)[1] - 4, label: 'A:C ' + R(AC) });
+    ticks.push({ x: mid(A, B)[0], y: mid(A, B)[1] - 5, label: 'A:B ' + R(AB) });
+    ticks.push({ x: mid(B, C)[0] - 16, y: mid(B, C)[1], label: 'C:B ' + R(r) });
+    ticks.push({ x: mid(nose[1], nose[2])[0] + 14, y: mid(nose[1], nose[2])[1] + 6, label: 'girth ' + R(girth) });
+    const lid = { kind: 'pmbox', title: 'Valve End (watershed)  -  Peaked Lid (half) 1:1',
+      meta: [`Peaked watershed lid for a ${W} × ${D} D-box, rise ${ws} - shop method, triangulated half (cut 2, mirror on the ridge)`,
+             `Start at the right-angle triangle A:1 ${R(L)} | C:1 ${R(run)} | A:C ${R(AC)} (square at 1), then swing B, then the nose ${NDIV} × ${R(girth)}`,
+             `Simple edge ${se} on the round rim, folded edge ${fe} on the back - laps/overlap added separately (not shown)`],
+      calc: { W, D, ws, r, run, L, AB, AC, CB: r, C1: run, girth, nWraps: 2, kitPieces: 1 },
+      prim, holes: [], ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (half lid - mirror pair)' };
+    return [lid];
+  }
+
   // ---- Dome / dished vessel end (decoded from Pattern Maker) --------------
   // Torispherical head developed as N segment gores. Proven on two datasets
   // (D2500/H500 and D3000/H500), 16/16 outputs exact. The maker's rule:
@@ -2342,7 +2420,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -2476,7 +2554,8 @@ const I={
  wshed:`<svg viewBox="0 0 100 80"><path d="M22 34 L50 22 L78 34 L78 64 L22 64 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="22" x2="50" y2="64" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="27" y1="38" x2="27" y2="60" stroke="var(--ic-ink)" stroke-width="2"/><line x1="73" y1="38" x2="73" y2="60" stroke="var(--ic-ink)" stroke-width="2"/></svg>`,
  dome:`<svg viewBox="0 0 100 80"><path d="M14 58 A36 40 0 0 1 86 58 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M50 20 L50 58 M32 22 L32 58 M68 22 L68 58 M20 34 L20 58 M80 34 L80 58" fill="none" stroke="var(--ic-ink)" stroke-width="1.8"/><line x1="14" y1="58" x2="86" y2="58" stroke="var(--ic-ink)" stroke-width="3"/></svg>`,
  vbox:`<svg viewBox="0 0 100 80"><path d="M24 20 L76 20 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="20" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
- wvbox:`<svg viewBox="0 0 100 80"><path d="M24 30 L50 18 L76 30 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="18" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`
+ wvbox:`<svg viewBox="0 0 100 80"><path d="M24 30 L50 18 L76 30 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="18" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
+ velid:`<svg viewBox="0 0 100 80"><path d="M40 16 L74 16 L74 64 L40 64 A24 24 0 0 1 40 16 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><g stroke="var(--ic-ink)" stroke-width="1.8" stroke-dasharray="3 3"><line x1="48" y1="40" x2="74" y2="16"/><line x1="48" y1="40" x2="74" y2="40"/><line x1="48" y1="40" x2="74" y2="64"/><line x1="48" y1="40" x2="16" y2="40"/></g><circle cx="48" cy="40" r="3.2" fill="var(--ic-gold)"/></svg>`
 };
 
 /* ================= fitting registry ================= */
@@ -2627,6 +2706,14 @@ const F={
   mini:c=>['Cut '+Math.round(c.g)+' × '+Math.round(c.width),'Lap half + plain half + disc'],
   stats:c=>['Cut '+Math.round(c.g)+'×'+Math.round(c.width),'Girth '+Math.round(c.girth),'Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): a round spool with a flat flange disc at each end. One seam only — a lap half and a plain half, half circumference each, lockformed cheeks. Flange discs split into halves (radius D/2 + simple edge), cut 4 off. Lockform from Settings → Boxes.'},
+ valveend:{name:'Valve End',sub:'Watershed peaked D lid',icon:I.velid,
+  defaults:{boxW:775,boxD:960,wsHeight:70,simpleEdge:4,foldedEdge:6},
+  fields:[num('boxW','Width (mm)'),num('boxD','Depth (mm)'),num('wsHeight','Watershed height (mm)'),num('simpleEdge','Simple edge (mm)'),num('foldedEdge','Folded edge (mm)')],
+  build:s=>FP.pmValveEndKit(s)[0],
+  kit:s=>FP.pmValveEndKit(s),
+  mini:c=>['Peak rise '+bankR(c.ws),'Triangulated half · cut 2'],
+  stats:c=>['A:1 '+bankR(c.L),'C:1 '+bankR(c.C1),'A:C '+bankR(c.AC),'Nose step '+bankR(c.girth)],
+  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Cut 2 and mirror on the ridge. Simple edge on the round rim, folded edge on the back; laps added separately.'},
  endcap:{name:'End Cap',sub:'Flat or conical · rim',icon:I.ecap,
   defaults:{capPipe:168.3,insulation:25,capStyle:'flat',holeApipe:0,holeAx:0,holeAy:0,holePitch:60,holeEndGap:20},
   fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
@@ -2678,8 +2765,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
-const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','flangebox','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','flangebox','valveend','wsbox','endcap','dome'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','flangebox','valveend','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
@@ -2779,6 +2866,8 @@ function applyLayers(){
   if(typeof FP!=='undefined'&&FP.setCanvas) FP.setCanvas(SET.canvas);
 }
 const fmtDim=v=>{ const n=+v; return (Math.round(n*10)/10).toString(); };
+// banker's round (round half to even) - matches Pattern Maker's VB6 display
+const bankR=x=>{ const f=Math.floor(x); return Math.abs(x-f-0.5)<1e-9?(f%2===0?f:f+1):Math.round(x); };
 function _dimArrow(parts,p,dir){ const s=5, nx=-dir[1], ny=dir[0];
   parts.push(`<polygon points="${p[0].toFixed(1)},${p[1].toFixed(1)} ${(p[0]-dir[0]*s+nx*s*0.38).toFixed(1)},${(p[1]-dir[1]*s+ny*s*0.38).toFixed(1)} ${(p[0]-dir[0]*s-nx*s*0.38).toFixed(1)},${(p[1]-dir[1]*s-ny*s*0.38).toFixed(1)}" fill="${DIMC}"/>`); }
 function _dimText(parts,all,x,y,label){ all.push([x-label.length*2.6,y-4],[x+label.length*2.6,y+4]);
@@ -3209,6 +3298,25 @@ function diagValveBox(s){
   all.push([x0,y0],[x1,y0+h]);
   return _svgWrap(parts,all,190);
 }
+function diagValveEnd(s){
+  // plan of the D lid + the triangulation fan from the peak (matches the
+  // program's plan): half-round nose on the left, straight back on the right,
+  // apex A over the nose centre, dashed seams fanning to the rim.
+  const W=Math.max(1,+s.boxW||775), D=Math.max(1,+s.boxD||960), ws=Math.max(0,+s.wsHeight||0);
+  const sc=Math.min(64/W,64/Math.max(D,1)), w=W*sc, d=D*sc, rw=w/2, xL=rw-d/2, cen=[xL,0];
+  const parts=[], all=[[-d/2,-w/2],[d/2,w/2]];
+  const bTop=[d/2,-w/2], bBot=[d/2,w/2], nTop=[xL,-w/2], nBot=[xL,w/2];
+  const nose=[]; for(let i=0;i<=24;i++){ const ph=(90+180*i/24)*Math.PI/180; nose.push([xL+rw*Math.cos(ph),rw*Math.sin(ph)]); }
+  parts.push(_ln(bTop,bBot,INKST),_ln(bTop,nTop,INKST),_ln(bBot,nBot,INKST),_pl(nose,INKST));
+  // triangulation fan (dashed) to the back corners, the nose tip and two round divisions
+  [bTop,bBot,[xL-rw,0]].forEach(p=>parts.push(_ln(cen,p,SEAMST)));
+  [-30,-60].forEach(a=>{ const ph=(180+a)*Math.PI/180; parts.push(_ln(cen,[xL+rw*Math.cos(ph),rw*Math.sin(ph)],SEAMST)); });
+  parts.push(`<circle cx="${xL.toFixed(1)}" cy="0" r="3.2" fill="${LY.dim}"/>`);   // the peak A
+  dimLin(parts,all,bTop,bBot,-16,'W '+fmtDim(W));
+  dimLin(parts,all,[-d/2,w/2],[d/2,w/2],14,'D '+fmtDim(D));
+  if(ws>0) dimLead(parts,all,cen,-rw*0.55,-w/2-10,'peak '+fmtDim(ws));
+  return _svgWrap(parts,all,190);
+}
 function fittingDiagram(kind,s){
   try{
     if(kind==='dome') return diagDome(s);
@@ -3260,6 +3368,7 @@ function fittingDiagram(kind,s){
     if(kind==='endcap') return diagEndCap(s);
     if(kind==='wsbox') return diagWsBox(s);
     if(kind==='flangebox') return diagFlangeBox(s);
+    if(kind==='valveend') return diagValveEnd(s);
     if(kind==='inctee'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90,
       {d1:'Ø'+fmtDim(clad(s.mainPipeOD)),d:'Ø'+fmtDim(clad(s.branchPipeOD)),a:fmtDim(s.angle||90)+'°'});
     if(kind==='teehole'||kind==='trunnionhole') return diagHole(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
@@ -3615,7 +3724,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.1.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.2.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3645,7 +3754,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.1.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.2.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
