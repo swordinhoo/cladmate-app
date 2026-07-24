@@ -824,6 +824,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     @keyframes kitin{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
   }
 
+  /* ---- seam planner ---- */
+  .seamgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:6px}
+  .seamtile{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px 2px;min-width:0}
+  .seamtile svg{touch-action:manipulation}
+  .seamread{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:9px 0 8px;
+        background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+  .seamread span{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--sub);letter-spacing:.06em}
+  .seamread b{font-family:var(--fm);font-size:12px;color:var(--ink)}
+  .seamlegend{display:flex;flex-wrap:wrap;gap:5px 12px;justify-content:center;margin:4px 0 8px}
+  .seamlegend span{display:inline-flex;align-items:center;gap:5px;font-family:var(--fm);font-size:10px;color:var(--sub)}
+  .seamlegend i{width:12px;height:12px;border-radius:3px;border:1.6px solid;display:inline-block}
+  @media(min-width:520px){ .seamgrid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+
   /* ---- wide screens ---- */
   .fld{min-width:0}
   @media(min-width:700px){ .grid{grid-template-columns:repeat(auto-fill,minmax(158px,1fr))} }
@@ -845,7 +858,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.12.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.13.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1440,6 +1453,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // ---- split girth positions ----------------------------------------------
   function _boxSplits(p, sec) {
     const G = sec.G, n = Math.max(2, Math.min(4, Math.round(p.pieces || 2)));
+    // Seam planner: an explicit list of girth positions beats every preset.
+    // The planner hands them over already in girth mm; we just normalise,
+    // sort and drop anything that would make a zero-width piece.
+    if (Array.isArray(p.splitAt) && p.splitAt.length >= 2) {
+      const norm = p.splitAt.map(v => ((+v % G) + G) % G).sort((x, y) => x - y);
+      const keep = [];
+      norm.forEach(v => { if (!keep.length || v - keep[keep.length - 1] > 1) keep.push(v); });
+      if (keep.length >= 2 && G - keep[keep.length - 1] + keep[0] > 1) return keep;
+      if (keep.length > 2) { keep.pop(); return keep; }
+    }
     const fb = p.preset === 'frontback';
     if (p.shape === 'round') {
       // 3-way = one HALF + two QUARTERS (not three thirds). Splits at 3/6/9
@@ -2378,7 +2401,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     // cheeks: come off separately, so they halve on the 2-piece plane of the
     // chosen preset whatever the wrap piece count. Ends print separately only
     // when their pipe holes differ.
-    const chord = _boxSplits(Object.assign({}, p, { pieces: 2 }), sec).map(g => ((g % G) + G) % G).sort((a, b) => a - b);
+    const chord = _boxSplits(Object.assign({}, p, { pieces: 2, splitAt: null }), sec).map(g => ((g % G) + G) % G).sort((a, b) => a - b);
     const hA = p.holeA && p.holeA.dia > 0 ? p.holeA : null;
     const hB = p.holeB && p.holeB.dia > 0 ? p.holeB : null;
     const same = JSON.stringify(hA) === JSON.stringify(hB);
@@ -2923,13 +2946,20 @@ const F={
   stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
   note:'Lockformed construction: the barrel edges carry the lockform allowance, the cheeks slot in and the lock hammers shut. Splits per Settings → Boxes. Watershed on a vertical box makes the top a shallow cone.'},
  squarebox:{name:'Square Box',sub:'Shop method · lockformed',icon:I.sbox,
-  defaults:{boxL:900,boxW:450,boxH:550,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20},
-  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('foldedEdge','Folded edge (mm)'),num('lap','Lap (mm)')],
-  build:s=>FP.pmSquareBoxKit({...s,lockform:SET.lockform})[0],
-  kit:s=>FP.pmSquareBoxKit({...s,lockform:SET.lockform}),
-  mini:c=>['Cut '+fmtDim(c.cutLap)+' × '+fmtDim(c.width),'2 wraps + 4 plates'],
-  stats:c=>['With laps '+fmtDim(c.cutLap)+'×'+fmtDim(c.width),'No laps '+fmtDim(c.girth)+'×'+fmtDim(c.width),'Girth '+fmtDim(c.girth),'Lockform '+SET.lockform],
-  note:'Shop method (Pattern Maker): rectangular box in two mirror halves. Each wrap folds 90° at the corners — half-top, side, half-bottom — lockformed on both cheek edges, lapped both girth ends. End plates are half-width with folded-edge hems. Lockform from Settings → Boxes.'},
+  defaults:{boxL:900,boxW:450,boxH:550,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20,seamMode:'shop',seamList:'F0.5,B0.5',lidSeam:'frontback',show3d:0},
+  fields:[Object.assign(sego('seamMode','Method',[{v:'shop',label:'Shop halves'},{v:'plan',label:'Seam planner'}]),{reflow:1}),
+    num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),
+    Object.assign(num('foldedEdge','Folded edge (mm)'),{when:s=>s.seamMode!=='plan'}),
+    Object.assign(num('lap','Lap (mm)'),{when:s=>s.seamMode!=='plan'})],
+  build:s=>sqBuild(s)[0],
+  kit:s=>sqBuild(s),
+  mini:c=>c.span!=null
+      ?['Girth piece '+fmtDim(c.span),c.nWraps+' wraps + lid']
+      :['Cut '+fmtDim(c.cutLap)+' × '+fmtDim(c.width),'2 wraps + 4 plates'],
+  stats:c=>c.span!=null
+      ?['Wrap '+fmtDim(c.X)+'×'+fmtDim(c.L+2*SET.lockform),c.nWraps+' wraps, '+c.kitPieces+' pieces','Girth '+fmtDim(c.girth||0),'Lockform '+SET.lockform+' · split '+SET.splitSize]
+      :['With laps '+fmtDim(c.cutLap)+'×'+fmtDim(c.width),'No laps '+fmtDim(c.girth)+'×'+fmtDim(c.width),'Girth '+fmtDim(c.girth),'Lockform '+SET.lockform],
+  note:'Shop halves = the Pattern Maker program: rectangular box in two mirror halves, each wrap folding 90° at the corners — half-top, side, half-bottom — lockformed on both cheek edges, lapped both girth ends, end plates half-width with folded-edge hems. Seam planner = you decide: front, back, left, right and top views come up, tap where you want each seam to land, and the box splits exactly there. Corner dots are shared between two faces because it is one seam. Lockform, split style and split size from Settings → Boxes.'},
  valvebox:{name:'Valve Box',sub:'Shop method · D-box · flat or risen',icon:I.wvbox,
   defaults:{boxL:700,boxW:380,boxH:610,topStyle:'risen',wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,holePitch:60,holeEndGap:20},
   fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),
@@ -3488,7 +3518,207 @@ function diagRoundBox(s){
   if(+s.holeApipe>0) dimLead(parts,all,[0,(horiz? rx: h/2)-2],18,14,'hole Ø'+fmtDim(+s.holeApipe+2*(+s.insulation||0)));
   return _svgWrap(parts,all,240);
 }
+/* ================= seam planner (square box) ==========================
+   Five orthographic views + a top plan. Every elevation reads LEFT->RIGHT
+   as you stand in front of it; the tap stops are quarter points plus both
+   corners. Corners are SHARED with the neighbouring face, so a corner seam
+   lights up on both tiles - we compare in GIRTH mm, never by tile, so the
+   identity L(1)=F(0), F(1)=R(0), R(1)=B(0), B(1)=L(0) falls out for free.
+
+   Plan frame: +x right, +y back, +z up. The engine section runs clockwise
+   from top-centre with y up and section width W across, depth D:
+     g 0..W/2        back,  x 0 -> +W/2
+     g ..W/2+D       right, y +D/2 -> -D/2
+     g ..1.5W+D      front, x +W/2 -> -W/2
+     g ..1.5W+2D     left,  y -D/2 -> +D/2
+     g ..2W+2D       back,  x -W/2 -> 0
+   The user's Length is the front face width, Width is front-to-back and
+   Height is the extrusion - so we hand boxKit {boxW:L, boxH:W, boxL:H}. */
+const SFACE=[{k:'F',n:'FRONT'},{k:'R',n:'RIGHT'},{k:'B',n:'BACK'},{k:'L',n:'LEFT'}];
+const SSTOP=[0,0.25,0.5,0.75,1];
+const sbDims=s=>({W:Math.max(1,+s.boxL||1),D:Math.max(1,+s.boxW||1),H:Math.max(1,+s.boxH||1)});
+const sbG=s=>{ const d=sbDims(s); return 2*d.W+2*d.D; };
+function sbEnsure(s){ if(!s.seamList) s.seamList='F0.5,B0.5'; if(!s.lidSeam) s.lidSeam='frontback'; return s; }
+// (face, t) -> girth, t measured left->right on that elevation
+function sbGirth(s,f,t){ const d=sbDims(s), W=d.W, D=d.D, G=2*W+2*D;
+  const g = f==='F' ? 1.5*W+D   - t*W
+          : f==='R' ? W/2       + (1-t)*D
+          : f==='B' ? W/2       - t*W
+          :           1.5*W+2*D - t*D;
+  return ((g%G)+G)%G; }
+// girth -> plan point (mm, +x right / +y back), and the outward wall normal
+function sbPt(s,g){ const d=sbDims(s), W=d.W, D=d.D, G=2*W+2*D; g=((g%G)+G)%G;
+  if(g<=W/2)        return [g,D/2];
+  if(g<=W/2+D)      return [W/2, D/2-(g-W/2)];
+  if(g<=1.5*W+D)    return [W/2-(g-W/2-D), -D/2];
+  if(g<=1.5*W+2*D)  return [-W/2, -D/2+(g-1.5*W-D)];
+  return [-W/2+(g-1.5*W-2*D), D/2]; }
+function sbNorm(s,g){ const d=sbDims(s), W=d.W, D=d.D, G=2*W+2*D; g=((g%G)+G)%G;
+  if(g<W/2-1e-6||g>1.5*W+2*D+1e-6) return [0,1];
+  if(g<W/2+D-1e-6) return [1,0];
+  if(g<1.5*W+D-1e-6) return [0,-1];
+  return [-1,0]; }
+const sbSeams=s=>String(s.seamList||'').split(',').filter(Boolean);
+const sbNear=(a,b,G)=>{ const dd=Math.abs(a-b); return Math.min(dd,G-dd)<1; };
+function sbGirths(s){ const G=sbG(s);
+  const raw=sbSeams(s).map(c=>{ const f=c.charAt(0), t=parseFloat(c.slice(1));
+    return (isNaN(t)||'FRBL'.indexOf(f)<0)?null:sbGirth(s,f,t); }).filter(v=>v!=null);
+  const u=raw.sort((a,b)=>a-b).filter((v,i,a)=>i===0||v-a[i-1]>1);
+  if(u.length>2 && G-u[u.length-1]+u[0]<=1) u.pop();
+  return u; }
+const sbOn=(s,f,t)=>{ const g=sbGirth(s,f,t), G=sbG(s); return sbGirths(s).some(v=>sbNear(v,g,G)); };
+function sbToggle(s,f,t){ const G=sbG(s), g=sbGirth(s,f,t), had=sbSeams(s);
+  const keep=had.filter(c=>{ const cf=c.charAt(0), ct=parseFloat(c.slice(1));
+    if(isNaN(ct)||'FRBL'.indexOf(cf)<0) return false;
+    return !sbNear(sbGirth(s,cf,ct),g,G); });
+  if(keep.length===had.length) keep.push(f+t);
+  s.seamList=keep.join(','); }
+// mirrors boxKit: mean section y over the span, then 'fit lowest first'
+function sbUp(s,ga,gb){ const G=sbG(s), span=(((gb-ga)%G)+G)%G||G; let t=0;
+  for(let i=0;i<=16;i++) t+=sbPt(s,ga+span*i/16)[1]; return t/17; }
+function sbPieceList(s){ const g=sbGirths(s), G=sbG(s); if(g.length<2) return [];
+  const sl=g.map((v,i)=>{ const nx=g[(i+1)%g.length];
+    return {ga:v, gb:nx, span:(((nx-v)%G)+G)%G||G}; });
+  sl.forEach(x=>x.up=sbUp(s,x.ga,x.gb));
+  return sl.slice().sort((a,b)=>a.up-b.up); }
+function sqPlanParams(s){ sbEnsure(s); const d=sbDims(s);
+  return boxParams('square',Object.assign({},s,{
+    boxW:d.W, boxH:d.D, boxL:d.H, orientation:'vertical',
+    preset:s.lidSeam||'frontback', watershed:0, splitRot:0,
+    splitAt:sbGirths(s)})); }
+const sqBuild=s=>s.seamMode==='plan'
+  ? FP.boxKit(sqPlanParams(s))
+  : FP.pmSquareBoxKit(Object.assign({},s,{lockform:SET.lockform}));
+
+function _svgFit(parts,pts,style){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  pts.forEach(p=>{x0=Math.min(x0,p[0]);y0=Math.min(y0,p[1]);x1=Math.max(x1,p[0]);y1=Math.max(y1,p[1]);});
+  const pad=11;
+  return `<svg viewBox="${(x0-pad).toFixed(1)} ${(y0-pad).toFixed(1)} ${(x1-x0+2*pad).toFixed(1)} ${(y1-y0+2*pad).toFixed(1)}" style="${style}">${parts.join('')}</svg>`; }
+
+/* one elevation tile - face rect, live seam lines, and a full-width tap ruler
+   underneath. All four elevations share ONE scale so the faces compare true
+   to each other; a narrow end face would otherwise crush its stops together,
+   so the stops always sit on a fixed-width ruler with a leader up to the real
+   position on the face. Big targets on a tablet with gloves on. */
+function sbTile(s,f,name,sc){
+  const d=sbDims(s), fw=(f==='F'||f==='B')?d.W:d.D;
+  const VW=150, VH=124, RW=116, w=fw*sc, h=d.H*sc, cx=VW/2, cy=50;
+  const x0=cx-w/2, y0=cy-h/2, y1=cy+h/2, rx0=cx-RW/2, yd=y1+26, p=[];
+  p.push(`<rect x="${x0.toFixed(1)}" y="${y0.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${LY.fill2}" stroke="${LY.object}" stroke-width="1.6"/>`);
+  SSTOP.forEach(t=>{ if(!sbOn(s,f,t)) return; const x=x0+w*t;
+    p.push(`<line x1="${x.toFixed(1)}" y1="${(y0-4).toFixed(1)}" x2="${x.toFixed(1)}" y2="${(y1+4).toFixed(1)}" stroke="${LY.fold}" stroke-width="2.6" stroke-linecap="round"/>`); });
+  SSTOP.forEach(t=>{ const x=x0+w*t, dx=rx0+RW*t, on=sbOn(s,f,t), cor=(t===0||t===1);
+    p.push(`<line x1="${x.toFixed(1)}" y1="${(y1+5).toFixed(1)}" x2="${dx.toFixed(1)}" y2="${(yd-9).toFixed(1)}" stroke="${on?LY.fold:LY.faint}" stroke-width="${on?1.4:0.8}" opacity="${on?0.9:0.5}"/>`);
+    const col=on?LY.fold:LY.faint, r=on?7:5.5;
+    const mark=cor
+      ? `<rect x="${(dx-r).toFixed(1)}" y="${(yd-r).toFixed(1)}" width="${(2*r).toFixed(1)}" height="${(2*r).toFixed(1)}" rx="1.4" fill="${col}"/>`
+      : `<circle cx="${dx.toFixed(1)}" cy="${yd.toFixed(1)}" r="${r}" fill="${col}"/>`;
+    p.push(`<g data-sm="${f}${t}" style="cursor:pointer"><circle cx="${dx.toFixed(1)}" cy="${yd.toFixed(1)}" r="14" fill="transparent"/>${mark}</g>`); });
+  p.push(`<text x="${cx}" y="12" font-size="10" font-weight="800" fill="${LY.text}" text-anchor="middle" letter-spacing="1.4">${name}</text>`);
+  p.push(`<text x="${cx}" y="${(yd+18).toFixed(1)}" font-size="8.5" fill="${DIMC}" text-anchor="middle" font-family="Consolas,'Roboto Mono',monospace">${fmtDim(fw)} × ${fmtDim(d.H)}</text>`);
+  return `<svg viewBox="0 0 ${VW} ${VH}" style="width:100%;height:auto;display:block">${p.join('')}</svg>`;
+}
+/* top plan - shows where every chosen seam lands, and picks the lid split */
+function sbTopTile(s){
+  const d=sbDims(s), W=d.W, D=d.D;
+  const VW=150, VH=120, sc=Math.min(102/W, 56/D), w=W*sc, dp=D*sc, cx=VW/2, cy=54;
+  const X=px=>cx+px*sc, Y=py=>cy-py*sc, p=[];
+  p.push(`<rect x="${(cx-w/2).toFixed(1)}" y="${(cy-dp/2).toFixed(1)}" width="${w.toFixed(1)}" height="${dp.toFixed(1)}" rx="2" fill="${LY.fill2}" stroke="${LY.object}" stroke-width="1.6"/>`);
+  const lid=s.lidSeam||'frontback';
+  const lidLn=(k,a,b)=>{ const on=lid===k, hw=8;
+    const rx=Math.min(a[0],b[0])-(a[0]===b[0]?hw:0), ry=Math.min(a[1],b[1])-(a[1]===b[1]?hw:0);
+    const rw=Math.abs(b[0]-a[0])||2*hw, rh=Math.abs(b[1]-a[1])||2*hw;
+    p.push(`<g data-lid="${k}" style="cursor:pointer"><rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" fill="transparent"/>`+
+      `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${on?LY.centre:LY.faint}" stroke-width="${on?2.6:1.3}"${on?' stroke-dasharray="11 3 3 3"':' stroke-dasharray="4 4"'}/></g>`); };
+  lidLn('frontback',[X(0),Y(D/2)],[X(0),Y(-D/2)]);
+  lidLn('sides',[X(-W/2),Y(0)],[X(W/2),Y(0)]);
+  sbGirths(s).forEach(g=>{ const q=sbPt(s,g), n=sbNorm(s,g);
+    const a=[X(q[0]-n[0]*W*0.055), Y(q[1]-n[1]*D*0.10)], b=[X(q[0]+n[0]*W*0.075), Y(q[1]+n[1]*D*0.14)];
+    p.push(`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${LY.fold}" stroke-width="2.6" stroke-linecap="round"/>`); });
+  p.push(`<text x="${cx}" y="13" font-size="10" font-weight="800" fill="${LY.text}" text-anchor="middle" letter-spacing="1.4">TOP</text>`);
+  p.push(`<text x="${cx}" y="${(cy+dp/2+13).toFixed(1)}" font-size="7.5" font-weight="700" fill="${LY.faint}" text-anchor="middle" letter-spacing="1">FRONT</text>`);
+  p.push(`<text x="${cx}" y="${(cy-dp/2-5).toFixed(1)}" font-size="7.5" font-weight="700" fill="${LY.faint}" text-anchor="middle" letter-spacing="1">BACK</text>`);
+  p.push(`<text x="${(cx-w/2-6).toFixed(1)}" y="${(cy+3).toFixed(1)}" font-size="7.5" font-weight="700" fill="${LY.faint}" text-anchor="end">L</text>`);
+  p.push(`<text x="${(cx+w/2+6).toFixed(1)}" y="${(cy+3).toFixed(1)}" font-size="7.5" font-weight="700" fill="${LY.faint}">R</text>`);
+  p.push(`<text x="${cx}" y="${(cy+dp/2+31).toFixed(1)}" font-size="8" fill="${DIMC}" text-anchor="middle" font-family="Consolas,'Roboto Mono',monospace">lid splits ${lid==='frontback'?'front–back':'side–side'}</text>`);
+  return `<svg viewBox="0 0 ${VW} ${VH}" style="width:100%;height:auto;display:block">${p.join('')}</svg>`;
+}
+/* the payoff: the whole box in isometric with the seams and pieces on it */
+function sbIso(s,o){
+  o=o||{}; sbEnsure(s);
+  const d=sbDims(s), W=d.W, D=d.D, H=d.H, G=2*W+2*D;
+  const k=64/Math.max(W,D,H), c30=Math.cos(Math.PI/6);
+  // Near corner is front-right (+x, -y): x and y both push right, and the
+  // ground lines rise away from you, so the two visible walls are the front
+  // (-y) and the right (+x) - which is exactly what vis/dep below test for.
+  const P=(x,y,z)=>[(x+y)*c30*k, (-z+(x-y)*0.5)*k];
+  const PC=[DPAL.gold,DPAL.blue,DPAL.green,DPAL.violet,DPAL.grey];
+  const pieces=sbPieceList(s), parts=[], all=[];
+  const CORN=[0,W/2,W/2+D,1.5*W+D,1.5*W+2*D];
+  const quads=[];
+  (pieces.length?pieces:[{ga:0,span:G}]).forEach((pc,i)=>{
+    const col=PC[i%PC.length], bs=[0];
+    CORN.forEach(c=>{ const rel=(((c-pc.ga)%G)+G)%G; if(rel>0.5&&rel<pc.span-0.5) bs.push(rel); });
+    bs.sort((a,b)=>a-b); bs.push(pc.span);
+    for(let j=0;j<bs.length-1;j++){
+      const a=sbPt(s,pc.ga+bs[j]), b=sbPt(s,pc.ga+bs[j+1]), n=sbNorm(s,pc.ga+(bs[j]+bs[j+1])/2);
+      quads.push({a,b,col,i,vis:n[0]-n[1]>0, dep:(a[0]+b[0])/2-(a[1]+b[1])/2}); }
+  });
+  quads.sort((x,y)=>(x.vis?1:0)-(y.vis?1:0)||x.dep-y.dep);
+  quads.forEach(q=>{
+    const pts=[P(q.a[0],q.a[1],0),P(q.b[0],q.b[1],0),P(q.b[0],q.b[1],H),P(q.a[0],q.a[1],H)];
+    pts.forEach(pp=>all.push(pp));
+    const ps=pts.map(pp=>pp[0].toFixed(1)+','+pp[1].toFixed(1)).join(' ');
+    if(q.vis){ q.box=[pts[0],pts[1],pts[2],pts[3]];
+      parts.push(`<polygon points="${ps}" fill="${q.col.f}" stroke="${q.col.i}" stroke-width="1.9" stroke-linejoin="round"/>`); }
+    // hidden walls get no outline at all - through a translucent front face
+    // their bottom edges read as random diagonals across a piece. The ghosted
+    // seam uprights below are enough to say "there's more round the back".
+
+  });
+  const lidPts=[P(-W/2,-D/2,H),P(W/2,-D/2,H),P(W/2,D/2,H),P(-W/2,D/2,H)];
+  lidPts.forEach(pp=>all.push(pp));
+  parts.push(`<polygon points="${lidPts.map(pp=>pp[0].toFixed(1)+','+pp[1].toFixed(1)).join(' ')}" fill="${LY.fill}" stroke="${LY.object}" stroke-width="1.9" stroke-linejoin="round"/>`);
+  const lid=s.lidSeam||'frontback';
+  parts.push(lid==='frontback' ? _ln(P(0,-D/2,H),P(0,D/2,H),SEAMST) : _ln(P(-W/2,0,H),P(W/2,0,H),SEAMST));
+  sbGirths(s).forEach(g=>{ const q=sbPt(s,g), n=sbNorm(s,g), vis=n[0]-n[1]>0;
+    parts.push(_ln(P(q[0],q[1],0),P(q[0],q[1],H), vis
+      ? `stroke="${LY.fold}" stroke-width="2.8" stroke-linecap="round"`
+      : `stroke="${LY.fold}" stroke-width="1.3" stroke-dasharray="5 4" opacity="0.45"`)); });
+  // number each piece on the widest facet you can actually SEE - a mid-girth
+  // label can land round the back where nobody would read it.
+  if(o.labels) pieces.forEach((pc,i)=>{
+    let best=null, bw=-1;
+    quads.forEach(q=>{ if(q.i!==i||!q.box) return;
+      const wd=Math.abs(q.box[1][0]-q.box[0][0]);
+      if(wd>bw){ bw=wd; best=q; } });
+    if(!best||bw<9) return;
+    const pt=[(best.box[0][0]+best.box[2][0])/2,(best.box[0][1]+best.box[2][1])/2];
+    all.push([pt[0],pt[1]-9],[pt[0],pt[1]+7]);
+    parts.push(`<text x="${pt[0].toFixed(1)}" y="${(pt[1]+4).toFixed(1)}" font-size="12" font-weight="800" fill="${LY.text}" text-anchor="middle" paint-order="stroke" stroke="${LY.canvas}" stroke-width="3.4">${i+1}</text>`); });
+  return _svgFit(parts,all,o.style||'width:200px;max-width:44vw;height:auto');
+}
+function seamPlannerCard(s){
+  sbEnsure(s);
+  const pcs=sbPieceList(s), PCN=['gold','blue','green','violet','grey'], G=sbG(s);
+  if(s.show3d){
+    return `<div class="card"><div class="pvhead"><span class="k">The finished box</span><span class="v">${pcs.length} wrap${pcs.length===1?'':'s'} + lid</span></div>
+      <div style="display:flex;justify-content:center;padding:10px 0 6px;overflow:visible">${sbIso(s,{labels:1,style:'width:100%;max-width:330px;height:auto'})}</div>
+      <div class="seamlegend">${pcs.map((p,i)=>`<span><i style="background:${DPAL[PCN[i%5]].f};border-color:${DPAL[PCN[i%5]].i}"></i>${i+1} · ${fmtDim(p.span)} girth</span>`).join('')}</div>
+      <div class="hint">Numbered in fit order — piece 1 goes on first. The bright upright lines are your seams; ghosted ones are round the back. The lid splits ${(s.lidSeam||'frontback')==='frontback'?'front to back':'side to side'}. Every wrap prints below at 1:1 with its lockform and lap allowances on.</div>
+      <button class="btn ghost" id="seamEdit">◂ Edit the seams</button></div>`;
+  }
+  const dm=sbDims(s), tsc=Math.min(112/Math.max(dm.W,dm.D), 56/dm.H);
+  const tiles=SFACE.map(f=>`<div class="seamtile">${sbTile(s,f.k,f.n,tsc)}</div>`).join('')+`<div class="seamtile">${sbTopTile(s)}</div>`;
+  const read=pcs.length?pcs.map((p,i)=>(i+1)+': '+fmtDim(p.span)).join('  ·  '):'tap two or more';
+  return `<div class="card"><div class="pvhead"><span class="k">Seam planner</span><span class="v">${sbGirths(s).length} seam${sbGirths(s).length===1?'':'s'} · girth ${fmtDim(G)}</span></div>
+    <div class="seamgrid">${tiles}</div>
+    <div class="hint" style="text-align:center;margin-top:2px">Tap a marker under a view to drop a seam there. The squares at each end are the corners — they light up on both faces because it's one seam. On TOP, tap a centre line to choose which way the lid splits.</div>
+    <div class="seamread"><span>PIECE GIRTHS</span><b>${read}</b></div>
+    <button class="btn primary" id="seamDone"${pcs.length<2?' disabled':''}>Complete — show the 3D box</button></div>`;
+}
 function diagSquareBox(s){
+  if(s.seamMode==='plan') return sbIso(s,{labels:1});
   const L=Math.max(1,+s.boxL||300), W=Math.max(1,+s.boxW||250), H=Math.max(1,+s.boxH||250);
   const sc=62/Math.max(L,W,H), l=L*sc, w=W*sc, h=H*sc, dx=w*0.55, dy=-w*0.4;
   const x0=-l/2, x1=l/2, y0=-h/2, y1=h/2;
@@ -3783,7 +4013,7 @@ function form(kind, presetParams){
   // insulation is already baked in - build/diagram with insulation forced 0.
   const eff=()=>SET.sizeMode==='diameter'?Object.assign({},s,{insulation:0}):s;
   const locked=!unlocked(kind);
-  setView(fit.name,fit.sub,true);
+  setView(fit.name, kind==='squarebox'&&s.seamMode==='plan' ? 'Seam planner · you place the seams' : fit.sub, true);
   const seamF=fit.fields.find(f=>f.type==='seam');
   const BOXHERO={roundbox:1,squarebox:1,valvebox:1,flangebox:1,wsbox:1};
   const boxHero=!!BOXHERO[kind];
@@ -3809,6 +4039,7 @@ function form(kind, presetParams){
     <div class="pvhead boxhead"><span class="k">Box view — all splits</span><span class="v" id="boxsplitlab"></span></div>
     <div class="boxheromain"><div id="fitdiag"></div>${hasSplits?`<div class="boxwheel">${fieldHTML({type:'splitwheel',k:'splitRot',label:'Split position (clock)',compact:true},s)}</div>`:''}</div></div>`;
   else html+=previewCard;
+  if(kind==='squarebox'&&s.seamMode==='plan') html+=`<div id="seamplan">${seamPlannerCard(s)}</div>`;
   const hand2Html = kind!=='bendonbend' ? '' :
     `<label>Second bend type</label><div class="seg" data-seg="bendHand2">${['A','B','C','D'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
      <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
@@ -3934,6 +4165,15 @@ function form(kind, presetParams){
   const jb=document.getElementById('jobBtn'); if(jb) jb.onclick=()=>{ if(!PRO) return showUnlock(); flushRefresh(); saveToJob(kind); };
   refresh();
 
+  function wireSeam(){
+    const host=document.getElementById('seamplan'); if(!host) return;
+    const again=()=>{ touch(); host.innerHTML=seamPlannerCard(s); wireSeam(); refresh(); };
+    host.querySelectorAll('[data-sm]').forEach(g=>g.onclick=()=>{
+      const c=g.dataset.sm; sbToggle(s,c.charAt(0),parseFloat(c.slice(1))); again(); });
+    host.querySelectorAll('[data-lid]').forEach(g=>g.onclick=()=>{ s.lidSeam=g.dataset.lid; again(); });
+    const dn=host.querySelector('#seamDone'); if(dn) dn.onclick=()=>{ s.show3d=1; again(); };
+    const ed=host.querySelector('#seamEdit'); if(ed) ed.onclick=()=>{ s.show3d=0; again(); };
+  }
   function readAll(){
     app.querySelectorAll('[data-k]').forEach(e=>{ const v=parseFloat(e.value); if(!isNaN(v)) s[e.dataset.k]=v; });
     fit.fields.filter(f=>f.type==='pipe').forEach(f=>{ const sel=app.querySelector(`[data-pipe="${f.k}"]`); if(!sel)return;
@@ -3973,11 +4213,15 @@ function form(kind, presetParams){
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(pat,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,eff());
+    { const sp=document.getElementById('seamplan');
+      if(sp&&!sp.dataset.busy){ sp.dataset.busy='1'; sp.innerHTML=seamPlannerCard(s); wireSeam(); delete sp.dataset.busy; } }
     const scu=document.getElementById('splitcuts'); if(scu) scu.innerHTML=splitWheelCuts(s);
     const bsl=document.getElementById('boxsplitlab');
     if(bsl){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
       const desc={2:'2-way · two halves',3:'3-way · one half + two quarters',4:'4-way · four quarters'}[n];
       bsl.textContent=(fit.fields.some(f=>f.k==='pieces')?desc:'');
+      if(kind==='squarebox'&&s.seamMode==='plan'){ const np=sbPieceList(s).length;
+        bsl.textContent=np?(np+'-way · '+sbGirths(s).length+' seams'):'tap two seams to split it'; }
       if(fit.fields.some(f=>f.k==='pieces')&&s.orientation) bsl.textContent+=' · '+(s.orientation==='horizontal'?'horizontal':'vertical'); }
     const ds=document.getElementById('dbseam');
     if(ds){ const dir=dirOf(s), sm=(+s.seamFromThroat||0), tw2=(+s.twist||0), d2=(dir==='same'?0:180)+tw2;
@@ -4129,7 +4373,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.12.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.13.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4160,7 +4404,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.12.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.13.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
