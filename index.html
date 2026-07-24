@@ -845,7 +845,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.11.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.12.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1396,6 +1396,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return [[xm + ox, ym + oy], [xm - ox, ym - oy]];
   }
 
+  // Unfold a flat flap into the pattern. `poly` is the flap drawn in its OWN
+  // plane (true shape); a0->a1 is the fold line in that same frame; A0->A1 is
+  // where that fold line already sits in the pattern. The map is rigid, so
+  // every true length survives; the reflection is picked so the flap lands on
+  // the side `want` asks for (it must be the far side of the fold from the
+  // panel it hangs off).
+  function _foldFlap(poly, a0, a1, A0, A1, want) {
+    const d = [a1[0] - a0[0], a1[1] - a0[1]], s = Math.hypot(d[0], d[1]) || 1e-9;
+    const e1 = [d[0] / s, d[1] / s], e2 = [-e1[1], e1[0]];
+    const D = [A1[0] - A0[0], A1[1] - A0[1]], S = Math.hypot(D[0], D[1]) || 1e-9;
+    const E1 = [D[0] / S, D[1] / S], E2 = [-E1[1], E1[0]];
+    const put = sg => poly.map(pt => {
+      const dx = pt[0] - a0[0], dy = pt[1] - a0[1];
+      const u = dx * e1[0] + dy * e1[1], v = (dx * e2[0] + dy * e2[1]) * sg;
+      return [A0[0] + u * E1[0] + v * E2[0], A0[1] + u * E1[1] + v * E2[1]];
+    });
+    const a = put(1);
+    return want(a) ? a : put(-1);
+  }
+
   // ---- section: clockwise from top-centre, y up ---------------------------
   function _boxSection(p) {
     const segs = []; let g = 0;
@@ -1780,7 +1800,132 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   //           wall+2*foldedEdge low side rising +D to the ridge (raked)
   // The wrap folds the slope IN (one piece, mirror pair) and the end edges
   // lockform segment by segment - every lockformed run is straight.
+  // ---- Water-shed Box, HORIZONTAL band split ------------------------------
+  // Craig's arrangement: cut the box round the eaves instead of down the
+  // ridge. The TOP is one piece - both roof slopes, the two gable ends folded
+  // down off the slope ends, and a skirt dropping over the walls - so the
+  // whole rise is seamless and it sheds every way. The wall band underneath
+  // is a plain rectangular band split into 2 halves or 4 quarters, and the
+  // hood laps OVER it (water shed, always fit the band first).
+  //
+  // The gable half is the true right triangle W/2 x D hinged on the rake (the
+  // rake IS the slope run, so it unfolds off the end of the roof panel with
+  // no distortion), carried down to the skirt line as a quad. Unfolding the
+  // two halves opens a wedge notch between them - the lap tab on one half
+  // lives inside that notch, so it never fouls the other half on the sheet.
+  function wsHorizKit(p) {
+    const L = p.boxL, W = p.boxW, H = p.boxH, D = p.shedDepth;
+    const FE = p.foldedEdge == null ? 5 : p.foldedEdge;
+    const lap = p.lap == null ? 50 : p.lap;
+    const drop = p.hoodDrop == null ? 75 : +p.hoodDrop;
+    const n = +p.bandPieces === 4 ? 4 : 2;
+    const hp = p.holePitch || 60, eg = p.holeEndGap || 20;
+    if (!(L > 0 && W > 0 && H > 0)) throw new Error('Length, width and height must all be more than 0.');
+    if (!(D > 0 && D < H)) throw new Error('Water-shed depth must be more than 0 and less than the height.');
+    const wall = H - D, slope = Math.hypot(W / 2, D), R = Math.round;
+    if (!(drop > 0 && drop < wall)) throw new Error('Hood drop must be more than 0 and less than the eaves height (' + R(wall) + ' mm).');
+    const pitch = Math.atan2(D, W / 2) * 180 / Math.PI;
+    const eaveFold = 90 + pitch, ridgeFold = 180 - 2 * pitch, K = D + drop;
+    // clamp the gable lap tab to the notch the unfold opens up
+    const beta = Math.acos(Math.max(-1, Math.min(1, D / slope))) * 180 / Math.PI;
+    const angOf = t => Math.acos(Math.max(-1, Math.min(1,
+      (-t * W / 2 + D * K) / (slope * Math.hypot(t, K))))) * 180 / Math.PI;
+    let lo = 0, hi = Math.max(lap, 5 * K) + 1; const cap = 180 - beta - 2;
+    for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (angOf(m) <= cap) lo = m; else hi = m; }
+    const gLap = Math.max(0, Math.min(lap, Math.floor(lo)));
+    // ---- HOOD: skirt | eaves | slope | RIDGE | slope | eaves | skirt ------
+    const yE1 = drop, yR = drop + slope, yE2 = drop + 2 * slope, yS2 = yE2 + drop;
+    const prim = [], holes = [], ticks = [];
+    const a0 = [0, H], a1 = [W / 2, wall];                       // the rake = the fold
+    const gPoly = t => [[0, H], [W / 2, wall], [W / 2, wall - drop], [-t, wall - drop]];
+    const refPoly = [[W / 2, wall], [0, wall], [W / 2, wall - drop / 2], [0, wall - drop / 2]];
+    const mid = a => a.reduce((s, q) => s + q[0], 0) / a.length;
+    const lft = a => mid(a) < 0, rgt = a => mid(a) > L;
+    const FL = [
+      { A0: [0, yR], A1: [0, yE1], w: lft, t: gLap },   // end A, slope 1 (lap half)
+      { A0: [0, yR], A1: [0, yE2], w: lft, t: 0 },      // end A, slope 2 (plain)
+      { A0: [L, yR], A1: [L, yE1], w: rgt, t: gLap },   // end B, slope 1 (lap half)
+      { A0: [L, yR], A1: [L, yE2], w: rgt, t: 0 } ];
+    FL.forEach(f => { f.q = _foldFlap(gPoly(f.t), a0, a1, f.A0, f.A1, f.w);
+                      f.r = _foldFlap(refPoly,    a0, a1, f.A0, f.A1, f.w); });
+    const [f0A, f0B, fLA, fLB] = FL;
+    prim.push({ style: 'cut', pts: [
+      [0, 0], [L, 0], [L, yE1], fLA.q[2], fLA.q[3], [L, yR], fLB.q[3], fLB.q[2], [L, yE2],
+      [L, yS2], [0, yS2], [0, yE2], f0B.q[2], f0B.q[3], [0, yR], f0A.q[3], f0A.q[2], [0, yE1], [0, 0] ] });
+    [[yE1, 'FOLD ' + R(eaveFold) + '°'], [yR, 'RIDGE - FOLD ' + R(ridgeFold) + '°'], [yE2, 'FOLD ' + R(eaveFold) + '°']]
+      .forEach(f => { prim.push({ style: 'fold', pts: [[0, f[0]], [L, f[0]]] });
+                      ticks.push({ x: L / 2, y: f[0], label: f[1] }); });
+    [0, L].forEach(x => prim.push({ style: 'fold', pts: [[x, yE1], [x, yE2]] }));   // gable folds
+    FL.forEach((f, i) => {
+      prim.push({ style: 'ord', pts: [f.r[0], f.r[1]] });                            // eaves line on the gable
+      _lineHoles(holes, f.r[2][0], f.r[2][1], f.r[3][0], f.r[3][1], hp, eg);         // skirt rivets
+      ticks.push({ x: mid(f.q), y: f.q.reduce((s, q) => s + q[1], 0) / 4,
+        label: 'GABLE - FOLD DOWN' + (f.t ? ' (lap ' + f.t + ')' : '') });
+    });
+    _lineHoles(holes, 0, drop / 2, L, drop / 2, hp, eg);
+    _lineHoles(holes, 0, yE2 + drop / 2, L, yE2 + drop / 2, hp, eg);
+    ticks.push({ x: L / 2, y: drop / 2, label: 'SKIRT ' + R(drop) });
+    ticks.push({ x: L / 2, y: yE2 + drop / 2, label: 'SKIRT ' + R(drop) });
+    ticks.push({ x: L / 2, y: (yE1 + yR) / 2, label: 'SLOPE ' + R(slope) });
+    ticks.push({ x: L / 2, y: (yR + yE2) / 2, label: 'SLOPE ' + R(slope) });
+    const hoodG = 2 * drop + 2 * slope, hbb = bboxOf(prim);
+    const hood = { kind: 'wsbox', title: 'Water-shed Box  -  Hood (roof + both gables) 1:1',
+      meta: [`Box ${L} × ${W} × ${H}, water-shed depth ${D}  -  horizontal split, hood in ONE piece`,
+             `CUT SIZE ${R(hbb.w)} × ${R(hbb.h)}   ·   girth skirt ${R(drop)} | slope ${R(slope)} | slope ${R(slope)} | skirt ${R(drop)} = ${R(hoodG)}`,
+             `Folds: eaves ${R(eaveFold)}° both sides, ridge ${R(ridgeFold)}°, gables fold down on the rake lines`,
+             `Gables come off the roof ends - true triangle ${R(W / 2)} × ${D} carried ${R(drop)} below the eaves`
+               + (gLap ? `, lap ${gLap} on one half of each end` : ', halves butt on the end centreline'),
+             `Skirt drops ${R(drop)} over the band all the way round - the hood ALWAYS laps over the band`],
+      calc: { slope, wall, drop, ang: eaveFold, ridgeFold, girth: hoodG, width: hbb.w,
+              cutLap: hbb.h, L, W, H, D, splitMode: 'horiz', nBand: n },
+      info: { name: 'Water-shed Box - HOOD',
+              lines: [`Box ${L} × ${W} × ${H}   shed ${D}`,
+                      `Slope ${R(slope)}   skirt ${R(drop)}   girth ${R(hoodG)}`,
+                      `Ridge ${R(ridgeFold)}°   eaves ${R(eaveFold)}°   CUT 1 OFF`] },
+      prim, holes, ticks, bbox: hbb, cutNote: 'CUT 1 OFF (hood - fold the gables down last)' };
+    // ---- BAND: plain wall band, 2 halves or 4 quarters --------------------
+    const runs = n === 4 ? [[L / 2, '½ LONG'], [W / 2, '½ END']]
+                         : [[L / 2, '½ LONG'], [W, 'END'], [L / 2, '½ LONG']];
+    const bg = runs.reduce((a, r) => a + r[0], 0), bw = lap + bg, bh = wall + 2 * FE;
+    const bp = [], bhl = [], bt = [];
+    bp.push({ style: 'cut', pts: [[0, 0], [bw, 0], [bw, bh], [0, bh], [0, 0]] });
+    bp.push({ style: 'fold', pts: [[0, FE], [bw, FE]] });
+    bp.push({ style: 'fold', pts: [[0, bh - FE], [bw, bh - FE]] });
+    bp.push({ style: 'lap', pts: [[lap, 0], [lap, bh]] });
+    _lineHoles(bhl, lap / 2, FE, lap / 2, bh - FE, hp, eg);
+    bt.push({ x: lap / 2, y: bh * 0.5, label: 'LAP ' + lap });
+    const hx = Math.min(bw - 60, lap + 70);
+    bt.push({ x: hx, y: FE / 2, label: 'HEM ' + FE + ' - FOLD IN' });
+    bt.push({ x: hx, y: bh - FE / 2, label: 'HEM ' + FE + ' - FOLD IN' });
+    let cx = lap;
+    runs.forEach((r, i) => {
+      bt.push({ x: cx + r[0] / 2, y: bh / 2, label: r[1] + ' ' + R(r[0]) });
+      cx += r[0];
+      if (i < runs.length - 1) {
+        bp.push({ style: 'fold', pts: [[cx, 0], [cx, bh]] });
+        bt.push({ x: cx, y: bh * 0.8, label: 'FOLD 90°' });
+      }
+    });
+    const band = { kind: 'wsbox', title: 'Water-shed Box  -  Wall Band (' + (n === 2 ? 'half' : 'quarter') + ') 1:1',
+      meta: [`Band ${R(bw)} × ${R(bh)}  -  ${n} off, girth ${R(bg)} + lap ${lap}, height ${R(wall)} base to eaves`,
+             `Runs: ${runs.map(r => r[1].toLowerCase() + ' ' + R(r[0])).join(' | 90° fold | ')}`,
+             `Folded edge ${FE} hem top and bottom (both fold IN - the top hem tucks under the hood)`,
+             n === 4 ? 'Four identical quarters - flip alternate pieces over, joints land mid-face not on the corners'
+                     : 'Two identical halves - joints land at the middle of each long side',
+             'Fit the band FIRST, then drop the hood on - the hood skirt laps over the top ' + R(drop) + ' of it'],
+      calc: { bw, bh, bg, lap, n, wall, splitMode: 'horiz' },
+      info: { name: 'Water-shed Box - BAND',
+              lines: [`Band ${R(bg)} + lap ${lap} = ${R(bw)} × ${R(bh)}`,
+                      runs.map(r => R(r[0])).join(' + ') + '   fold 90° between',
+                      `CUT ${n} OFF` + (n === 4 ? ' (flip alternate)' : '')] },
+      prim: bp, holes: bhl, ticks: bt, bbox: bboxOf(bp), cutNote: 'CUT ' + n + ' OFF (wall band)' };
+    const out = [hood, band];
+    out.forEach(o => { o.calc.kitPieces = out.length; o.calc.nBand = n; o.calc.splitMode = 'horiz'; });
+    return out;
+  }
+
   function watershedBoxKit(p) {
+    if (p.splitMode === 'horiz') return wsHorizKit(p);
     const L = p.boxL, W = p.boxW, H = p.boxH, D = p.shedDepth;
     const LF = p.lockform, FE = p.foldedEdge == null ? 5 : p.foldedEdge, lap = p.lap == null ? 50 : p.lap;
     const hp = p.holePitch || 60, eg = p.holeEndGap || 20;
@@ -1816,7 +1961,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
              `Runs: base ${R(base)} | fold 90° | wall ${R(wall)} | fold ${R(ang)}° | slope ${R(slope)}`,
              `Lockform ${LF} both side edges, formed segment by segment between the folds`,
              `Laps ${lap} both girth ends, corners notched at the lockform zones`],
-      calc: { slope, wall, base, ang, girth, width, cutLap: girth + 2 * lap, L, W, H, D },
+      calc: { slope, wall, base, ang, girth, width, cutLap: girth + 2 * lap, L, W, H, D, splitMode: 'mirror' },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (wrap - flip one over, mirror pair)' };
     // ---- end plates: lap half + plain half, raked tops
     // End plates. x=0 is the RIDGE side - the two halves lap over each other
@@ -2812,13 +2957,20 @@ const F={
   note:'Caps the end of a run or a vessel: pick the pipe + insulation and the cap comes out at the cladding OD. Rim slot flange locks onto a lockformed pipe end. Conical gives the watershed pitch from Settings; a pipe hole spans the split so each half shows its half-moon.'},
 };
 F.wsbox={name:'Water-shed Box',sub:'Shop method · ridged top',icon:I.wshed,
-  defaults:{boxL:400,boxW:300,boxH:400,shedDepth:40,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20},
-  fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('shedDepth','Water-shed depth (mm)'),num('foldedEdge','Folded edge (mm)')],
+  defaults:{boxL:400,boxW:300,boxH:400,shedDepth:40,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20,splitMode:'mirror',hoodDrop:75,bandPieces:2},
+  fields:[Object.assign(sego('splitMode','Split',[{v:'mirror',label:'Mirror halves'},{v:'horiz',label:'Horizontal band'}]),{reflow:1}),
+    num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('shedDepth','Water-shed depth (mm)'),num('foldedEdge','Folded edge (mm)'),
+    Object.assign(num('hoodDrop','Hood drop over the wall (mm)'),{when:s=>s.splitMode==='horiz'}),
+    Object.assign(segd('bandPieces','Bottom band',[2,4]),{when:s=>s.splitMode==='horiz',reflow:1})],
   build:s=>FP.watershedBoxKit({...s,lockform:SET.lockform})[0],
   kit:s=>FP.watershedBoxKit({...s,lockform:SET.lockform}),
-  mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 plates'],
-  stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.ang)+'°','Base/wall/slope '+Math.round(c.base)+'/'+Math.round(c.wall)+'/'+Math.round(c.slope)],
-  note:'Straight from the shop program: the wrap folds the slope in — base, 90° fold, wall, the marked fold angle, slope — cut 2 and flip one. End edges lockform segment by segment (every run is straight). End plates: a lap half and a plain half per end, raked tops, folded-edge hems marked.'};
+  mini:c=>c.splitMode==='horiz'
+      ?['Hood '+Math.round(c.width)+' × '+Math.round(c.cutLap),'1 hood + '+c.nBand+' band']
+      :['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 plates'],
+  stats:c=>c.splitMode==='horiz'
+      ?['Hood sheet '+Math.round(c.width)+'×'+Math.round(c.cutLap),'Girth '+Math.round(c.girth),'Ridge '+Math.round(c.ridgeFold)+'° · eaves '+Math.round(c.ang)+'°','Slope '+Math.round(c.slope)+' · skirt '+Math.round(c.drop),'Band '+c.nBand+' off, wall '+Math.round(c.wall)]
+      :['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.ang)+'°','Base/wall/slope '+Math.round(c.base)+'/'+Math.round(c.wall)+'/'+Math.round(c.slope)],
+  note:'Mirror halves = the shop program: the wrap folds the slope in — base, 90° fold, wall, fold angle, slope — cut 2 and flip one, plus a lap half and a plain half per end. Horizontal band = cut it round the eaves instead: the hood is ONE piece carrying both slopes, the ridge and both gable ends folded down off the roof, with a skirt that laps over the wall band. The band underneath comes as 2 halves or 4 quarters, joints landing mid-face.'};
 F.dome={name:'Dome',sub:'Dished vessel end · gores',icon:I.dome,
   defaults:{dia:2500,height:500,segments:26,swage:10,bodyLap:75,holePitch:60,holeEndGap:20},
   fields:[num('dia','Diameter (mm)'),num('height','Height (mm)'),num('segments','Segments'),num('swage','Swage allowance (mm)'),num('bodyLap','Body lap (mm)')],
@@ -3388,26 +3540,49 @@ function diagEndCap(s){
   return _svgWrap(parts,all,190);
 }
 function diagWsBox(s){
-  const L=Math.max(1,+s.boxL||400), W=Math.max(1,+s.boxW||300), H=Math.max(1,+s.boxH||400), D=Math.max(1,+s.shedDepth||40);
-  const sc=56/Math.max(L,W,H+D);
+  const L=Math.max(1,+s.boxL||400), W=Math.max(1,+s.boxW||300), H=Math.max(1,+s.boxH||400);
+  const D=Math.min(Math.max(1,+s.shedDepth||40),H*0.9);
+  const horiz=s.splitMode==='horiz', wall=H-D, n=(+s.bandPieces===4?4:2);
+  const drop=Math.min(Math.max(1,+s.hoodDrop||75),wall*0.9);
+  const sc=56/Math.max(L,W,H);
   const parts=[], all=[];
-  // front view: L x H with lockform columns
-  const l=L*sc, h=H*sc, x0=-l-14, x1=-14, y0=-h/2, y1=h/2, lf=Math.max(3,(SET.lockform||25)*sc);
+  // front view (the long side): L x H, eaves at H-D
+  const l=L*sc, h=H*sc, x0=-l-14, x1=-14, y1=h/2, y0=y1-h, xm=(x0+x1)/2;
+  const yE=y1-wall*sc, yS=yE+drop*sc, lf=Math.max(3,(SET.lockform||25)*sc);
   parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${h}" fill="${LY.fill2}" ${INKST}/>`);
-  parts.push(_ln([x0+lf,y0],[x0+lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`),_ln([x1-lf,y0],[x1-lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`));
+  if(horiz){
+    parts.push(`<rect x="${x0}" y="${y0}" width="${l}" height="${(yS-y0).toFixed(2)}" fill="${DPAL.gold.f}" stroke="none"/>`);
+    parts.push(_ln([x0,yS],[x1,yS],`stroke="${LY.object}" stroke-width="1.6"`));
+    parts.push(_ln([x0,yE],[x1,yE],`stroke="${LY.fold}" stroke-width="1.1" stroke-dasharray="6 4"`));
+    parts.push(_ln([xm,yS],[xm,y1],SEAMST));                      // band joint, middle of the long side
+  } else {
+    parts.push(_ln([x0+lf,y0],[x0+lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`),
+               _ln([x1-lf,y0],[x1-lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`));
+  }
   all.push([x0,y0],[x1,y1]);
   dimLin(parts,all,[x0,y1],[x1,y1],13,fmtDim(L));
-  dimLin(parts,all,[x0,y0],[x0,y1],-12,fmtDim(H));
-  // side view: W with the ridge peak (shed depth above)
-  const w=W*sc, d=D*sc, sx0=14, sx1=14+w, sy1=y1, syE=y1-h, syP=syE-d, mid=(sx0+sx1)/2;
-  parts.push(`<path d="M${sx0} ${sy1} L${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} L${sx1} ${sy1} Z" fill="${LY.fill2}" ${INKST}/>`);
-  parts.push(`<path d="M${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} Z" fill="${DPAL.gold.f}" stroke="none"/>`); // watershed roof
-  parts.push(_ln([mid,syP],[mid,sy1],SEAMST));
-  all.push([sx0,sy1],[sx1,syP]);
-  dimLin(parts,all,[sx0,sy1],[sx1,sy1],13,fmtDim(W));
-  dimLin(parts,all,[sx1,syP],[sx1,syE],-11,'shed '+fmtDim(D));
+  dimLin(parts,all,[x0,y0],[x0,y1],12,fmtDim(H));
+  // end view: W wide, eaves at H-D, ridge at H
+  const w=W*sc, sx0=14, sx1=14+w, mid=(sx0+sx1)/2, syE=y1-wall*sc, syP=y0, sSk=syE+drop*sc;
+  parts.push(`<path d="M${sx0} ${y1} L${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} L${sx1} ${y1} Z" fill="${LY.fill2}" ${INKST}/>`);
+  if(horiz){
+    parts.push(`<path d="M${sx0} ${sSk} L${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} L${sx1} ${sSk} Z" fill="${DPAL.gold.f}" ${INKST}/>`);
+    parts.push(_ln([sx0,sSk],[sx1,sSk],`stroke="${LY.object}" stroke-width="1.6"`));
+    if(n===4) parts.push(_ln([mid,sSk],[mid,y1],SEAMST));         // band joint, middle of the end
+  } else {
+    parts.push(`<path d="M${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} Z" fill="${DPAL.gold.f}" stroke="none"/>`);
+    parts.push(_ln([mid,syP],[mid,y1],SEAMST));
+  }
+  all.push([sx0,y1],[sx1,syP]);
+  dimLin(parts,all,[sx0,y1],[sx1,y1],13,fmtDim(W));
+  dimLead(parts,all,[mid,syP],11,-13,'shed '+fmtDim(D));
   const ang=90+Math.atan2(D,W/2)*180/Math.PI;
-  dimLead(parts,all,[mid+w/4,(syP+syE)/2],16,-12,'fold '+Math.round(ang)+'°');
+  if(horiz){
+    dimLead(parts,all,[x0+l*0.3,(y0+yS)/2],-15,-15,'hood - 1 piece');
+    dimLead(parts,all,[sx1-w*0.22,(sSk+y1)/2],15,15,'band '+n+' off');
+  } else {
+    dimLead(parts,all,[mid+w/4,(syP+syE)/2],16,26,'fold '+Math.round(ang)+'\u00b0');
+  }
   return _svgWrap(parts,all,230);
 }
 function diagDome(s){
@@ -3551,8 +3726,8 @@ function fieldHTML(f,s){
       const ph=f.none?'0 = no hole':'finished outside Ø';
       return `<label>${/mm/.test(lbl)?lbl:lbl+' (mm)'}</label><input type="number" inputmode="decimal" data-k="${f.k}" value="${+cur||0}" step="0.1" placeholder="${ph}">`; }
     return `<label>${f.label}</label><select data-pipe="${f.k}">${f.none?`<option value="0" ${none?'selected':''}>No hole</option>`:''}${FP.PIPE_CHART.map(p=>`<option value="${p.od}" ${(p.od==cur&&!isc)?'selected':''}>${p.inch}" · DN${p.dn} · ${p.od}mm</option>`).join('')}<option value="custom" ${isc?'selected':''}>Custom…</option></select><div data-cuswrap="${f.k}" class="${isc?'':'hide'}"><input type="number" inputmode="decimal" data-cus="${f.k}" value="${cur}" step="0.1" style="margin-top:8px"></div>`; }
-  if(f.type==='seg') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}">${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
-  if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}">${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
+  if(f.type==='seg') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
+  if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
     const hands = f.hands==='AB' ? ['A','B'] : ['A','B','C','D'];
     let dots='';
@@ -3628,7 +3803,7 @@ function form(kind, presetParams){
   const VARG=varGroupOf(kind);
   if(VARG) html+=`<div class="card varcard"><label>${VARG.label}</label><div class="seg" data-varsel="1">${VARG.opts.map(o=>`<button data-vk="${o.k}" ${o.k===kind?'class="on"':''}>${o.label}</button>`).join('')}</div></div>`;
   html+=`<div class="card"><div class="grid2">`;
-  html+=fit.fields.filter(f=>f.type!=='seam').filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
+  html+=fit.fields.filter(f=>f.type!=='seam').filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
     const full=(f.type!=='num'&&f.type!=='pipe');
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
   html+=`</div>`;
@@ -3677,7 +3852,9 @@ function form(kind, presetParams){
   app.querySelectorAll('input').forEach(i=>i.oninput=()=>{ touch(); refreshSoon(); });
   app.querySelectorAll('[data-seg]').forEach(el=>{ const k=el.dataset.seg; el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-    if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { touch(); const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; } refresh(); }); });
+    if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { touch(); const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; }
+    if(el.dataset.reflow) return repage(()=>form(kind));
+    refresh(); }); });
   const applyXd=m=>{ const basis=s._xdbasis||'dn'; const e=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD);
     let cr;
     if(basis==='od') cr=Math.round(m*s.pipeOD);
@@ -3937,7 +4114,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.11.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.12.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3968,7 +4145,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.11.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.12.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
