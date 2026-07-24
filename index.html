@@ -845,7 +845,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.12.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.12.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1396,26 +1396,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return [[xm + ox, ym + oy], [xm - ox, ym - oy]];
   }
 
-  // Unfold a flat flap into the pattern. `poly` is the flap drawn in its OWN
-  // plane (true shape); a0->a1 is the fold line in that same frame; A0->A1 is
-  // where that fold line already sits in the pattern. The map is rigid, so
-  // every true length survives; the reflection is picked so the flap lands on
-  // the side `want` asks for (it must be the far side of the fold from the
-  // panel it hangs off).
-  function _foldFlap(poly, a0, a1, A0, A1, want) {
-    const d = [a1[0] - a0[0], a1[1] - a0[1]], s = Math.hypot(d[0], d[1]) || 1e-9;
-    const e1 = [d[0] / s, d[1] / s], e2 = [-e1[1], e1[0]];
-    const D = [A1[0] - A0[0], A1[1] - A0[1]], S = Math.hypot(D[0], D[1]) || 1e-9;
-    const E1 = [D[0] / S, D[1] / S], E2 = [-E1[1], E1[0]];
-    const put = sg => poly.map(pt => {
-      const dx = pt[0] - a0[0], dy = pt[1] - a0[1];
-      const u = dx * e1[0] + dy * e1[1], v = (dx * e2[0] + dy * e2[1]) * sg;
-      return [A0[0] + u * E1[0] + v * E2[0], A0[1] + u * E1[1] + v * E2[1]];
-    });
-    const a = put(1);
-    return want(a) ? a : put(-1);
-  }
-
   // ---- section: clockwise from top-centre, y up ---------------------------
   function _boxSection(p) {
     const segs = []; let g = 0;
@@ -1801,20 +1781,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // The wrap folds the slope IN (one piece, mirror pair) and the end edges
   // lockform segment by segment - every lockformed run is straight.
   // ---- Water-shed Box, HORIZONTAL band split ------------------------------
-  // Craig's arrangement: cut the box round the eaves instead of down the
-  // ridge. The TOP is one piece - both roof slopes, the two gable ends folded
-  // down off the slope ends, and a skirt dropping over the walls - so the
-  // whole rise is seamless and it sheds every way. The wall band underneath
-  // is a plain rectangular band split into 2 halves or 4 quarters, and the
-  // hood laps OVER it (water shed, always fit the band first).
-  //
-  // The gable half is the true right triangle W/2 x D hinged on the rake (the
-  // rake IS the slope run, so it unfolds off the end of the roof panel with
-  // no distortion), carried down to the skirt line as a quad. Unfolding the
-  // two halves opens a wedge notch between them - the lap tab on one half
-  // lives inside that notch, so it never fouls the other half on the sheet.
+  // Craig's arrangement: cut the box round the eaves instead of down the ridge.
+  // The TOP HALF is a proper hood, built the way he builds every box - a wrap
+  // carrying both roof slopes, the ridge and a skirt that drops over the wall,
+  // with a LOCKFORM up both ends and two gable CHEEKS knocked into it. So the
+  // whole rise is one seamless wrap and the joints all land down at the eaves.
+  // The wall band underneath is a plain rectangular band split into 2 halves or
+  // 4 quarters, and the hood laps OVER it - water shed, always fit the band
+  // first, then drop the hood on.
   function wsHorizKit(p) {
     const L = p.boxL, W = p.boxW, H = p.boxH, D = p.shedDepth;
+    const LF = p.lockform == null ? 25 : p.lockform;
+    const SF = p.slotFlange == null ? 10 : p.slotFlange;
     const FE = p.foldedEdge == null ? 5 : p.foldedEdge;
     const lap = p.lap == null ? 50 : p.lap;
     const drop = p.hoodDrop == null ? 75 : +p.hoodDrop;
@@ -1825,64 +1803,98 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const wall = H - D, slope = Math.hypot(W / 2, D), R = Math.round;
     if (!(drop > 0 && drop < wall)) throw new Error('Hood drop must be more than 0 and less than the eaves height (' + R(wall) + ' mm).');
     const pitch = Math.atan2(D, W / 2) * 180 / Math.PI;
-    const eaveFold = 90 + pitch, ridgeFold = 180 - 2 * pitch, K = D + drop;
-    // clamp the gable lap tab to the notch the unfold opens up
-    const beta = Math.acos(Math.max(-1, Math.min(1, D / slope))) * 180 / Math.PI;
-    const angOf = t => Math.acos(Math.max(-1, Math.min(1,
-      (-t * W / 2 + D * K) / (slope * Math.hypot(t, K))))) * 180 / Math.PI;
-    let lo = 0, hi = Math.max(lap, 5 * K) + 1; const cap = 180 - beta - 2;
-    for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (angOf(m) <= cap) lo = m; else hi = m; }
-    const gLap = Math.max(0, Math.min(lap, Math.floor(lo)));
-    // ---- HOOD: skirt | eaves | slope | RIDGE | slope | eaves | skirt ------
-    const yE1 = drop, yR = drop + slope, yE2 = drop + 2 * slope, yS2 = yE2 + drop;
+    const eaveFold = 90 + pitch, ridgeFold = 180 - 2 * pitch;
+
+    // ---- HOOD WRAP: hem | skirt | eaves | slope | RIDGE | slope | eaves |
+    //      skirt | hem, lockform up both ends for the cheeks to knock into ---
+    const girth = 2 * drop + 2 * slope, width = L + 2 * LF;
+    const yH1 = FE, yE1 = FE + drop, yR = FE + drop + slope,
+          yE2 = FE + drop + 2 * slope, yH2 = FE + girth, yT = yH2 + FE;
     const prim = [], holes = [], ticks = [];
-    const a0 = [0, H], a1 = [W / 2, wall];                       // the rake = the fold
-    const gPoly = t => [[0, H], [W / 2, wall], [W / 2, wall - drop], [-t, wall - drop]];
-    const refPoly = [[W / 2, wall], [0, wall], [W / 2, wall - drop / 2], [0, wall - drop / 2]];
-    const mid = a => a.reduce((s, q) => s + q[0], 0) / a.length;
-    const lft = a => mid(a) < 0, rgt = a => mid(a) > L;
-    const FL = [
-      { A0: [0, yR], A1: [0, yE1], w: lft, t: gLap },   // end A, slope 1 (lap half)
-      { A0: [0, yR], A1: [0, yE2], w: lft, t: 0 },      // end A, slope 2 (plain)
-      { A0: [L, yR], A1: [L, yE1], w: rgt, t: gLap },   // end B, slope 1 (lap half)
-      { A0: [L, yR], A1: [L, yE2], w: rgt, t: 0 } ];
-    FL.forEach(f => { f.q = _foldFlap(gPoly(f.t), a0, a1, f.A0, f.A1, f.w);
-                      f.r = _foldFlap(refPoly,    a0, a1, f.A0, f.A1, f.w); });
-    const [f0A, f0B, fLA, fLB] = FL;
+    // hem strips are inset to the lockform lines so the corners come away clean
     prim.push({ style: 'cut', pts: [
-      [0, 0], [L, 0], [L, yE1], fLA.q[2], fLA.q[3], [L, yR], fLB.q[3], fLB.q[2], [L, yE2],
-      [L, yS2], [0, yS2], [0, yE2], f0B.q[2], f0B.q[3], [0, yR], f0A.q[3], f0A.q[2], [0, yE1], [0, 0] ] });
+      [LF, 0], [width - LF, 0], [width - LF, yH1], [width, yH1], [width, yH2],
+      [width - LF, yH2], [width - LF, yT], [LF, yT], [LF, yH2],
+      [0, yH2], [0, yH1], [LF, yH1], [LF, 0] ] });
+    prim.push({ style: 'fold', pts: [[LF, yH1], [width - LF, yH1]] });      // hem
+    prim.push({ style: 'fold', pts: [[LF, yH2], [width - LF, yH2]] });      // hem
     [[yE1, 'FOLD ' + R(eaveFold) + '°'], [yR, 'RIDGE - FOLD ' + R(ridgeFold) + '°'], [yE2, 'FOLD ' + R(eaveFold) + '°']]
-      .forEach(f => { prim.push({ style: 'fold', pts: [[0, f[0]], [L, f[0]]] });
-                      ticks.push({ x: L / 2, y: f[0], label: f[1] }); });
-    [0, L].forEach(x => prim.push({ style: 'fold', pts: [[x, yE1], [x, yE2]] }));   // gable folds
-    FL.forEach((f, i) => {
-      prim.push({ style: 'ord', pts: [f.r[0], f.r[1]] });                            // eaves line on the gable
-      _lineHoles(holes, f.r[2][0], f.r[2][1], f.r[3][0], f.r[3][1], hp, eg);         // skirt rivets
-      ticks.push({ x: mid(f.q), y: f.q.reduce((s, q) => s + q[1], 0) / 4,
-        label: 'GABLE - FOLD DOWN' + (f.t ? ' (lap ' + f.t + ')' : '') });
-    });
-    _lineHoles(holes, 0, drop / 2, L, drop / 2, hp, eg);
-    _lineHoles(holes, 0, yE2 + drop / 2, L, yE2 + drop / 2, hp, eg);
-    ticks.push({ x: L / 2, y: drop / 2, label: 'SKIRT ' + R(drop) });
-    ticks.push({ x: L / 2, y: yE2 + drop / 2, label: 'SKIRT ' + R(drop) });
-    ticks.push({ x: L / 2, y: (yE1 + yR) / 2, label: 'SLOPE ' + R(slope) });
-    ticks.push({ x: L / 2, y: (yR + yE2) / 2, label: 'SLOPE ' + R(slope) });
-    const hoodG = 2 * drop + 2 * slope, hbb = bboxOf(prim);
-    const hood = { kind: 'wsbox', title: 'Water-shed Box  -  Hood (roof + both gables) 1:1',
-      meta: [`Box ${L} × ${W} × ${H}, water-shed depth ${D}  -  horizontal split, hood in ONE piece`,
-             `CUT SIZE ${R(hbb.w)} × ${R(hbb.h)}   ·   girth skirt ${R(drop)} | slope ${R(slope)} | slope ${R(slope)} | skirt ${R(drop)} = ${R(hoodG)}`,
-             `Folds: eaves ${R(eaveFold)}° both sides, ridge ${R(ridgeFold)}°, gables fold down on the rake lines`,
-             `Gables come off the roof ends - true triangle ${R(W / 2)} × ${D} carried ${R(drop)} below the eaves`
-               + (gLap ? `, lap ${gLap} on one half of each end` : ', halves butt on the end centreline'),
+      .forEach(f => { prim.push({ style: 'fold', pts: [[0, f[0]], [width, f[0]]] });
+                      ticks.push({ x: width / 2, y: f[0], label: f[1] }); });
+    [LF, width - LF].forEach(x => prim.push({ style: 'fold', pts: [[x, yH1], [x, yH2]] }));
+    _lineHoles(holes, LF, yH1 + drop / 2, width - LF, yH1 + drop / 2, hp, eg);
+    _lineHoles(holes, LF, yE2 + drop / 2, width - LF, yE2 + drop / 2, hp, eg);
+    ticks.push({ x: width / 2, y: yH1 + drop / 2, label: 'SKIRT ' + R(drop) });
+    ticks.push({ x: width / 2, y: yE2 + drop / 2, label: 'SKIRT ' + R(drop) });
+    ticks.push({ x: width / 2, y: (yE1 + yR) / 2, label: 'SLOPE ' + R(slope) });
+    ticks.push({ x: width / 2, y: (yR + yE2) / 2, label: 'SLOPE ' + R(slope) });
+    ticks.push({ x: LF + 52, y: (yE1 + yR) / 2, label: 'LOCKFORM ' + LF });
+    ticks.push({ x: width - LF - 52, y: (yR + yE2) / 2, label: 'LOCKFORM ' + LF });
+    ticks.push({ x: width * 0.72, y: yH1 + 16, label: 'HEM ' + FE });
+    ticks.push({ x: width * 0.72, y: yH2 - 16, label: 'HEM ' + FE });
+    const wbb = bboxOf(prim);
+    const hood = { kind: 'wsbox', title: 'Water-shed Box  -  Hood Wrap 1:1',
+      meta: [`Box ${L} × ${W} × ${H}, water-shed depth ${D}  -  horizontal split, the whole rise in ONE wrap`,
+             `CUT SIZE ${R(wbb.w)} × ${R(wbb.h)}   ·   girth skirt ${R(drop)} | slope ${R(slope)} | slope ${R(slope)} | skirt ${R(drop)} = ${R(girth)}`,
+             `Runs: fold ${R(eaveFold)}° at both eaves, ${R(ridgeFold)}° over the ridge - no joint anywhere near the top`,
+             `Lockform ${LF} both end edges, formed segment by segment between the folds - the cheeks knock into it`,
+             `Folded edge ${FE} hem on both skirt edges, corners notched at the lockform zones`,
              `Skirt drops ${R(drop)} over the band all the way round - the hood ALWAYS laps over the band`],
-      calc: { slope, wall, drop, ang: eaveFold, ridgeFold, girth: hoodG, width: hbb.w,
-              cutLap: hbb.h, L, W, H, D, splitMode: 'horiz', nBand: n },
-      info: { name: 'Water-shed Box - HOOD',
+      calc: { slope, wall, drop, ang: eaveFold, ridgeFold, girth, width, cutLap: wbb.h,
+              L, W, H, D, LF, SF, splitMode: 'horiz', nBand: n },
+      info: { name: 'Water-shed Box - HOOD WRAP',
               lines: [`Box ${L} × ${W} × ${H}   shed ${D}`,
-                      `Slope ${R(slope)}   skirt ${R(drop)}   girth ${R(hoodG)}`,
-                      `Ridge ${R(ridgeFold)}°   eaves ${R(eaveFold)}°   CUT 1 OFF`] },
-      prim, holes, ticks, bbox: hbb, cutNote: 'CUT 1 OFF (hood - fold the gables down last)' };
+                      `Slope ${R(slope)}   skirt ${R(drop)}   girth ${R(girth)}`,
+                      `Ridge ${R(ridgeFold)}°   eaves ${R(eaveFold)}°   lockform ${LF}`,
+                      `CUT 1 OFF`] },
+      prim, holes, ticks, bbox: wbb, cutNote: 'CUT 1 OFF (hood wrap)' };
+
+    // ---- HOOD CHEEK: the gable end, cut 2, knocks into the wrap lockform ---
+    // True profile is the house pentagon - W across, `drop` of wall below the
+    // eaves, then the D rise to the ridge. The slot flange is mitred outward on
+    // the two sides and the two rakes (the edges the lockform runs round); the
+    // bottom edge is free and just gets a hem. Corners notched between the two.
+    const xln = (P, d, Q, e) => {                      // P+t*d meets Q+u*e
+      const den = d[0] * e[1] - d[1] * e[0];
+      const t = ((Q[0] - P[0]) * e[1] - (Q[1] - P[1]) * e[0]) / (den || 1e-12);
+      return [P[0] + t * d[0], P[1] + t * d[1]];
+    };
+    const cEav = drop, cTop = drop + D;                // eaves and ridge heights
+    const rk = [-W / 2, D], rn = [D / slope, (W / 2) / slope];      // right rake dir + outward normal
+    const rA = [W + SF * rn[0], cEav + SF * rn[1]];                 // a point on the offset right rake
+    const eR = xln(rA, rk, [W + SF, 0], [0, 1]);                    // offset eaves corner, right
+    const apx = xln(rA, rk, [W / 2, 0], [0, 1]);                    // offset apex on the centreline
+    const eL = [W - eR[0], eR[1]];
+    const cp = [], chl = [], ct = [];
+    cp.push({ style: 'cut', pts: [
+      [0, -FE], [W, -FE], [W, 0], [W + SF, 0], eR, apx, eL, [-SF, 0], [0, 0], [0, -FE] ] });
+    cp.push({ style: 'fold', pts: [[0, 0], [W, 0]] });                        // hem, bottom
+    cp.push({ style: 'fold', pts: [[W, 0], [W, cEav]] });                     // slot fold, right side
+    cp.push({ style: 'fold', pts: [[0, 0], [0, cEav]] });                     // slot fold, left side
+    cp.push({ style: 'fold', pts: [[W, cEav], [W / 2, cTop]] });              // slot fold, right rake
+    cp.push({ style: 'fold', pts: [[0, cEav], [W / 2, cTop]] });              // slot fold, left rake
+    cp.push({ style: 'ord', pts: [[0, cEav], [W, cEav]] });                   // eaves line - sits on the wall top
+    _lineHoles(chl, 0, cEav / 2, W, cEav / 2, hp, eg);
+    ct.push({ x: W / 2, y: cEav / 2, label: 'DROP ' + R(drop) + ' BELOW THE EAVES' });
+    ct.push({ x: W / 2, y: cEav + D * 0.45, label: 'RISE ' + R(D) });
+    ct.push({ x: W / 2, y: -FE / 2, label: 'HEM ' + FE });
+    ct.push({ x: W - 34, y: cEav * 0.78, label: 'SLOT ' + SF });
+    ct.push({ x: 34, y: cEav * 0.78, label: 'SLOT ' + SF });
+    const cbb = bboxOf(cp);
+    const cheek = { kind: 'wsbox', title: 'Water-shed Box  -  Hood Cheek 1:1',
+      meta: [`Cheek ${R(cbb.w)} × ${R(cbb.h)}  -  finished profile ${R(W)} across, ${R(drop)} below the eaves, ${R(D)} rise to the ridge`,
+             `Rakes are the ${R(slope)} slope - same run as the wrap, so it drops straight in`,
+             `Slot flange ${SF} mitred round both sides and both rakes - knocks into the wrap lockform`,
+             `Folded edge ${FE} hem on the bottom only; corners notched where the hem meets the slot`,
+             `Rivet line ${R(drop / 2)} up from the bottom, through the cheek into the band`],
+      calc: { W, drop, D, slope, SF, FE, cw: cbb.w, ch: cbb.h },
+      info: { name: 'Water-shed Box - HOOD CHEEK',
+              lines: [`${R(W)} across   ${R(drop)} below eaves   rise ${R(D)}`,
+                      `Rake ${R(slope)}   slot ${SF}   hem ${FE}`,
+                      `Knocks into the wrap lockform   CUT 2 OFF`] },
+      prim: cp, holes: chl, ticks: ct, bbox: cbb,
+      cutNote: 'CUT 2 OFF (hood cheek - knocks into the wrap lockform)' };
+
     // ---- BAND: plain wall band, 2 halves or 4 quarters --------------------
     const runs = n === 4 ? [[L / 2, '½ LONG'], [W / 2, '½ END']]
                          : [[L / 2, '½ LONG'], [W, 'END'], [L / 2, '½ LONG']];
@@ -1893,7 +1905,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     bp.push({ style: 'fold', pts: [[0, bh - FE], [bw, bh - FE]] });
     bp.push({ style: 'lap', pts: [[lap, 0], [lap, bh]] });
     _lineHoles(bhl, lap / 2, FE, lap / 2, bh - FE, hp, eg);
-    bt.push({ x: lap / 2, y: bh * 0.5, label: 'LAP ' + lap });
+    bt.push({ x: lap + 46, y: bh * 0.24, label: 'LAP ' + lap });
     const hx = Math.min(bw - 60, lap + 70);
     bt.push({ x: hx, y: FE / 2, label: 'HEM ' + FE + ' - FOLD IN' });
     bt.push({ x: hx, y: bh - FE / 2, label: 'HEM ' + FE + ' - FOLD IN' });
@@ -1919,7 +1931,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                       runs.map(r => R(r[0])).join(' + ') + '   fold 90° between',
                       `CUT ${n} OFF` + (n === 4 ? ' (flip alternate)' : '')] },
       prim: bp, holes: bhl, ticks: bt, bbox: bboxOf(bp), cutNote: 'CUT ' + n + ' OFF (wall band)' };
-    const out = [hood, band];
+    const out = [hood, cheek, band];
     out.forEach(o => { o.calc.kitPieces = out.length; o.calc.nBand = n; o.calc.splitMode = 'horiz'; });
     return out;
   }
@@ -2962,15 +2974,15 @@ F.wsbox={name:'Water-shed Box',sub:'Shop method · ridged top',icon:I.wshed,
     num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('shedDepth','Water-shed depth (mm)'),num('foldedEdge','Folded edge (mm)'),
     Object.assign(num('hoodDrop','Hood drop over the wall (mm)'),{when:s=>s.splitMode==='horiz'}),
     Object.assign(segd('bandPieces','Bottom band',[2,4]),{when:s=>s.splitMode==='horiz',reflow:1})],
-  build:s=>FP.watershedBoxKit({...s,lockform:SET.lockform})[0],
-  kit:s=>FP.watershedBoxKit({...s,lockform:SET.lockform}),
+  build:s=>FP.watershedBoxKit({...s,lockform:SET.lockform,slotFlange:SET.slotFlange})[0],
+  kit:s=>FP.watershedBoxKit({...s,lockform:SET.lockform,slotFlange:SET.slotFlange}),
   mini:c=>c.splitMode==='horiz'
-      ?['Hood '+Math.round(c.width)+' × '+Math.round(c.cutLap),'1 hood + '+c.nBand+' band']
+      ?['Hood '+Math.round(c.width)+' × '+Math.round(c.cutLap),'1 wrap + 2 cheeks + '+c.nBand+' band']
       :['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 plates'],
   stats:c=>c.splitMode==='horiz'
-      ?['Hood sheet '+Math.round(c.width)+'×'+Math.round(c.cutLap),'Girth '+Math.round(c.girth),'Ridge '+Math.round(c.ridgeFold)+'° · eaves '+Math.round(c.ang)+'°','Slope '+Math.round(c.slope)+' · skirt '+Math.round(c.drop),'Band '+c.nBand+' off, wall '+Math.round(c.wall)]
+      ?['Wrap sheet '+Math.round(c.width)+'×'+Math.round(c.cutLap),'Girth '+Math.round(c.girth),'Ridge '+Math.round(c.ridgeFold)+'° · eaves '+Math.round(c.ang)+'°','Slope '+Math.round(c.slope)+' · skirt '+Math.round(c.drop),'Lockform '+c.LF+' · 2 cheeks','Band '+c.nBand+' off, wall '+Math.round(c.wall)]
       :['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.ang)+'°','Base/wall/slope '+Math.round(c.base)+'/'+Math.round(c.wall)+'/'+Math.round(c.slope)],
-  note:'Mirror halves = the shop program: the wrap folds the slope in — base, 90° fold, wall, fold angle, slope — cut 2 and flip one, plus a lap half and a plain half per end. Horizontal band = cut it round the eaves instead: the hood is ONE piece carrying both slopes, the ridge and both gable ends folded down off the roof, with a skirt that laps over the wall band. The band underneath comes as 2 halves or 4 quarters, joints landing mid-face.'};
+  note:'Mirror halves = the shop program: the wrap folds the slope in — base, 90° fold, wall, fold angle, slope — cut 2 and flip one, plus a lap half and a plain half per end. Horizontal band = cut it round the eaves instead: the whole rise comes as ONE wrap carrying both slopes, the ridge and a skirt, with a lockform up both ends and two gable cheeks knocked into it — same as you build every box. The wall band underneath comes as 2 halves or 4 quarters, joints landing mid-face. Fit the band first, then drop the hood on so it laps over.'};
 F.dome={name:'Dome',sub:'Dished vessel end · gores',icon:I.dome,
   defaults:{dia:2500,height:500,segments:26,swage:10,bodyLap:75,holePitch:60,holeEndGap:20},
   fields:[num('dia','Diameter (mm)'),num('height','Height (mm)'),num('segments','Segments'),num('swage','Swage allowance (mm)'),num('bodyLap','Body lap (mm)')],
@@ -3555,6 +3567,8 @@ function diagWsBox(s){
     parts.push(_ln([x0,yS],[x1,yS],`stroke="${LY.object}" stroke-width="1.6"`));
     parts.push(_ln([x0,yE],[x1,yE],`stroke="${LY.fold}" stroke-width="1.1" stroke-dasharray="6 4"`));
     parts.push(_ln([xm,yS],[xm,y1],SEAMST));                      // band joint, middle of the long side
+    parts.push(_ln([x0+lf,y0],[x0+lf,yS],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`),
+               _ln([x1-lf,y0],[x1-lf,yS],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`));
   } else {
     parts.push(_ln([x0+lf,y0],[x0+lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`),
                _ln([x1-lf,y0],[x1-lf,y1],`stroke="${LY.hidden}" stroke-width="1.2" stroke-dasharray="6 4"`));
@@ -3578,8 +3592,9 @@ function diagWsBox(s){
   dimLead(parts,all,[mid,syP],11,-13,'shed '+fmtDim(D));
   const ang=90+Math.atan2(D,W/2)*180/Math.PI;
   if(horiz){
-    dimLead(parts,all,[x0+l*0.3,(y0+yS)/2],-15,-15,'hood - 1 piece');
-    dimLead(parts,all,[sx1-w*0.22,(sSk+y1)/2],15,15,'band '+n+' off');
+    dimLead(parts,all,[x0+l*0.3,(y0+yS)/2],-15,-15,'wrap - 1 piece');
+    dimLead(parts,all,[x0+l*0.25,(yS+y1)/2],-15,15,'band '+n+' off');
+    dimLead(parts,all,[mid+w*0.2,syE],16,16,'cheek \u00d7 2');
   } else {
     dimLead(parts,all,[mid+w/4,(syP+syE)/2],16,26,'fold '+Math.round(ang)+'\u00b0');
   }
@@ -4114,7 +4129,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.12.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.12.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4145,7 +4160,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.12.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.12.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
