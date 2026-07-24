@@ -845,7 +845,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.10.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.11.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -2851,8 +2851,16 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
 const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','flangebox','valveend','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','flangebox','valveend','wsbox','endcap']},{t:'Vessel Ends',k:['dome']}];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','endcap']},{t:'Vessel Ends',k:['dome']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
+// box family folded to 4 tiles: the flange/watershed/valve-end fittings keep
+// their own (verified) build + kit, they're just reached as a mode of the
+// surviving tile instead of a separate tile. Members share one selector.
+const VARIANTS=[
+  {label:'Box type', members:[['roundbox','Round'],['flangebox','Flange / horizontal']]},
+  {label:'Top',      members:[['squarebox','Standard'],['wsbox','Water-shed ridge']]},
+  {label:'Lid',      members:[['valvebox','Box'],['valveend','Peaked watershed lid']]} ];
+function varGroupOf(kind){ const g=VARIANTS.find(v=>v.members.some(m=>m[0]===kind)); return g?{label:g.label,opts:g.members.map(m=>({k:m[0],label:m[1]}))}:null; }
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
    same-way bend, different class = S-bend. Twist stays its own control. */
@@ -3617,6 +3625,8 @@ function form(kind, presetParams){
   if(seamF) html+=`<div class="card">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else if(!boxHero) html+=`<div class="card" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   html+=`</div><div class="pane-right">`;
+  const VARG=varGroupOf(kind);
+  if(VARG) html+=`<div class="card varcard"><label>${VARG.label}</label><div class="seg" data-varsel="1">${VARG.opts.map(o=>`<button data-vk="${o.k}" ${o.k===kind?'class="on"':''}>${o.label}</button>`).join('')}</div></div>`;
   html+=`<div class="card"><div class="grid2">`;
   html+=fit.fields.filter(f=>f.type!=='seam').filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
     const full=(f.type!=='num'&&f.type!=='pipe');
@@ -3705,6 +3715,8 @@ function form(kind, presetParams){
       sw.querySelectorAll('.sdot').forEach(d=>{ const on=+d.dataset.sn===(((+s.splitRot||0)%12)+12)%12;
         d.setAttribute('fill',on?LY.fold:LY.faint); d.setAttribute('r',on?'10':'8.5'); });
       refresh(); }); }
+  { const vs=app.querySelector('[data-varsel]');
+    if(vs) vs.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.dataset.vk!==kind) repage(()=>form(b.dataset.vk)); }); }
   const lb=document.getElementById('lockBtn'); if(lb) lb.onclick=showUnlock;
   const buildDoc=()=>{ flushRefresh();
     if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(eff()), {page:SET.page, orient:'auto', brand:SET.brand||undefined});
@@ -3925,7 +3937,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.10.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.11.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3956,7 +3968,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.10.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.11.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
