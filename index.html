@@ -564,11 +564,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
         box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);
         padding:14px;margin-bottom:12px}
-  label{display:block;font-family:var(--fm);font-size:9.5px;font-weight:700;text-transform:uppercase;
-        letter-spacing:.08em;color:var(--sub);margin:12px 0 5px}
+  label{display:block;font-family:var(--fm);font-size:10px;font-weight:700;text-transform:uppercase;
+        letter-spacing:.07em;color:#333c45;margin:12px 0 5px}
   .card>label:first-child{margin-top:0}
-  input,select{width:100%;font-size:16px;font-family:var(--fm);padding:9px 10px;
-        border:1px solid var(--line2);border-radius:4px;background:var(--field);color:var(--ink);
+  input,select{width:100%;font-size:16.5px;font-weight:600;font-family:var(--fm);padding:10px 11px;
+        border:1px solid var(--line2);border-radius:6px;background:var(--field);color:var(--ink);
         font-variant-numeric:tabular-nums slashed-zero}
   input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(10,90,168,.22)}
   button:focus-visible,.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -691,7 +691,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .boxwheel [data-splitsvg]{background:var(--canvas);border:1px solid var(--line);border-radius:4px}
   .cutdemote{margin-top:12px}
   .cutdemote .preview{margin:0}
-  [data-seamsvg]{background:var(--canvas);border:1px solid var(--line);border-radius:4px;cursor:crosshair}
+  [data-seamsvg]{background:var(--canvas);border:1px solid var(--line);border-radius:6px;cursor:crosshair}
+  /* compact seam / fastener control - bend type + fastener on one row, wheel + bend side by side */
+  .seamtop{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+  .seamtop .sfield{flex:1;min-width:118px}
+  .seamtop label{margin:0 0 5px}
+  .seg.mini button{padding:7px 4px;font-size:12.5px}
+  .seamvis{display:flex;gap:9px;align-items:center;justify-content:center}
+  .seamvis .seamwheel{flex:0 0 44%;max-width:158px;height:auto}
+  .seamvis #fitdiag{flex:1;display:flex;align-items:center;justify-content:center;min-width:0}
+  .seamvis #fitdiag svg{width:100%!important;max-width:210px;height:auto}
   .seamdot{transition:r .16s cubic-bezier(.34,1.56,.5,1),fill .16s ease;
         transform-box:fill-box;transform-origin:center}
   [data-dot]:active .seamdot{transform:scale(1.15)}
@@ -836,7 +845,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.8.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.9.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1150,9 +1159,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,-swE],[xf, yTop(phiAt(xf)) + swE]] }));
     [0, circ].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, h=yTop(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
-    return { kind:'elbow', title:'Mitred Elbow  -  1:1 Template',
-      meta:[`Bare pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD`,
-            `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha*180/Math.PI).toFixed(1)}°  circ ${circ.toFixed(1)} mm`,
+    return { kind:'elbow', title:`${p.bendDeg}° Mitred Elbow  -  1:1 Template`,
+      meta:[ (p.insulation||0)===0
+              ? `Cladding Ø ${cladOD.toFixed(0)} mm`
+              : `Pipe ${p.pipeOD} mm + insulation ${p.insulation} mm  =>  cladding Ø ${cladOD.toFixed(0)} mm`,
+            `Circumference ${circ.toFixed(1)} mm   ·   with lap (${p.lapTotal} mm):  ${(circ + p.lapTotal).toFixed(1)} mm`,
+            `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha*180/Math.PI).toFixed(1)}°`,
             `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.swage||0} mm  min length ${minLen} mm  CUT ${pieces} OFF`],
       calc:{cladOD, alpha:alpha*180/Math.PI, A, circ, pieces},
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:`CUT ${pieces} OFF` };
@@ -3492,17 +3504,16 @@ function fieldHTML(f,s){
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}">${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
     const hands = f.hands==='AB' ? ['A','B'] : ['A','B','C','D'];
-    const handHtml = f.noHand ? '' : `<label>${f.handLabel||'Bend type'}</label><div class="seg" data-hand="1">
-      ${hands.map(h=>`<button data-h="${h}" ${(s.bendHand||'A')===h?'class="on"':''}>${h}</button>`).join('')}</div>
-      <label style="margin-top:12px">HANDLABEL</label>`;
+    const handHtml = f.noHand ? '' : `<div class="sfield"><label>${f.handLabel||'Bend type'}</label><div class="seg mini" data-hand="1">${hands.map(h=>`<button data-h="${h}" ${(s.bendHand||'A')===h?'class="on"':''}>${h}</button>`).join('')}</div></div>`;
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
       const x=80+55*Math.sin(phi), y=80+55*Math.cos(phi);
       const lx=80+72*Math.sin(phi), ly=80+72*Math.cos(phi);
       dots+=`<g data-dot="${n}" style="cursor:pointer"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="transparent"/><circle class="seamdot" data-dn="${n}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="${LY.faint}"/><text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" font-size="11.5" font-weight="700" fill="${LY.text}" text-anchor="middle">${n}</text></g>`; }
-    return `${f.noHand?`<label>${f.label}</label>`:handHtml.replace('HANDLABEL',f.label)}<div class="seg" data-seammode="1">
-      <button data-sv="180">Back fastener</button><button data-sv="90">Side fastener</button><button data-sv="custom">Custom</button></div>
-      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><svg data-seamsvg="1" viewBox="0 0 160 160" style="width:170px;height:170px"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/><text x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>${dots}</svg><div id="fitdiag"></div></div>`; }
+    return `<div class="seamctl">
+      <div class="seamtop">${handHtml}<div class="sfield"><label>Fastener</label><div class="seg mini" data-seammode="1"><button data-sv="180">Back</button><button data-sv="90">Side</button><button data-sv="custom">Custom</button></div></div></div>
+      <div class="seamvis"><svg data-seamsvg="1" viewBox="0 0 160 160" class="seamwheel"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/><text x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>${dots}</svg><div id="fitdiag"></div></div>
+    </div>`; }
   if(f.type==='splitwheel'){ const cur=(((+s[f.k]||0)%12)+12)%12;
     let dots='';
     for(let h=1;h<=12;h++){ const v=h%12, ph=v*30*Math.PI/180;
@@ -3868,7 +3879,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.8.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.9.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3899,7 +3910,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.8.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.9.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
