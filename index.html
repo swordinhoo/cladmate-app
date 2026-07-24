@@ -845,7 +845,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.9.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.10.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1167,6 +1167,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
             `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha*180/Math.PI).toFixed(1)}°`,
             `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.swage||0} mm  min length ${minLen} mm  CUT ${pieces} OFF`],
       calc:{cladOD, alpha:alpha*180/Math.PI, A, circ, pieces},
+      info:{ name:`${p.bendDeg}° Mitred Elbow`,
+             lines:[ (p.insulation||0)===0 ? `Cladding Ø ${cladOD.toFixed(0)} mm`
+                     : `Ø ${cladOD.toFixed(0)} mm   (pipe ${p.pipeOD} + ins ${p.insulation})`,
+                     `Circ ${circ.toFixed(0)} + lap ${p.lapTotal} = ${(circ + p.lapTotal).toFixed(0)} mm`,
+                     `Type ${p.bendHand||'A'}    CUT ${pieces} OFF` ] },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:`CUT ${pieces} OFF` };
   }
 
@@ -2377,6 +2382,24 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.setTextColor(0);
   }
 
+  // big, blocky, bold info panel printed INTO the blank of the pattern
+  function drawInfoBox(doc, info, cx, cy) {
+    const lines = info.lines || [], title = (info.name || '').toUpperCase();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15); let mw = doc.getTextWidth(title);
+    doc.setFontSize(11); lines.forEach(l => { mw = Math.max(mw, doc.getTextWidth(l)); });
+    const padX = 7, lineH = 6.6, titleH = 10, headH = titleH + 4;
+    const boxW = mw + 2 * padX, boxH = headH + lines.length * lineH + 5;
+    const x0 = cx - boxW / 2, y0 = cy - boxH / 2;
+    // white knockout so nothing shows through, then a bold black frame + black title bar
+    doc.setFillColor(255, 255, 255); doc.setDrawColor(0); doc.setLineWidth(0.8);
+    doc.rect(x0, y0, boxW, boxH, 'FD');
+    doc.setFillColor(0); doc.rect(x0, y0, boxW, headH, 'F');
+    doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.text(title, cx, y0 + titleH, { align: 'center' });
+    doc.setTextColor(0); doc.setFontSize(11);
+    lines.forEach((l, i) => doc.text(l, cx, y0 + headH + (i + 1) * lineH - 1.5, { align: 'center' }));
+  }
   function drawTile(doc, pat, o) {
     const X = x => o.PM - o.col * o.sx + o.nx(x);
     const Y = y => o.H - o.PM + o.row * o.sy - o.ny(y);   // y-down flip
@@ -2430,6 +2453,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const sy2 = o.H - o.PM - 5;
     doc.line(o.PM + 3, sy2, o.PM + 53, sy2); doc.line(o.PM + 3, sy2 - 2, o.PM + 3, sy2 + 2); doc.line(o.PM + 53, sy2 - 2, o.PM + 53, sy2 + 2);
     doc.setTextColor(0); doc.setFontSize(7); doc.text('50 mm check', o.PM + 55, sy2 + 1);
+
+    // print the info panel once, on whichever sheet holds the pattern centroid
+    if (pat.info) {
+      const cxn = o.nx((pat.bbox.x0 + pat.bbox.x1) / 2), cyn = o.ny((pat.bbox.y0 + pat.bbox.y1) / 2);
+      const cc = Math.min(o.nCols - 1, Math.max(0, Math.floor(cxn / o.sx)));
+      const cr = Math.min(o.nRows - 1, Math.max(0, Math.floor(cyn / o.sy)));
+      if (o.col === cc && o.row === cr) {
+        drawInfoBox(doc, pat.info, o.PM - o.col * o.sx + cxn, o.H - o.PM + o.row * o.sy - cyn);
+      }
+    }
   }
 
   // ================= SVG PREVIEW (single fit-to-view) =====================
@@ -3492,6 +3525,16 @@ function fittingDiagram(kind,s){
 }
 
 /* ================= fitting form ================= */
+// the bend-type selector, drawn in the MIDDLE of the seam wheel (A|B, or 2x2 A/B/C/D)
+function handCentre(hands, cur, label){
+  const ON='#2f7bd6';
+  const cell=(h,x,y,w,ht)=>`<g data-h="${h}" class="handbtn" style="cursor:pointer"><rect x="${x}" y="${y}" width="${w}" height="${ht}" fill="${cur===h?ON:'transparent'}"/><text x="${(x+w/2).toFixed(1)}" y="${(y+ht/2+4.5).toFixed(1)}" font-size="14" font-weight="800" fill="${cur===h?'#fff':LY.text}" text-anchor="middle" font-family="var(--fd)">${h}</text></g>`;
+  const cap=(x0,y0,W)=>`<text x="80" y="${(y0-4).toFixed(1)}" font-size="6.5" font-weight="700" letter-spacing="1" fill="${LY.faint}" text-anchor="middle" font-family="var(--fm)">${(label||'BEND').toUpperCase()}</text>`;
+  if(hands.length<=2){ const x0=55,y0=69,W=50,H=23;
+    return `<g class="handsel">${cap(x0,y0,W)}<rect x="${x0}" y="${y0}" width="${W}" height="${H}" rx="5" fill="${LY.canvas}" stroke="${LY.faint}" stroke-width="1.5"/>${cell(hands[0],x0,y0,W/2,H)}${cell(hands[1],x0+W/2,y0,W/2,H)}<line x1="${x0+W/2}" y1="${y0}" x2="${x0+W/2}" y2="${y0+H}" stroke="${LY.faint}" stroke-width="1.2"/></g>`; }
+  const x0=54,y0=60,W=52,H=40, cw=W/2, ch=H/2;
+  return `<g class="handsel">${cap(x0,y0,W)}<rect x="${x0}" y="${y0}" width="${W}" height="${H}" rx="5" fill="${LY.canvas}" stroke="${LY.faint}" stroke-width="1.5"/>${cell(hands[0],x0,y0,cw,ch)}${cell(hands[1],x0+cw,y0,cw,ch)}${cell(hands[2],x0,y0+ch,cw,ch)}${cell(hands[3],x0+cw,y0+ch,cw,ch)}<line x1="${x0+cw}" y1="${y0}" x2="${x0+cw}" y2="${y0+H}" stroke="${LY.faint}" stroke-width="1.2"/><line x1="${x0}" y1="${y0+ch}" x2="${x0+W}" y2="${y0+ch}" stroke="${LY.faint}" stroke-width="1.2"/></g>`;
+}
 function fieldHTML(f,s){
   if(f.type==='num') return `<label>${f.label}</label><input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
   if(f.type==='pipe'){ const cur=s[f.k], none=!!f.none&&!(+cur), isc=!none&&!FP.PIPE_CHART.some(p=>p.od==cur);
@@ -3504,15 +3547,16 @@ function fieldHTML(f,s){
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}">${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
     const hands = f.hands==='AB' ? ['A','B'] : ['A','B','C','D'];
-    const handHtml = f.noHand ? '' : `<div class="sfield"><label>${f.handLabel||'Bend type'}</label><div class="seg mini" data-hand="1">${hands.map(h=>`<button data-h="${h}" ${(s.bendHand||'A')===h?'class="on"':''}>${h}</button>`).join('')}</div></div>`;
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
       const x=80+55*Math.sin(phi), y=80+55*Math.cos(phi);
       const lx=80+72*Math.sin(phi), ly=80+72*Math.cos(phi);
       dots+=`<g data-dot="${n}" style="cursor:pointer"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="transparent"/><circle class="seamdot" data-dn="${n}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="${LY.faint}"/><text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" font-size="11.5" font-weight="700" fill="${LY.text}" text-anchor="middle">${n}</text></g>`; }
+    const centre = f.noHand
+      ? `<text x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>`
+      : handCentre(hands, s.bendHand||'A', f.handLabel||'BEND');
     return `<div class="seamctl">
-      <div class="seamtop">${handHtml}<div class="sfield"><label>Fastener</label><div class="seg mini" data-seammode="1"><button data-sv="180">Back</button><button data-sv="90">Side</button><button data-sv="custom">Custom</button></div></div></div>
-      <div class="seamvis"><svg data-seamsvg="1" viewBox="0 0 160 160" class="seamwheel"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/><text x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>${dots}</svg><div id="fitdiag"></div></div>
+      <div class="seamvis"><svg data-seamsvg="1" viewBox="0 0 160 160" class="seamwheel"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/>${dots}${centre}</svg><div id="fitdiag"></div></div>
     </div>`; }
   if(f.type==='splitwheel'){ const cur=(((+s[f.k]||0)%12)+12)%12;
     let dots='';
@@ -3638,14 +3682,16 @@ function form(kind, presetParams){
     // manual centre-radius edit clears the ×D highlight
     const cr=app.querySelector('[data-k="centreRadius"]'); if(cr) cr.addEventListener('input',()=>{ s._xd=null; const xe=app.querySelector('[data-xd]'); if(xe) xe.querySelectorAll('button').forEach(x=>x.classList.remove('on')); }); }
 
-  { const hEl=app.querySelector('[data-hand]');
-    if(hEl) hEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{ touch(); hEl.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); s.bendHand=b.dataset.h; refresh(); }); }
-  { const svg=app.querySelector('[data-seamsvg]'), mode=app.querySelector('[data-seammode]');
-    if(svg&&mode){
+  { const svg=app.querySelector('[data-seamsvg]');
+    if(svg){
+      // bend-type selector lives in the middle of the wheel now
+      svg.querySelectorAll('.handbtn').forEach(g=>g.onclick=()=>{ touch(); s.bendHand=g.dataset.h;
+        svg.querySelectorAll('.handbtn').forEach(x=>{ const on=x.dataset.h===s.bendHand;
+          x.querySelector('rect').setAttribute('fill',on?'#2f7bd6':'transparent');
+          x.querySelector('text').setAttribute('fill',on?'#fff':LY.text); });
+        refresh(); });
       const upd=()=>{ const v=s.seamFromThroat; const n=Math.round(v/30)+1; const exact=Math.abs(v-(n-1)*30)<0.01&&n>=1&&n<=12;
-        svg.querySelectorAll('.seamdot').forEach(d=>{ d.setAttribute('fill', (exact&&+d.dataset.dn===n)?LY.centre:LY.faint); d.setAttribute('r',(exact&&+d.dataset.dn===n)?'11':'9'); });
-        mode.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.sv==='custom'? (v!==180&&v!==90) : +b.dataset.sv===v)); };
-      mode.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.dataset.sv!=='custom'){ touch(); s.seamFromThroat=+b.dataset.sv; refresh(); } upd(); });
+        svg.querySelectorAll('.seamdot').forEach(d=>{ d.setAttribute('fill', (exact&&+d.dataset.dn===n)?LY.centre:LY.faint); d.setAttribute('r',(exact&&+d.dataset.dn===n)?'11':'9'); }); };
       svg.querySelectorAll('[data-dot]').forEach(g=>g.onclick=()=>{ touch(); s.seamFromThroat=(+g.dataset.dot-1)*30; refresh(); upd();
         /* punch-mark confirm: one-shot halo ring on the chosen dot */
         const dot=svg.querySelector(`.seamdot[data-dn="${+g.dataset.dot}"]`);
@@ -3879,7 +3925,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.9.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.10.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -3910,7 +3956,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.9.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.10.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
