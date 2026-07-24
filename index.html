@@ -858,7 +858,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.13.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.14.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1490,11 +1490,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   // ---- one wrap piece: girth slice rectified flat -------------------------
   function _wrapPiece(p, sec, ga, gb, meta) {
-    const L = p.exLen, LF = p.lockform, hp = p.holePitch, eg = p.holeEndGap;
+    const LF = p.lockform, hp = p.holePitch, eg = p.holeEndGap;
     const G = sec.G, span = (((gb - ga) % G) + G) % G || G;
     const style = p.splitStyle, SS = p.splitSize;
     const extOf = over => style === 'flange' ? SS : style === 'lap2' ? SS / 2 : (over ? SS : 0);
     const extL = extOf(meta.overL), extR = extOf(meta.overR);
+    // RING SPLIT: the piece may cover only l0..l1 of the box length instead of
+    // all of it. A cut end is a lap seam - it gets a lap allowance and a hole
+    // line, not a lockform. A real box end keeps its lockform, because that is
+    // where the cheek locks in.
+    const l0 = +meta.l0 || 0, l1 = meta.l1 == null ? p.exLen : +meta.l1;
+    const L = l1 - l0;
+    const seamB = l0 > 1e-6, seamT = l1 < p.exLen - 1e-6;
+    const aB = seamB ? extOf(meta.overB) : LF, aT = seamT ? extOf(meta.overT) : LF;
     const X = extL + span + extR;
     const prim = [], holes = [], ticks = [];
     // top edge: flat at L, or the inclined watershed profile (vertical boxes)
@@ -1509,12 +1517,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       const hi = yAt(0) > yAt(X) ? 0 : X;
       ticks.push({ x: hi, y: yAt(hi) + LF + 2, label: 'HIGH SIDE' });
     } else {
-      prim.push({ style: 'cut', pts: [[0, -LF], [X, -LF], [X, L + LF], [0, L + LF], [0, -LF]] });
-      prim.push({ style: 'fold', pts: [[0, L], [X, L]] });
+      prim.push({ style: 'cut', pts: [[0, -aB], [X, -aB], [X, L + aT], [0, L + aT], [0, -aB]] });
+      if (!seamT) prim.push({ style: 'fold', pts: [[0, L], [X, L]] });
     }
-    prim.push({ style: 'fold', pts: [[0, 0], [X, 0]] });
-    ticks.push({ x: X / 2, y: yAt(X / 2) + LF, label: 'LOCKFORM ' + LF });
-    ticks.push({ x: X / 2, y: -LF + 1, label: 'LOCKFORM ' + LF });
+    if (!seamB) prim.push({ style: 'fold', pts: [[0, 0], [X, 0]] });
+    if (!seamT) ticks.push({ x: X / 2, y: yAt(X / 2) + LF, label: 'LOCKFORM ' + LF });
+    if (!seamB) ticks.push({ x: X / 2, y: -LF + 1, label: 'LOCKFORM ' + LF });
     const splitEdge = (xEdge, xLine, hasJoint) => {
       if (extOf(hasJoint) <= 0) return;
       prim.push({ style: 'fold', pts: [[xLine, 0], [xLine, yAt(xLine)]] });
@@ -1522,6 +1530,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       _lineHoles(holes, hx, 0, hx, yAt(hx), hp, eg);
     };
     splitEdge(0, extL, meta.overL); splitEdge(X, X - extR, meta.overR);
+    // the same treatment across the barrel, for a ring seam
+    const lenEdge = (yEdge, yLine, over) => {
+      if (extOf(over) <= 0) return;
+      prim.push({ style: 'fold', pts: [[0, yLine], [X, yLine]] });
+      const hy = style === 'lap2' ? yLine : (yEdge + yLine) / 2;
+      _lineHoles(holes, 0, hy, X, hy, hp, eg);
+    };
+    if (seamB) lenEdge(-aB, 0, meta.overB);
+    if (seamT) lenEdge(L + aT, L, meta.overT);
     // fold lines at flat corners, roll boundaries + ordinates in arcs
     let d = 0;
     while (d < span - 1e-6) {
@@ -1547,10 +1564,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     ticks.push({ x: extL + span / 2, y: yAt(extL + span / 2), label: span.toFixed(0) });
     return { kind: 'box', title: meta.title,
       meta: [meta.desc,
-             `Girth ${span.toFixed(1)} mm between split lines   box length ${L} mm`,
-             `LOCKFORM allowance ${LF} mm both long edges (the cheeks lock in here)`,
+             `Girth ${span.toFixed(1)} mm between split lines   ` + (seamB || seamT
+               ? `ring ${l0.toFixed(0)} - ${l1.toFixed(0)} of ${p.exLen} mm along the box`
+               : `box length ${L} mm`),
+             (!seamB && !seamT) ? `LOCKFORM allowance ${LF} mm both long edges (the cheeks lock in here)`
+               : `Ring seam: ` + (seamB ? (aB > 0 ? `end A edge carries ${aB} mm OVER the ring before it` : `end A edge cut clean - the next ring laps over it`) : `LOCKFORM ${LF} mm at end A (the cheek locks in)`)
+                 + `; ` + (seamT ? (aT > 0 ? `end B edge carries ${aT} mm OVER the next ring` : `end B edge cut clean - the next ring laps over it`) : `LOCKFORM ${LF} mm at end B (the cheek locks in)`),
              meta.splitDesc],
-      calc: { span, X, L, extL, extR },
+      calc: { span, X, L, extL, extR, l0, l1, sheetH: aB + L + aT },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: meta.cutNote };
   }
 
@@ -2387,15 +2408,31 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       : p.splitStyle === 'lap2' ? `Split laps ${p.splitSize / 2} mm each side of the line - holes ON the line`
       : `50/0 lap - the OVER piece carries ${p.splitSize} mm past the split, its mate is cut clean`;
     const out = [];
+    // Ring splits: on a horizontal box the lower wraps can be cut ACROSS the
+    // barrel as well as round it. The TOP piece is never cut - a seam up there
+    // is a leak path, so it stays one full-length sheet that sheds over
+    // everything below it. Each ring laps over the one before it, working from
+    // end A, because on a level barrel there is no high side to decide it.
+    const ringN = horiz ? Math.max(1, Math.min(4, Math.round(p.ringPieces || 1))) : 1;
+    const jobs = [];
     order.forEach((sl, i) => {
+      const rings = (horiz && i === n - 1) ? 1 : ringN;      // top piece stays whole
+      for (let r = 0; r < rings; r++) jobs.push({ sl, i, r, rings });
+    });
+    const TOT = jobs.length;
+    jobs.forEach((jb, k) => {
+      const i = jb.i, sl = jb.sl;
       const pos = horiz ? (i === 0 ? 'BOTTOM' : i === n - 1 ? 'TOP' : 'MIDDLE') : ('PIECE ' + (i + 1));
+      const ring = jb.rings > 1 ? `, ring ${jb.r + 1} of ${jb.rings}` : '';
       out.push(_wrapPiece(p, sec, sl.ga, sl.gb, {
         overL: sl.overL, overR: sl.overR,
-        title: `${shapeName}  -  Wrap ${i + 1} of ${n} (${pos.toLowerCase()}) 1:1`,
-        desc: horiz ? `${pos} wrap - fit lowest first, the upper piece laps OVER (watershed)`
+        l0: p.exLen * jb.r / jb.rings, l1: p.exLen * (jb.r + 1) / jb.rings,
+        overB: p.splitStyle === 'lap1' && jb.r > 0, overT: false,
+        title: `${shapeName}  -  Wrap ${k + 1} of ${TOT} (${pos.toLowerCase()}${ring}) 1:1`,
+        desc: horiz ? `${pos} wrap${ring} - fit lowest first, the upper piece laps OVER (watershed)`
                     : `${pos} wrap - vertical splits, keep the lap away from the prevailing weather`,
         splitDesc: styleDesc,
-        cutNote: `CUT 1 OFF (wrap ${i + 1} of ${n}${horiz ? ' - ' + pos.toLowerCase() : ''})`
+        cutNote: `CUT 1 OFF (wrap ${k + 1} of ${TOT}${horiz ? ' - ' + pos.toLowerCase() + ring : ''})`
       }));
     });
     // cheeks: come off separately, so they halve on the 2-piece plane of the
@@ -2437,7 +2474,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     } else if (same) out.push(...cheekHalves(hA, '', 'CUT 2 OFF (one per end)'));
     else { out.push(...cheekHalves(hA, ' - end A', 'CUT 1 OFF (end A)'));
            out.push(...cheekHalves(hB, ' - end B', 'CUT 1 OFF (end B)')); }
-    out.forEach(o => { o.calc.nWraps = n; o.calc.kitPieces = out.length; });
+    out.forEach(o => { o.calc.nWraps = TOT; o.calc.nBands = n; o.calc.kitPieces = out.length; });
     return out;
   }
   const roundBoxKit = p => boxKit(Object.assign({ shape: 'round' }, p));
@@ -2938,13 +2975,13 @@ const F={
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  roundbox:{name:'Round Box',sub:'Valve / flange box',icon:I.rbox,
-  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,preset:'',splitRot:0,watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
+  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,ringPieces:1,preset:'',splitRot:0,watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('dia','Box diameter (mm)'),num('height','Height / length (mm)')]),
   build:s=>FP.boxKit(boxParams('round',s))[0],
   kit:s=>FP.boxKit(boxParams('round',s)),
   mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
-  stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
-  note:'Lockformed construction: the barrel edges carry the lockform allowance, the cheeks slot in and the lock hammers shut. Splits per Settings → Boxes. Watershed on a vertical box makes the top a shallow cone.'},
+  stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.sheetH!=null?c.sheetH:c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+SET.splitSize],
+  note:'Lockformed construction: the barrel edges carry the lockform allowance, the cheeks slot in and the lock hammers shut. Splits per Settings → Boxes. Watershed on a vertical box makes the top a shallow cone. On a horizontal box you can also split ALONG the length: the top piece is never cut — it stays one full sheet so there is no seam on the crown — and every lower piece is cut into equal rings that lap over the one before, working from end A.'},
  squarebox:{name:'Square Box',sub:'Shop method · lockformed',icon:I.sbox,
   defaults:{boxL:900,boxW:450,boxH:550,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20,seamMode:'shop',seamList:'F0.5,B0.5',lidSeam:'frontback',show3d:0},
   fields:[Object.assign(sego('seamMode','Method',[{v:'shop',label:'Shop halves'},{v:'plan',label:'Seam planner'}]),{reflow:1}),
@@ -3026,8 +3063,9 @@ function capParams(s){ const D=+s.capPipe+2*(+s.insulation||0);
     splitStyle:SET.splitStyle, splitSize:SET.splitSize, holePitch:+s.holePitch||60, holeEndGap:+s.holeEndGap||20,
     hole:+s.holeApipe>0?{dia:+s.holeApipe+2*(+s.insulation||0),ox:+s.holeAx||0,oy:+s.holeAy||0}:null}; }
 function BOXFIELDS(dims){ return dims.concat([
-  sego('orientation','Orientation',[{v:'vertical',label:'Vertical'},{v:'horizontal',label:'Horizontal'}]),
+  Object.assign(sego('orientation','Orientation',[{v:'vertical',label:'Vertical'},{v:'horizontal',label:'Horizontal'}]),{reflow:1}),
   segd('pieces','Pieces',[2,3,4]),
+  Object.assign(sego('ringPieces','Split along the length',[{v:1,label:'Full length'},{v:2,label:'In half'},{v:3,label:'In thirds'}]),{when:s=>s.orientation==='horizontal'}),
   sego('preset','Split runs',[{v:'',label:'Auto'},{v:'frontback',label:'Face centres'},{v:'sides',label:'Side centres'}]),
   sego('watershed','Watershed top',[{v:0,label:'Flat'},{v:1,label:'Sloped'}]),
   num('insulation','Insulation on the pipe (mm)'),
@@ -3038,6 +3076,7 @@ function BOXFIELDS(dims){ return dims.concat([
 function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulation||0),ox:+x||0,oy:+y||0}:null;
   return Object.assign({},s,{shape,
   watershed:!!(+s.watershed), preset:s.preset||undefined, splitRot:+s.splitRot||0,
+  ringPieces:Math.max(1,Math.min(4,Math.round(+s.ringPieces||1))),
   splitStyle:SET.splitStyle, splitSize:SET.splitSize, lockform:SET.lockform, slotFlange:SET.slotFlange, wsAngle:SET.wsAngle,
   holeA:holeOf(s.holeApipe,s.holeAx,s.holeAy),
   holeB:holeOf(s.holeBpipe,s.holeBx,s.holeBy)}); }
@@ -3493,6 +3532,19 @@ function diagRoundBox(s){
     angs.forEach(a=>{ const r=(a-90)*Math.PI/180, ca=Math.cos(a*Math.PI/180);
       parts.push(_ln([x0,0],[x0+ry2*Math.cos(r),rx*Math.sin(r)],SPL));
       const ly=-rx*ca; if(Math.abs(Math.abs(ca)-1)>0.02) parts.push(_ln([x0,ly],[x1,ly],SPL)); });
+    // ring seams run ACROSS the barrel. The top piece never gets one, so the
+    // line only spans the lower pieces - exactly where the lap work is.
+    const ringN=Math.max(1,Math.min(4,Math.round(+s.ringPieces||1)));
+    if(ringN>1&&cs.length){
+      let topI=0,best=-2;
+      for(let i=0;i<cs.length;i++){ const a0=cs[i],a1=(i+1<cs.length?cs[i+1]:cs[0]+360),c=Math.cos(((a0+a1)/2)*Math.PI/180); if(c>best){best=c;topI=i;} }
+      let lo=1e9,hi=-1e9;
+      for(let i=0;i<cs.length;i++){ if(i===topI) continue;
+        const a0=cs[i],a1=(i+1<cs.length?cs[i+1]:cs[0]+360);
+        for(let a=a0;a<=a1+0.01;a+=(a1-a0)/8){ const y=-rx*Math.cos(a*Math.PI/180); if(y<lo)lo=y; if(y>hi)hi=y; } }
+      if(hi>lo) for(let r=1;r<ringN;r++){ const xr=x0+(x1-x0)*r/ringN;
+        parts.push(_ln([xr,lo],[xr,hi],SPL)); }
+    }
     all.push([x0-ry2,-rx],[x1+ry2,rx]);
     dimLin(parts,all,[x0,-rx],[x1,-rx],-13,fmtDim(H));
     dimLin(parts,all,[x0,-rx],[x0,rx],-(13+ry2),'Ø'+fmtDim(D));
@@ -4222,7 +4274,9 @@ function form(kind, presetParams){
       bsl.textContent=(fit.fields.some(f=>f.k==='pieces')?desc:'');
       if(kind==='squarebox'&&s.seamMode==='plan'){ const np=sbPieceList(s).length;
         bsl.textContent=np?(np+'-way · '+sbGirths(s).length+' seams'):'tap two seams to split it'; }
-      if(fit.fields.some(f=>f.k==='pieces')&&s.orientation) bsl.textContent+=' · '+(s.orientation==='horizontal'?'horizontal':'vertical'); }
+      if(fit.fields.some(f=>f.k==='ringPieces')&&s.orientation==='horizontal'){ const rn=Math.max(1,Math.min(4,Math.round(+s.ringPieces||1)));
+      if(rn>1) bsl.textContent+=' · '+(rn===2?'halved':'in '+rn)+' lengthways'; }
+    if(fit.fields.some(f=>f.k==='pieces')&&s.orientation) bsl.textContent+=' · '+(s.orientation==='horizontal'?'horizontal':'vertical'); }
     const ds=document.getElementById('dbseam');
     if(ds){ const dir=dirOf(s), sm=(+s.seamFromThroat||0), tw2=(+s.twist||0), d2=(dir==='same'?0:180)+tw2;
       const s2=(((sm-d2)%360)+360)%360;
@@ -4373,7 +4427,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.13.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.14.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4404,7 +4458,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.13.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.14.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
