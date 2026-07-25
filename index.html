@@ -884,7 +884,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.15.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.16.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -2891,7 +2891,6 @@ const pipe=(k,l)=>({type:'pipe',k,label:l});
 const segd=(k,l,opts)=>({type:'seg',k,label:l,opts});
 const sego=(k,l,opts)=>({type:'segopt',k,label:l,opts});
 const FAST={type:'seam',k:'seamFromThroat',label:'Fastener / seam position'};
-const DIVS=segd('nDiv','Ordinate divisions',[12,24]);
 
 const F={
  reducer:{name:'Reducer',sub:'Concentric taper',icon:I.cone,free:true,
@@ -2902,14 +2901,14 @@ const F={
   stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend (°)'),num('segments','Segments'),FAST],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Centre radius (mm)'),{type:'xd',label:'Quick radius ×D (from pipe size)'},num('bendDeg','Bend angle (°)'),num('segments','Segments'),FAST],
   build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Middle gore — cut '+c.nMid],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Middle gore — cut '+c.nMid],
   note:'Generate prints the MIDDLE GORE template — wavy both edges. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend (°)'),num('minLen','Min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)'),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
   build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
@@ -2974,7 +2973,7 @@ const F={
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  inctee:{name:'Tee',sub:'Any angle · any branch',icon:I.inctee,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Angle (°)'),num('minLen','Min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Branch angle (°)'),num('minLen','Branch min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'})),
   kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'}));
     const h=FP.branchHole(Object.assign({},s,{mode:'teehole'})); h.title='Inclined Tee - Hole in the Main 1:1'; return [br,h]; },
@@ -2993,16 +2992,16 @@ const F={
   note:'Support trunnion into the BACK of a lobster bend. The trunnion is developed as a radial branch into the bend tube (a clean saddle), and Generate prints BOTH the trunnion pattern AND the hole to cut in the bend cladding — same geometry, so they match. Centre radius / offset just mark where the hole sits on the bend. Offer the first one up to the metal before cutting a batch.'},
  teereducer:{name:'Tee Reducer',sub:'Small branch tee',icon:I.teered,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Branch min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90})),
   kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90}));
     const h=FP.branchHole(Object.assign({},s,{mode:'teehole',angle:90})); h.title='Tee - Hole in the Main 1:1'; return [br,h]; },
   mini:c=>['Main Ø '+c.mainOD.toFixed(0),'Branch Ø '+c.brOD.toFixed(0),'Circ '+c.circ.toFixed(0)],
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
- roundbox:{name:'Round Box',sub:'Valve / flange box',icon:I.rbox,
+ roundbox:{name:'Round Box',sub:'Lockformed barrel + cheeks',icon:I.rbox,
   defaults:{dia:200,height:300,orientation:'vertical',pieces:2,ringPieces:1,preset:'',splitRot:0,watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
-  fields:BOXFIELDS([num('dia','Box diameter (mm)'),num('height','Height / length (mm)')]),
+  fields:BOXFIELDS([num('dia','Diameter (mm)'),num('height','Height / length (mm)')]),
   build:s=>FP.boxKit(boxParams('round',s))[0],
   kit:s=>FP.boxKit(boxParams('round',s)),
   mini:c=>['Girth piece '+c.span.toFixed(0)+' mm',c.nWraps+' wraps + cheeks'],
@@ -3026,8 +3025,8 @@ const F={
  valvebox:{name:'Valve Box',sub:'Shop method · D-box · flat or risen',icon:I.wvbox,
   defaults:{boxL:700,boxW:380,boxH:610,topStyle:'risen',wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,holePitch:60,holeEndGap:20},
   fields:[num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),
-    sego('topStyle','Top',[{v:'flat',label:'Flat'},{v:'risen',label:'Risen (watershed)'}]),
-    num('wsHeight','Watershed height (mm)'),num('foldedEdge','Folded edge (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
+    Object.assign(sego('topStyle','Top',[{v:'flat',label:'Flat'},{v:'risen',label:'Risen (watershed)'}]),{reflow:1}),
+    Object.assign(num('wsHeight','Watershed height (mm)'),{when:s=>s.topStyle!=='flat'}),num('foldedEdge','Folded edge (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
   build:s=>FP.pmValveBoxKit({...s,wsHeight:s.topStyle==='flat'?0:(+s.wsHeight||0),lockform:SET.lockform})[0],
   kit:s=>FP.pmValveBoxKit({...s,wsHeight:s.topStyle==='flat'?0:(+s.wsHeight||0),lockform:SET.lockform}),
   mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),'2 wraps + 4 ends'],
@@ -3035,7 +3034,7 @@ const F={
   note:'Shop method (Pattern Maker): the D-box — round bottom, straight sides. Top toggles Flat or Risen (watershed ridge). Two mirror halves, fold at the marked angle, roll the quarter-round, lockformed cheeks, laps both ends. D-end plates carry the top profile. Lockform from Settings → Boxes.'},
  flangebox:{name:'Flange Box',sub:'Shop method · round, flanged ends',icon:I.vbox,
   defaults:{dia:234,boxW:567,simpleEdge:4,lap:13,holePitch:60,holeEndGap:20},
-  fields:[num('dia','Diameter (mm)'),num('boxW','Width (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap size required (mm)')],
+  fields:[num('dia','Diameter (mm)'),num('boxW','Width (mm)'),num('simpleEdge','Simple edge (mm)'),num('lap','Lap (mm)')],
   build:s=>FP.pmFlangeBoxKit({...s,lockform:SET.lockform})[0],
   kit:s=>FP.pmFlangeBoxKit({...s,lockform:SET.lockform}),
   mini:c=>['Cut '+Math.round(c.g)+' × '+Math.round(c.width),'Lap half + plain half + disc'],
@@ -3061,10 +3060,10 @@ const F={
   stats:c=>['Cap Ø'+(c.dia?fmtDim(c.dia):fmtDim(c.R*2)),'Rim '+SET.slotFlange,'Split '+SET.splitSize],
   note:'Caps the end of a run or a vessel: pick the pipe + insulation and the cap comes out at the cladding OD. Rim slot flange locks onto a lockformed pipe end. Conical gives the watershed pitch from Settings; a pipe hole spans the split so each half shows its half-moon.'},
 };
-F.wsbox={name:'Water-shed Box',sub:'Shop method · ridged top',icon:I.wshed,
+F.wsbox={name:'Watershed Box',sub:'Shop method · ridged top',icon:I.wshed,
   defaults:{boxL:400,boxW:300,boxH:400,shedDepth:40,foldedEdge:5,lap:50,holePitch:60,holeEndGap:20,splitMode:'mirror',hoodDrop:75,bandPieces:2},
   fields:[Object.assign(sego('splitMode','Split',[{v:'mirror',label:'Mirror halves'},{v:'horiz',label:'Horizontal band'}]),{reflow:1}),
-    num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('shedDepth','Water-shed depth (mm)'),num('foldedEdge','Folded edge (mm)'),
+    num('boxL','Length (mm)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),num('shedDepth','Watershed height (mm)'),num('foldedEdge','Folded edge (mm)'),
     Object.assign(num('hoodDrop','Hood drop over the wall (mm)'),{when:s=>s.splitMode==='horiz'}),
     Object.assign(segd('bandPieces','Bottom band',[2,4]),{when:s=>s.splitMode==='horiz',reflow:1})],
   build:s=>FP.watershedBoxKit({...s,lockform:SET.lockform,slotFlange:SET.slotFlange})[0],
@@ -3093,7 +3092,7 @@ function BOXFIELDS(dims){ return dims.concat([
   segd('pieces','Pieces',[2,3,4]),
   Object.assign(sego('ringPieces','Split along the length',[{v:1,label:'Full length'},{v:2,label:'In half'},{v:3,label:'In thirds'}]),{when:s=>s.orientation==='horizontal'}),
   sego('preset','Split runs',[{v:'',label:'Auto'},{v:'frontback',label:'Face centres'},{v:'sides',label:'Side centres'}]),
-  sego('watershed','Watershed top',[{v:0,label:'Flat'},{v:1,label:'Sloped'}]),
+  sego('watershed','Top',[{v:0,label:'Flat'},{v:1,label:'Sloped (watershed)'}]),
   num('insulation','Insulation on the pipe (mm)'),
   {type:'pipe',k:'holeApipe',label:'End A — pipe landing on',none:true},
   num('holeAx','A offset X (mm)'),num('holeAy','A offset Y (mm)'),
@@ -3111,15 +3110,15 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
 const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','flangebox','valveend','wsbox','endcap','dome'];
 const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes',k:['roundbox','squarebox','valvebox']},{t:'Ends & Caps',k:['endcap','dome']}];
-const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 // box family folded to 4 tiles: the flange/watershed/valve-end fittings keep
 // their own (verified) build + kit, they're just reached as a mode of the
 // surviving tile instead of a separate tile. Members share one selector.
 const VARIANTS=[
   {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]},
   {label:'Box type', members:[['roundbox','Round'],['flangebox','Flange / horizontal']]},
-  {label:'Top',      members:[['squarebox','Standard'],['wsbox','Water-shed ridge']]},
+  {label:'Top',      members:[['squarebox','Standard'],['wsbox','Watershed ridge']]},
   {label:'Lid',      members:[['valvebox','Box'],['valveend','Peaked watershed lid']]} ];
+const NALL=new Set(GROUPS.flatMap(g=>g.k).concat(VARIANTS.flatMap(v=>v.members.map(m=>m[0])))).size;
 function varGroupOf(kind){ const g=VARIANTS.find(v=>v.members.some(m=>m[0]===kind)); return g?{label:g.label,opts:g.members.map(m=>({k:m[0],label:m[1]}))}:null; }
 /* double bend: direction falls out of the two bend types. Mirror-class bends
    (B, C) curve the opposite way to A / D, so first+second the same class =
@@ -3137,7 +3136,7 @@ function unlocked(k){ return PRO || isFree(k); }
 /* ================= pro / unlock ================= */
 function showUnlock(){
   const bg=modal(`<h3>CladMate Pro</h3>
-    <ul class="prolist"><li>All ${NVIS} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
+    <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
     <input id="licIn" placeholder="Licence code  CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
     <div class="hint">Get a code at cladmate.app (or from the Play Store version).</div>`);
@@ -4284,11 +4283,12 @@ function form(kind, presetParams){
     // shared job values live in Settings - applied to every fitting.
     // NOTE: box 'lap' is its OWN per-box field (a valve-box lap is not the
     // pipe seam-lap) - it must NOT be overwritten from SET.lapTotal.
-    if('lapTotal' in s) s.lapTotal=SET.lapTotal;
-    if('holePitch' in s) s.holePitch=SET.holePitch;
-    if('swage' in s) s.swage=SET.swage;
-    if('jointAllow' in s) s.jointAllow=SET.swage;
-    if('nDiv' in s) s.nDiv=SET.nDiv||12;
+    const own=k2=>fit.fields.some(f2=>f2.k===k2);   // a visible field beats the Settings default
+    if('lapTotal' in s && !own('lapTotal')) s.lapTotal=SET.lapTotal;
+    if('holePitch' in s && !own('holePitch')) s.holePitch=SET.holePitch;
+    if('swage' in s && !own('swage')) s.swage=SET.swage;
+    if('jointAllow' in s && !own('jointAllow')) s.jointAllow=SET.swage;
+    if('nDiv' in s && !own('nDiv')) s.nDiv=SET.nDiv||12;
     if(kind==='inctee'||kind==='teereducer') s.flange=SET.flange;   // flat flange rollout from settings
     let pat;
     try{ pat=fit.build(eff()); }catch(e){ document.getElementById('pv').innerHTML='<div class="hint" style="padding:30px">'+e.message+'</div>'; return; }
@@ -4378,7 +4378,7 @@ function jobsPage(){
     <text x="100" y="86" font-family="Consolas,monospace" font-size="8" fill="var(--ly-text)" opacity=".6" text-anchor="middle" letter-spacing="2">${cap}</text>
     </svg></div>`;
   if(!PRO){ app.innerHTML=`<div class="empty">${sketch('PRO FEATURE — LOCKED')}Jobs are a Pro feature.<br>Save every fitting on a contract and reprint templates any time.</div><button class="btn gold" id="up2">Go Pro</button>`; document.getElementById('up2').onclick=showUnlock; return; }
-  if(!JOBS.length){ app.innerHTML=`<div class="empty">${sketch('NO DRAWINGS ON FILE')}No jobs yet.<br>Open a fitting, set your sizes, then tap <b>Save to Job</b>.</div>`; return; }
+  if(!JOBS.length){ app.innerHTML=`<div class="empty">${sketch('NO DRAWINGS ON FILE')}No jobs yet.<br>Open a fitting, set your sizes, then tap <b>+ Job</b>.</div>`; return; }
   app.innerHTML=`<div class="card" style="padding:4px 14px">${JOBS.map(j=>`
     <div class="jobrow" data-open="${j.id}"><div class="ic"><svg viewBox="0 0 34 28" style="width:24px;height:20px"><path d="M3 7 L12 7 L15 4 L31 4 L31 24 L3 24 Z" fill="none" stroke="var(--ly-object)" stroke-width="1.8" stroke-linejoin="round"/><line x1="7" y1="15" x2="27" y2="15" stroke="var(--ly-centre)" stroke-width="1.2" stroke-dasharray="7 2 2 2"/></svg></div><div><div class="nm">${j.name}</div>
     <div class="meta">${j.items.length} fitting${j.items.length!==1?'s':''} · ${new Date(j.items[0]?j.items[0].ts:Date.now()).toLocaleDateString()}</div></div>
@@ -4427,7 +4427,9 @@ function jobDetail(id){
     toast('Job pack — '+out.pieces+' patterns, '+out.sheets+' sheets'); };
 }
 function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
-  if(p.dia) return q+'Ø'+p.dia+' × '+p.height;
+  if(p.dia) return q+'Ø'+p.dia+' × '+(p.height!=null?p.height:p.boxW);
+  if(p.capPipe) return q+'Ø'+p.capPipe+' +'+(p.insulation||0)+'mm';
+  if(p.boxD&&!p.boxL) return q+p.boxW+'×'+p.boxD;
   if(p.boxLen) return q+p.boxW+'×'+p.boxH+'×'+p.boxLen;
   if(p.boxL) return q+p.boxL+'×'+p.boxW+'×'+p.boxH;
   if(p.pipeOD) return q+'Ø'+p.pipeOD+' +'+(p.insulation||0)+'mm';
@@ -4475,7 +4477,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.15.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.16.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4506,7 +4508,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.15.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.16.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
