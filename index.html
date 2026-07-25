@@ -547,6 +547,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         display:grid;place-items:center;font-size:11px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
   .full{grid-column:1/-1}
 
+  /* ---- category strip: one family on screen at a time ---- */
+  .cats{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 11px;
+        scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .cats::-webkit-scrollbar{display:none}
+  .cats button{flex:none;font-family:var(--fm);font-size:10px;text-transform:uppercase;
+        letter-spacing:.12em;font-weight:700;color:#54606b;background:var(--panel);
+        border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;
+        display:flex;align-items:center;gap:6px;white-space:nowrap;
+        transition:background .15s,color .15s,border-color .15s,transform .1s}
+  .cats button::before{content:"";width:7px;height:7px;border-radius:2px;flex:none;
+        background:var(--cc,#8b949c)}
+  .cats button.on{background:var(--cc,#3a444e);border-color:var(--cc,#3a444e);color:#fff}
+  .cats button.on::before{background:rgba(255,255,255,.9)}
+  .cats button:active{transform:scale(.95)}
+  .grp.solo{margin-top:2px}
+  /* ---- mode pills: a variant is never invisible from the home screen ---- */
+  .vpills{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .vpills button{font-family:var(--fm);font-size:8.5px;letter-spacing:.05em;color:#54606b;
+        background:var(--canvas);border:1px solid var(--line);border-radius:999px;
+        padding:4px 8px;cursor:pointer;text-align:left;line-height:1.25;
+        transition:border-color .15s,color .15s,transform .1s}
+  .vpills button::before{content:"+ "}
+  .vpills button:hover{color:var(--ink);
+        border-color:color-mix(in srgb,var(--cat,var(--acc)) 60%,var(--line))}
+  .vpills button:active{transform:scale(.95)}
+
   /* ---- cold boot: the home screen draws itself in like a plotter ---- */
   @media (prefers-reduced-motion:no-preference){
     body.boot h2::after{transform-origin:left;animation:rulewipe .45s .12s both cubic-bezier(.2,.7,.25,1)}
@@ -858,7 +884,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.14.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.15.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3084,12 +3110,13 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
 const ORDER=['elbow','lobster','bendonbend','inctee','trunnion','teereducer','reducer','flatback','oblique','sqround','obliqueround','roundbox','squarebox','valvebox','flangebox','valveend','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes & Caps',k:['roundbox','squarebox','valvebox','endcap']},{t:'Vessel Ends',k:['dome']}];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee']},{t:'Reducers & Cones',k:['reducer','flatback','oblique']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Boxes',k:['roundbox','squarebox','valvebox']},{t:'Ends & Caps',k:['endcap','dome']}];
 const NVIS=GROUPS.reduce((a,g)=>a+g.k.length,0);
 // box family folded to 4 tiles: the flange/watershed/valve-end fittings keep
 // their own (verified) build + kit, they're just reached as a mode of the
 // surviving tile instead of a separate tile. Members share one selector.
 const VARIANTS=[
+  {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]},
   {label:'Box type', members:[['roundbox','Round'],['flangebox','Flange / horizontal']]},
   {label:'Top',      members:[['squarebox','Standard'],['wsbox','Water-shed ridge']]},
   {label:'Lid',      members:[['valvebox','Box'],['valveend','Peaked watershed lid']]} ];
@@ -3133,21 +3160,42 @@ backBtn.onclick=()=>{ CUR=null; repage(route); };
 function route(){ if(CUR){ CUR(); return; } TAB==='fit'?home():TAB==='jobs'?jobsPage():settingsPage(); }
 
 /* ================= home ================= */
+/* HOMECAT: 0 = show everything, n = show section n only. Module-level so the
+   chosen family survives opening a fitting and coming back. */
+let HOMECAT=0;
 function home(){
   setView('CladMate','Insulation cladding patterns',false);
   let ti=0;
-  const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}<div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div></div></div>`;
+  /* every fitting that shares a variant selector also gets a pill on its tile,
+     so no mode is reachable only from inside another fitting's form */
+  const pills=k=>{ const g=varGroupOf(k); if(!g) return '';
+    const o=g.opts.filter(x=>x.k!==k); if(!o.length) return '';
+    return `<div class="vpills">${o.map(x=>`<button data-go="${x.k}">${x.label}</button>`).join('')}</div>`; };
+  const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}<div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div>${pills(k)}</div></div>`;
   const CATCOL=['#2f7bd6','#129aa6','#d08a12','#7b5be0','#1f9b57','#d1495b'];
-  let tiles=GROUPS.map((g,gi)=>`<section class="grp" style="--cat:${CATCOL[gi%CATCOL.length]}"><h2>${g.t}</h2><div class="grid">${g.k.map(tile).join('')}</div></section>`).join('');
-  tiles+=`<section class="grp" style="--cat:#5b6b7a"><h2>Reference</h2><div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN · OD · long &amp; short radius</div></div></div></div></section>`;
-  app.innerHTML=`${tiles}
+  const SECS=GROUPS.map((g,gi)=>({t:g.t,c:CATCOL[gi%CATCOL.length],body:()=>`<div class="grid">${g.k.map(tile).join('')}</div>`}));
+  SECS.push({t:'Reference',c:'#5b6b7a',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; long &amp; short radius</div></div></div></div>`});
+  if(HOMECAT>SECS.length) HOMECAT=0;
+  const solo=HOMECAT>0;
+  const strip=`<div class="cats">`+['All'].concat(SECS.map(x=>x.t)).map((t,i)=>
+      `<button data-cat="${i}"${i?` style="--cc:${SECS[i-1].c}"`:''}${i===HOMECAT?' class="on"':''}>${t}</button>`).join('')+`</div>`;
+  const tiles=SECS.map((x,i)=>(solo&&HOMECAT!==i+1)?'':
+      `<section class="grp${solo?' solo':''}" style="--cat:${x.c}">${solo?'':`<h2>${x.t}</h2>`}${x.body()}</section>`).join('');
+  app.innerHTML=`${strip}${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}
     <div class="hint" style="margin-top:14px">Add to Home Screen from your browser menu to use CladMate offline, like a real app.</div>`;
   /* cold boot: once per launch the tiles plot themselves in */
   if(!window._booted){ window._booted=true; document.body.classList.add('boot');
     setTimeout(()=>document.body.classList.remove('boot'),1000); }
-  app.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>{ const g=e.dataset.go; repage(()=>{ g==='chart'?chart():form(g); }); });
+  app.querySelectorAll('.cats button').forEach(b=>b.onclick=()=>{ HOMECAT=+b.dataset.cat; home();
+    const m=document.querySelector('main'); if(m) m.scrollTo(0,0); });
+  /* centre the live pill: set scrollLeft by hand so the page never scrolls with it */
+  { const cs=app.querySelector('.cats'), on=cs&&cs.querySelector('button.on');
+    if(cs&&on) cs.scrollLeft=Math.max(0,on.offsetLeft-(cs.clientWidth-on.offsetWidth)/2); }
+  /* stopPropagation: a mode pill lives inside its tile, and only one should fire */
+  app.querySelectorAll('[data-go]').forEach(e=>e.onclick=ev=>{ ev.stopPropagation();
+    const g=e.dataset.go; repage(()=>{ g==='chart'?chart():form(g); }); });
   const ub=document.getElementById('upBtn'); if(ub) ub.onclick=showUnlock;
   if(window._installEvt){ const w=document.getElementById('installWrap'); w.classList.remove('hide');
     document.getElementById('installBtn').onclick=async()=>{ window._installEvt.prompt(); const r=await window._installEvt.userChoice; if(r.outcome==='accepted'){ toast('Installing — check your home screen'); w.classList.add('hide'); window._installEvt=null; } }; }
@@ -4427,7 +4475,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.14.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.15.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4458,7 +4506,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.14.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.15.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
