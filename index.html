@@ -896,7 +896,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.17.2</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.17.3</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4123,15 +4123,22 @@ function fittingDiagram(kind,s){
   return '';
 }
 
-function crOpts(s){ const e=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD);
-  const useOD = SET.sizeMode==='diameter' || !e;
+function crBasePipe(s){
+  if(SET.sizeMode==='diameter'&&s._crpipe){ const e=FP.PIPE_CHART.find(pp=>pp.od==s._crpipe); if(e) return e; }
+  const exact=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD); if(exact) return exact;
+  // no exact chart match: guess the pipe underneath. In Finished-Ø mode the
+  // typed value is the CLADDING Ø, so strip the default insulation first.
+  const D=(+s.pipeOD||0)-(SET.sizeMode==='diameter'?2*(SET.insulation||0):0);
+  let best=FP.PIPE_CHART[0];
+  FP.PIPE_CHART.forEach(pp=>{ if(Math.abs(pp.od-D)<Math.abs(best.od-D)) best=pp; });
+  return best; }
+function crOpts(s){ const e=crBasePipe(s);
   return [1,1.5,2,3,5].map(m=>{ let mm;
-    if(useOD) mm=Math.round(m*(+s.pipeOD||0));
-    else if(m===1.5&&e.lr) mm=e.lr;                    // trade long radius (ASME) - what the charts use
+    if(m===1.5&&e.lr) mm=e.lr;                         // trade long radius (ASME) - what the charts use
     else if(m===1&&e.sr) mm=e.sr;                      // trade short radius
     else if(e.lr) mm=Math.round(m*e.lr/1.5);           // scale off the true 1.5D radius
     else mm=Math.round(m*e.dn);
-    const name=useOD ? m+'D' : (m===1?'1D · short radius':m===1.5?'1.5D · long radius':m+'D');
+    const name=(m===1?'1D · short radius':m===1.5?'1.5D · long radius':m+'D');
     return {m,mm,label:name+' — '+mm+' mm'}; }); }
 
 /* ================= fitting form ================= */
@@ -4182,7 +4189,10 @@ function fieldHTML(f,s){
       <div class="hint" style="margin-top:2px;${f.compact?'font-size:10px;line-height:1.35;text-align:center':''}">${hint}</div>`; }
   if(f.type==='crad'){ const opts=crOpts(s), cur=+s[f.k]||0;
     const hit=opts.find(o=>Math.abs(o.mm-cur)<0.5);
-    return `<label>${f.label}</label><select data-crsel="1">${opts.map(o=>`<option value="${o.mm}" ${(hit&&hit.mm===o.mm)?'selected':''}>${o.label}</option>`).join('')}<option value="custom" ${hit?'':'selected'}>Custom…</option></select><div data-crwrap="1" class="${hit?'hide':''}"><input type="number" inputmode="decimal" data-k="${f.k}" value="${cur}" step="1" style="margin-top:8px" placeholder="radius in mm"></div>`; }
+    const picker=SET.sizeMode==='diameter'
+      ? (()=>{ const bp=crBasePipe(s); return `<select data-crpipe="1" style="margin-bottom:6px">${FP.PIPE_CHART.map(pp=>`<option value="${pp.od}" ${pp.od===bp.od?'selected':''}>Bend of ${pp.inch}&quot; · DN${pp.dn} pipe</option>`).join('')}</select>`; })()
+      : '';
+    return `<label>${f.label}</label>${picker}<select data-crsel="1">${opts.map(o=>`<option value="${o.mm}" ${(hit&&hit.mm===o.mm)?'selected':''}>${o.label}</option>`).join('')}<option value="custom" ${hit?'':'selected'}>Custom…</option></select><div data-crwrap="1" class="${hit?'hide':''}"><input type="number" inputmode="decimal" data-k="${f.k}" value="${cur}" step="1" style="margin-top:8px" placeholder="radius in mm"></div>`; }
   return '';
 }
 function form(kind, presetParams){
@@ -4286,12 +4296,15 @@ function form(kind, presetParams){
     refresh(); }); });
   function rebuildCr(){ const cs=app.querySelector('[data-crsel]'); if(!cs) return;
     const wasCustom=cs.value==='custom', opts=crOpts(s), keep=s._xd||1.5;
-    const sig=opts.map(o=>o.mm).join(','); if(cs.dataset.sig===sig) return; cs.dataset.sig=sig;
+    const sig=crBasePipe(s).od+':'+opts.map(o=>o.mm).join(','); if(cs.dataset.sig===sig) return; cs.dataset.sig=sig;
+    const ps=app.querySelector('[data-crpipe]'); if(ps) ps.value=String(crBasePipe(s).od);
     cs.innerHTML=opts.map(o=>`<option value="${o.mm}">${o.label}</option>`).join('')+'<option value="custom">Custom…</option>';
     if(wasCustom){ cs.value='custom'; return; }
     const o=opts.find(x=>x.m===keep)||opts[1];
     cs.value=String(o.mm); s.centreRadius=o.mm;
     const inp=app.querySelector('[data-crwrap] input'); if(inp) inp.value=o.mm; }
+  { const ps=app.querySelector('[data-crpipe]');
+    if(ps) ps.onchange=()=>{ touch(); s._crpipe=+ps.value; rebuildCr(); refresh(); }; }
   { const cs=app.querySelector('[data-crsel]');
     if(cs) cs.onchange=()=>{ touch(); const w=app.querySelector('[data-crwrap]');
       if(cs.value==='custom'){ s._xd=null; w.classList.remove('hide'); const inp=w.querySelector('input'); if(inp) inp.focus(); }
@@ -4564,7 +4577,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.17.2</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.17.3</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4595,7 +4608,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.17.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.17.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
