@@ -901,7 +901,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.19.4</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.20.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1203,6 +1203,49 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
             `Ordinates ${ND}-div (mm): ${hs.join('  ')}` ],
       calc:{ mainOD, stubOD, R, H:p.height, circ, hMin:Math.min(...ticks.map(t=>t.y)), hMax:Math.max(...ticks.map(t=>t.y)) },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF' };
+  }
+
+  // ---- trunnion hole: the cut-out marked on the BEND's cladding wrap ----
+  // Decoded from the SMW 'Trunnion Hole Cut Out' tables (both published
+  // datasets to 0.5 mm, 26 Jul 26): across the girth it is the plain-tee
+  // arc v = rt*asin(rb*sin(psi)/rt); along the bend it is the angle of the
+  // landing point developed on the OUTER fibre, u = (R+rt)*theta. Their S
+  // (gap from the hole's far edge to the end of the 90-deg bend on the same
+  // fibre) prints in the meta as a setout check.
+  function teeBendHole(p) {
+    const mainOD = p.mainPipeOD + 2*(p.insulation+(p.cladGap||0));
+    const stubOD = p.stubPipeOD + 2*(p.insulation+(p.cladGap||0));
+    const rt = mainOD/2, rb = stubOD/2, R = p.centreRadius;
+    if (rb >= rt) throw new Error('Stub cladding must be smaller than the bend cladding');
+    const xa = -R + (p.offset || 0);
+    const land = psi => { const px = xa + rb*Math.cos(psi), py = rb*Math.sin(psi);
+      const q = Math.sqrt(Math.max(0, rt*rt - py*py));
+      const z2 = (R+q)*(R+q) - px*px;
+      if (z2 < 0) throw new Error('Stub misses the bend back - reduce the offset or stub size');
+      const th = Math.atan2(Math.sqrt(z2), -px);
+      return { u: (R+rt)*th, v: Math.sign(Math.sin(psi))*rt*Math.asin(Math.min(1, Math.abs(py)/rt)) }; };
+    // trace the lens; datum u=0 at the edge nearest the riser
+    const pts = [], NS = 240;
+    let uMin = 1/0, uMax = -1/0;
+    for (let i = 0; i < NS; i++) { const g = land(2*Math.PI*i/NS); pts.push(g);
+      if (g.u < uMin) uMin = g.u; if (g.u > uMax) uMax = g.u; }
+    const loop = pts.map(g => [g.u - uMin, g.v]);
+    const W = uMax - uMin, S = (R+rt)*Math.PI/2 - uMax;
+    const prim = [{ style: 'cut', pts: loop.concat([loop[0]]) }];
+    prim.push({ style: 'centre', pts: [[-10, 0], [W+10, 0]] });
+    const ticks = [];
+    for (let k = 0; k <= 6; k++) { const g = land(Math.PI - k*Math.PI/6);   // 7 -> 1, riser side first
+      const u = g.u - uMin;
+      prim.push({ style: 'ord', pts: [[u, -Math.abs(g.v)-8], [u, Math.abs(g.v)+8]] });
+      ticks.push({ x: u, y: Math.abs(g.v)+8, label: (7-k)+'' }); }
+    const st = []; for (let k = 0; k <= 6; k++) st.push((land(Math.PI - k*Math.PI/6).u - uMin).toFixed(0));
+    return { kind: 'teebendhole', title: 'Trunnion  -  Hole in the Bend 1:1',
+      meta: [
+        `Hole for the Ø${stubOD.toFixed(0)} stub through the Ø${mainOD.toFixed(0)} bend wrap, centre radius ${R} mm`,
+        `Wrap this on the bend cladding along the back; stations 7→1 from the riser side: ${st.join('  ')}`,
+        `Setout check S = ${S.toFixed(0)} mm from the hole's far edge to the end of the 90° bend (outer fibre)` ],
+      calc: { mainOD, stubOD, R, W, S, halfGirth: rt*Math.asin(Math.min(1, rb/rt)) },
+      prim, holes: [], ticks, bbox: bboxOf(prim), cutNote: 'MARK & CUT 1' };
   }
 
   // ---- angle cone: taper whose small end sits in a TILTED plane ----
@@ -2879,7 +2922,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, teeBendStub, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, teeBendStub, teeBendHole, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3145,9 +3188,10 @@ const F={
   defaults:{seamFromThroat:0,mainPipeOD:219.1,stubPipeOD:114.3,insulation:25,centreRadius:305,height:450,offset:0,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Bend pipe'),pipe('stubPipeOD','Stub / trunnion pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('height','Stub top to main centreline (mm)'),Object.assign(num('offset','Offset off the leg axis (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.teeBendStub(s),
+  kit:s=>[FP.teeBendStub(s), FP.teeBendHole(s)],
   mini:c=>['Stub Ø '+c.stubOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 1 off'],
   stats:c=>['Stub Ø'+c.stubOD.toFixed(0),'Bend Ø'+c.mainOD.toFixed(0)+' · R '+c.R,'Ordinates '+c.hMin.toFixed(0)+'–'+c.hMax.toFixed(0)],
-  note:'The trunnion / tee that runs IN LINE with one leg of a bend and lands on the bend back — offset 0 means dead in line with the riser. Length is from the stub top down to the MAIN leg centreline (how trunnions are called off drawings). Seam defaults to the short side, facing inside the bend. Geometry verified against published trade tables to 0.05 mm — but offer the first one up before cutting a batch.'},
+  note:'The trunnion / tee that runs IN LINE with one leg of a bend and lands on the bend back — offset 0 means dead in line with the riser. Length is from the stub top down to the MAIN leg centreline (how trunnions are called off drawings). Seam defaults to the short side, facing inside the bend. Generate prints BOTH the stub wrap AND the hole to mark on the bend cladding, with the S setout check on the header. Geometry verified against published trade tables to 0.05 mm — but offer the first one up before cutting a batch.'},
  roundbox:{name:'Round Box',sub:'Lockformed barrel + cheeks',icon:I.rbox,
   defaults:{dia:200,height:300,orientation:'vertical',pieces:2,ringPieces:1,preset:'',splitRot:0,watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('dia','Diameter (mm)'),num('height','Height / length (mm)')]),
@@ -4754,7 +4798,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.19.4</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.20.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4785,7 +4829,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.19.4',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.20.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
