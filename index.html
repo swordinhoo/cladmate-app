@@ -901,7 +901,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.22.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.23.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1331,6 +1331,65 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       calc:{ dia:D, H, brOD, a, Rc, Rk, circ, hMin:Math.min(...ticks.map(t=>t.y)), hMax:Math.max(...ticks.map(t=>t.y)) },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF' };
   }
+
+  // ---- Y branch (breeches piece): two equal branches off one main -------
+  // Pure geometry, no fitting - and it reproduces the SMW 'Y Branch' tables
+  // EXACTLY at both 12 and 24 divisions (27 Jul 26): all 76 published
+  // ordinates to the millimetre. All three pipes share one diameter and
+  // their axes meet at a single point. The MAIN is cut by the two mitre
+  // planes it makes with the branches, each tilted x/2 from square, giving
+  // the twin-dip roof. Each BRANCH is cut by its mitre plane with the main
+  // over the outer half (drop r*cos(psi)*tan(x/2)) and by the flat plane it
+  // shares with the other branch over the inner half (drop r*|cos(psi)|*cot x).
+  // The two facets meet at the crotch points where all three cylinders touch.
+  function _yWrap(p, which) {
+    const OD = p.pipeOD + 2*(p.insulation + (p.cladGap || 0));
+    const r = OD/2, x = (p.branchAngle == null ? 45 : p.branchAngle) * Math.PI/180;
+    if (!(r > 0)) throw new Error('Pipe diameter must be positive');
+    if (!(p.branchAngle >= 5 && p.branchAngle <= 85))
+      throw new Error('Branch angle must be between 5 and 85 degrees off the main');
+    const isMain = which === 'main';
+    const L = isMain ? p.mainLen : p.branchLen;
+    const A = (isMain ? p.mainAllow : p.branchAllow) || 0;
+    if (!(L > 0)) throw new Error((isMain ? 'Main' : 'Branch') + ' length must be positive');
+    const t2 = Math.tan(x/2), ct = 1/Math.tan(x);
+    const fB = psi => { const c = Math.cos(psi); return c >= 0 ? c*t2 : -c*ct; };
+    const fMax = Math.max(t2, ct);
+    const hAt = isMain
+      ? psi => L + A + r*t2*(1 - Math.abs(Math.cos(psi)))
+      : psi => L + A + r*(fMax - fB(psi));
+    const circ = Math.PI*OD, lapEach = p.lapTotal/2, ND = p.nDiv || 12;
+    // seam 0 = the SHORT point: on the main that is the crotch line, on a
+    // branch it is the inside of the fork. Both are the natural datum.
+    const psi0 = (isMain ? 0 : Math.PI) + ((p.seamFromThroat == null ? 0 : p.seamFromThroat) * Math.PI/180);
+    const prim = [], holes = [], ticks = [];
+    const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [];
+    const phiAt = xx => psi0 + (xx/circ)*2*Math.PI;
+    for (let i = 0; i <= steps; i++) { const xx = xLo + (xHi-xLo)*i/steps; top.push([xx, hAt(phiAt(xx))]); }
+    prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
+    prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
+    [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
+    [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
+      const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+    for (let k=0;k<=ND;k++){ const xx=k*circ/ND, hh=hAt(phiAt(xx)); prim.push({style:'ord',pts:[[xx,0],[xx,hh]]}); ticks.push({x:xx,y:hh,label:hh.toFixed(0)}); }
+    const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
+    const inc = 2*(p.branchAngle == null ? 45 : p.branchAngle);
+    return { kind:'ybranch', title:'Y Branch  -  '+(isMain?'Main':'Branch')+' Wrap 1:1',
+      meta:[ (p.insulation||0)===0
+              ? `All three legs Ø ${OD.toFixed(0)} mm   branches ${p.branchAngle}° off the main (${inc}° included)`
+              : `Pipe ${p.pipeOD} + ${p.insulation} ins = Ø ${OD.toFixed(0)}   branches ${p.branchAngle}° off the main (${inc}° included)`,
+             isMain
+              ? `Main length ${p.mainLen} mm to the crotch line + ${A} mm joint allowance`
+              : `Branch length ${p.branchLen} mm to the crotch top + ${A} mm joint allowance`,
+             `Circumference ${circ.toFixed(1)} mm   with lap (${p.lapTotal} mm): ${(circ+p.lapTotal).toFixed(1)} mm`,
+             `Ordinates ${ND}-div (mm): ${hs.join('  ')}` ],
+      calc:{ OD, angle:p.branchAngle, included:inc, circ, plate:circ+p.lapTotal,
+             L, allow:A, rise:(isMain ? r*t2 : r*fMax),
+             hMin:Math.min(...ticks.map(t=>t.y)), hMax:Math.max(...ticks.map(t=>t.y)) },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: isMain ? 'CUT 1 OFF' : 'CUT 2 OFF' };
+  }
+  function yBranch(p) { return _yWrap(p, 'main'); }
+  function yBranchKit(p) { return [ _yWrap(p, 'main'), _yWrap(p, 'branch') ]; }
 
   // ---- angle cone: taper whose small end sits in a TILTED plane ----
   // Decoded from the trade convention (verified to 0.3 mm against two
@@ -3006,7 +3065,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, teeBendStub, teeBendHole, teeOnCone, teeOnDome, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, teeBendStub, teeBendHole, teeOnCone, teeOnDome, yBranch, yBranchKit, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3142,6 +3201,7 @@ const I={
  vbox:`<svg viewBox="0 0 100 80"><path d="M24 20 L76 20 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="20" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  wvbox:`<svg viewBox="0 0 100 80"><path d="M24 30 L50 18 L76 30 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="18" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  velid:`<svg viewBox="0 0 100 80"><path d="M40 16 L74 16 L74 64 L40 64 A24 24 0 0 1 40 16 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><g stroke="var(--ic-ink)" stroke-width="1.8" stroke-dasharray="3 3"><line x1="48" y1="40" x2="74" y2="16"/><line x1="48" y1="40" x2="74" y2="40"/><line x1="48" y1="40" x2="74" y2="64"/><line x1="48" y1="40" x2="16" y2="40"/></g><circle cx="48" cy="40" r="3.2" fill="var(--ic-gold)"/></svg>`,
+ ybr:`<svg viewBox="0 0 100 80"><path d="M38 74 L38 44 L14 16 M62 74 L62 44 L86 16" fill="none" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="M38 44 L50 34 L62 44" fill="none" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="38" y1="74" x2="62" y2="74" stroke="var(--ic-ink)" stroke-width="3"/><line x1="14" y1="16" x2="27" y2="6" stroke="var(--ic-ink)" stroke-width="3" stroke-linecap="round"/><line x1="86" y1="16" x2="73" y2="6" stroke="var(--ic-ink)" stroke-width="3" stroke-linecap="round"/><line x1="50" y1="76" x2="50" y2="30" stroke="var(--ic-ink)" stroke-width="2" stroke-dasharray="4 4"/></svg>`,
  tdome:`<svg viewBox="0 0 100 80"><path d="M14 62 A36 40 0 0 1 86 62 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="14" y1="62" x2="86" y2="62" stroke="var(--ic-ink)" stroke-width="3"/><path d="M56 12 L74 12 L74 34 M56 12 L56 28" fill="none" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><ellipse cx="65" cy="12" rx="9" ry="3.4" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3"/><line x1="65" y1="16" x2="65" y2="40" stroke="var(--ic-ink)" stroke-width="2" stroke-dasharray="4 4"/></svg>`,
  tcone:`<svg viewBox="0 0 100 80"><path d="M20 66 L34 16 L60 16 L74 66 A27 7 0 0 1 20 66 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M63 34 L88 34 L88 52 L68 52" fill="var(--ic-fill2)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><ellipse cx="88" cy="43" rx="3.4" ry="9" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="47" cy="16" rx="13" ry="4.2" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3"/></svg>`,
  tbend:`<svg viewBox="0 0 100 80"><path d="M26 8 L26 24 A26 26 0 0 0 52 50 L92 50 L92 30 L52 30 A6 6 0 0 1 46 24 L46 8 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="33.6" y1="42.4" x2="47.8" y2="28.2" stroke="var(--ic-ink)" stroke-width="2.2"/><path d="M29 37 A26 26 0 0 1 43 48.5 L43 71 L29 71 Z" fill="var(--ic-fill2)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><ellipse cx="36" cy="8" rx="10" ry="3.5" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="36" cy="71" rx="7" ry="2.8" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="3"/><line x1="36" y1="32" x2="36" y2="66" stroke="var(--ic-ink)" stroke-width="2" stroke-dasharray="4 4"/></svg>`,
@@ -3296,6 +3356,18 @@ const F={
   mini:c=>['Branch Ø '+c.brOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 1 off'],
   stats:c=>['Branch Ø'+c.brOD.toFixed(0),'Dome Ø'+c.dia+' · crown R '+c.Rc.toFixed(0),'Ordinates '+c.hMin.toFixed(0)+'–'+c.hMax.toFixed(0)],
   note:'Branch standing on the crown of a dished end. Same head rule as the Dome tile — crown + knuckle radius = diameter, worked from the dome height — so the two fittings always agree. Shortest generator faces the dome centre and IS your min length. Keeps you off the knuckle and says so if the branch strays onto it. Verified against published trade tables to 0.7 mm.'},
+ ybranch:{name:'Y Branch',sub:'Breeches piece · two legs off one',icon:I.ybr,
+  defaults:{seamFromThroat:0,pipeOD:219.1,insulation:25,branchAngle:45,mainLen:250,branchLen:250,mainAllow:10,branchAllow:10,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
+  fields:[pipe('pipeOD','Pipe size (all three legs)'),num('insulation','Insulation (mm)'),
+    num('branchAngle','Branch angle off the main (\u00b0)'),
+    num('mainLen','Main length to the crotch (mm)'),num('branchLen','Branch length to the crotch (mm)'),
+    num('mainAllow','Main joint allowance (mm)'),num('branchAllow','Branch joint allowance (mm)'),
+    {type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  build:s=>FP.yBranch(s),
+  kit:s=>FP.yBranchKit(s),
+  mini:c=>['Leg \u00d8 '+c.OD.toFixed(0),'Circ '+c.circ.toFixed(0),'1 main + 2 branches'],
+  stats:c=>['Leg \u00d8'+c.OD.toFixed(0),c.angle+'\u00b0 off main \u00b7 '+c.included+'\u00b0 included','Plate '+c.plate.toFixed(0)+' long','Ordinates '+c.hMin.toFixed(0)+'\u2013'+c.hMax.toFixed(0)],
+  note:'The breeches piece \u2014 one main splitting into two equal legs. All three the same pipe, axes meeting at a point. Generate prints BOTH wraps: the main once, the branch twice (they are mirror images, so the same template does both \u2014 just flip it over). Lengths are measured to the crotch, the way they are called off: main to the crotch line, branch to the crotch top. Angle is off the MAIN, so 45\u00b0 gives the usual 90\u00b0 fork and 60\u00b0 gives a perfectly symmetrical three-way. This one is closed-form geometry, not a fit \u2014 it reproduces the published trade tables exactly, every ordinate, at both 12 and 24 divisions.'},
  roundbox:{name:'Round Box',sub:'Lockformed barrel + cheeks',icon:I.rbox,
   defaults:{dia:200,height:300,orientation:'vertical',pieces:2,ringPieces:1,preset:'',splitRot:0,watershed:0,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('dia','Diameter (mm)'),num('height','Height / length (mm)')]),
@@ -3417,8 +3489,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // including the boxes/endcap that were pulled off the home grid (23 Jul: Craig
 // wanted the boxes gone - "too confusing" - keeping only the two watershed TOPS,
 // the bits that actually take figuring out). GROUPS = what the home screen shows.
-const ORDER=['elbow','lobster','bendonbend','inctee','teebend','teeoncone','teedome','trunnion','teereducer','reducer','flatback','oblique','anglecone','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','valveend']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','lobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','valveend']},{t:'Vessel Ends',k:['dome']}];
 // tee still has a mode selector; the box variants are retired with the boxes.
 const VARIANTS=[
   {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]} ];
@@ -4436,6 +4508,44 @@ function diagTeeDome(s){
   if(a) dimLead(parts,all,P(a,zt),rb*sc+24,-6,fmtDim(a)+' off centre');
   return _svgWrap(parts,all,170);
 }
+function diagYBranch(s){
+  const OD=Math.max(10,(+s.pipeOD||100)+2*(+s.insulation||0)), r=OD/2;
+  const ang=Math.max(5,Math.min(85,+s.branchAngle||45)), x=ang*Math.PI/180;
+  const Lm=Math.max(1,+s.mainLen||1), Lb=Math.max(1,+s.branchLen||1);
+  const t2=Math.tan(x/2), ct=1/Math.tan(x);
+  const bx=Math.sin(x), bz=Math.cos(x), ex=Math.cos(x), ez=-Math.sin(x);
+  const tEnd=r*Math.max(t2,ct)+Lb;
+  const zSide=-r*t2, zBot=zSide-Lm;
+  // model points, right-hand branch (mirror in X for the left)
+  const B=(cf,tf)=>[cf*ex+tf*bx, cf*ez+tf*bz];
+  const Po0=B(r,r*t2), Po1=B(r,tEnd), Pi0=B(-r,r*ct), Pi1=B(-r,tEnd);
+  const model=[[-r,zBot],[r,zBot],[r,zSide],[-r,zSide],[0,0],Po0,Po1,Pi0,Pi1,
+               [-Po0[0],Po0[1]],[-Po1[0],Po1[1]],[-Pi1[0],Pi1[1]]];
+  let mx=0,mzL=1e9,mzH=-1e9;
+  model.forEach(q=>{ mx=Math.max(mx,Math.abs(q[0])); mzL=Math.min(mzL,q[1]); mzH=Math.max(mzH,q[1]); });
+  const sc=Math.min(78/Math.max(mx,1), 130/Math.max(mzH-mzL,1));
+  const P=(q,sx)=>[(sx===undefined?1:sx)*q[0]*sc, -q[1]*sc];
+  const parts=[], all=[];
+  // main first so the branches overlap it at the crotch
+  _poly(parts,all,[[-r,zBot],[r,zBot],[r,zSide],[0,0],[-r,zSide]].map(q=>P(q)),DPAL.blue);
+  [1,-1].forEach(sx=>_poly(parts,all,[P(Po0,sx),P(Po1,sx),P(Pi1,sx),P(Pi0,sx)],DPAL.green));
+  // end ellipses, square to each axis
+  const ell=(c,rx,ry,rot)=>parts.push(`<ellipse cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" transform="rotate(${rot.toFixed(1)} ${c[0].toFixed(1)} ${c[1].toFixed(1)})" fill="none" ${INKST}/>`);
+  ell([0,-zBot*sc], r*sc, r*sc*0.3, 0);
+  [1,-1].forEach(sx=>{ const c=[(P(Po1,sx)[0]+P(Pi1,sx)[0])/2,(P(Po1,sx)[1]+P(Pi1,sx)[1])/2];
+    ell(c, r*sc, r*sc*0.3, sx*ang); });
+  // centre lines: main axis and both branch axes
+  parts.push(_ln(P([0,zBot-r*0.5]),P([0,r*0.6/Math.sin(x)]),SEAMST));
+  [1,-1].forEach(sx=>parts.push(_ln(P([0,0],sx),P(B(0,tEnd+r*0.35),sx),SEAMST)));
+  all.push(P([0,zBot-r*0.6]));
+  // dims
+  dimLin(parts,all,P([-r,zBot]),P([r,zBot]),22,'Ø '+fmtDim(OD));
+  dimLin(parts,all,P([-r,zSide]),P([-r,zBot]),18,fmtDim(Lm));
+  if(ct>=t2) dimLin(parts,all,P(Pi1),P(Pi0),16,fmtDim(Lb));
+  else dimLin(parts,all,P(Po0),P(Po1),-16,fmtDim(Lb));
+  dimAng(parts,all,P([0,0]),Math.max(26,tEnd*sc*0.42),(90-ang)*Math.PI/180,Math.PI/2,ang+'°');
+  return _svgWrap(parts,all,180);
+}
 function fittingDiagram(kind,s){
   try{
     if(kind==='dome') return diagDome(s);
@@ -4493,6 +4603,7 @@ function fittingDiagram(kind,s){
     if(kind==='teebend') return diagTeeBend(s);
     if(kind==='teeoncone') return diagTeeCone(s);
     if(kind==='teedome') return diagTeeDome(s);
+    if(kind==='ybranch') return diagYBranch(s);
     if(kind==='inctee'||kind==='teereducer') return diagTee(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90,
       {d1:'Ø'+fmtDim(clad(s.mainPipeOD)),d:'Ø'+fmtDim(clad(s.branchPipeOD)),a:fmtDim(s.angle||90)+'°'});
     if(kind==='teehole'||kind==='trunnionhole') return diagHole(clad(s.mainPipeOD),clad(s.branchPipeOD),s.angle||90);
@@ -4962,7 +5073,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.22.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.23.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4993,7 +5104,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.22.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.23.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
