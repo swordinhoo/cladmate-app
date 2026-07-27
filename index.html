@@ -573,6 +573,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .cats button:active{transform:scale(.95)}
   .grp.solo{margin-top:2px}
   /* ---- mode pills: a variant is never invisible from the home screen ---- */
+  .negrow{display:flex;gap:6px;align-items:stretch}
+  .negrow input{flex:1;min-width:0}
+  .negbtn{width:46px;flex:none;border:1px solid var(--line);border-radius:4px;background:var(--panel2);
+    font-weight:800;font-size:16px;color:var(--ink);cursor:pointer}
+  .negbtn:active{transform:scale(.94)}
   .vpills{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
   .vpills button{font-family:var(--fs);font-size:10.5px;font-weight:600;
         color:color-mix(in srgb,var(--cat,var(--acc)) 75%,#17222c);
@@ -896,7 +901,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.19.2</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.19.3</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3048,7 +3053,7 @@ const F={
     num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
     num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
     num('midLen','Straight between bends (mm)'),
-    num('twist','Twist (°, -90 to +90)'),
+    Object.assign(num('twist','Twist (°) · tap ± to flip'),{neg:1}),
     sego('orientation','How it hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),
     {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'First bend type'}],
   build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
@@ -3084,7 +3089,7 @@ const F={
   note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
   defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),num('offsetX','Top offset (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.squareToRound(s),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox],
@@ -3138,7 +3143,7 @@ const F={
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  teebend:{name:'Trunnion',sub:'Support stub on a bend',icon:I.tbend,
   defaults:{seamFromThroat:0,mainPipeOD:219.1,stubPipeOD:114.3,insulation:25,centreRadius:305,height:450,offset:0,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Bend pipe'),pipe('stubPipeOD','Stub / trunnion pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('height','Stub top to main centreline (mm)'),num('offset','Offset off the leg axis (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('mainPipeOD','Bend pipe'),pipe('stubPipeOD','Stub / trunnion pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('height','Stub top to main centreline (mm)'),Object.assign(num('offset','Offset off the leg axis (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.teeBendStub(s),
   mini:c=>['Stub Ø '+c.stubOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 1 off'],
   stats:c=>['Stub Ø'+c.stubOD.toFixed(0),'Bend Ø'+c.mainOD.toFixed(0)+' · R '+c.R,'Ordinates '+c.hMin.toFixed(0)+'–'+c.hMax.toFixed(0)],
@@ -3205,7 +3210,7 @@ const F={
   fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
     sego('capStyle','Cap style',[{v:'flat',label:'Flat'},{v:'cone',label:'Conical (watershed)'}]),
     {type:'pipe',k:'holeApipe',label:'Pipe through the cap',none:true},
-    num('holeAx','Hole offset X (mm)'),num('holeAy','Hole offset Y (mm)')],
+    Object.assign(num('holeAx','Hole offset X (mm)'),{neg:1}),Object.assign(num('holeAy','Hole offset Y (mm)'),{neg:1})],
   build:s=>FP.endCapKit(capParams(s))[0],
   kit:s=>FP.endCapKit(capParams(s)),
   mini:c=>['Ø '+(c.dia?fmtDim(c.dia):(c.R?fmtDim(c.R*2):''))+' cap','2 halves'],
@@ -3247,9 +3252,9 @@ function BOXFIELDS(dims){ return dims.concat([
   sego('watershed','Top',[{v:0,label:'Flat'},{v:1,label:'Sloped (watershed)'}]),
   num('insulation','Insulation on the pipe (mm)'),
   {type:'pipe',k:'holeApipe',label:'End A — pipe landing on',none:true},
-  num('holeAx','A offset X (mm)'),num('holeAy','A offset Y (mm)'),
+  Object.assign(num('holeAx','A offset X (mm)'),{neg:1}),Object.assign(num('holeAy','A offset Y (mm)'),{neg:1}),
   {type:'pipe',k:'holeBpipe',label:'End B — pipe landing on',none:true},
-  num('holeBx','B offset X (mm)'),num('holeBy','B offset Y (mm)')]); }
+  Object.assign(num('holeBx','B offset X (mm)'),{neg:1}),Object.assign(num('holeBy','B offset Y (mm)'),{neg:1})]); }
 function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulation||0),ox:+x||0,oy:+y||0}:null;
   return Object.assign({},s,{shape,
   watershed:!!(+s.watershed), preset:s.preset||undefined, splitRot:+s.splitRot||0,
@@ -4309,7 +4314,9 @@ function handCentre(hands, cur, label){
   return `<g class="handsel">${cap(x0,y0,W)}<rect x="${x0}" y="${y0}" width="${W}" height="${H}" rx="5" fill="${LY.canvas}" stroke="${LY.faint}" stroke-width="1.5"/>${cell(hands[0],x0,y0,cw,ch)}${cell(hands[1],x0+cw,y0,cw,ch)}${cell(hands[2],x0,y0+ch,cw,ch)}${cell(hands[3],x0+cw,y0+ch,cw,ch)}<line x1="${x0+cw}" y1="${y0}" x2="${x0+cw}" y2="${y0+H}" stroke="${LY.faint}" stroke-width="1.2"/><line x1="${x0}" y1="${y0+ch}" x2="${x0+W}" y2="${y0+ch}" stroke="${LY.faint}" stroke-width="1.2"/></g>`;
 }
 function fieldHTML(f,s){
-  if(f.type==='num') return `<label>${f.label}</label><input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
+  if(f.type==='num'){ const inp=`<input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
+    if(f.neg) return `<label>${f.label}</label><div class="negrow">${inp}<button type="button" class="negbtn" data-negk="${f.k}" title="Flip direction">±</button></div>`;
+    return `<label>${f.label}</label>`+inp; }
   if(f.type==='pipe'){ const cur=s[f.k], none=!!f.none&&!(+cur), isc=!none&&!FP.PIPE_CHART.some(p=>p.od==cur);
     if(SET.sizeMode==='diameter'){ // enter the finished cladding OD straight in
       const lbl=f.label.replace(/\bpipe\b/i,'cladding Ø').replace(/^Pipe\b/,'Cladding Ø');
@@ -4448,6 +4455,9 @@ function form(kind, presetParams){
 
   app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ touch(); app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(sel.dataset.pipe==='pipeOD'){ readAll(); rebuildCr(); } refresh(); });
   app.querySelectorAll('input').forEach(i=>i.oninput=()=>{ touch(); refreshSoon(); });
+  app.querySelectorAll('[data-negk]').forEach(b=>b.onclick=()=>{ touch();
+    const inp=app.querySelector(`[data-k="${b.dataset.negk}"]`); if(!inp) return;
+    const v=parseFloat(inp.value), nv=isNaN(v)?0:-v; s[b.dataset.negk]=nv; inp.value=nv; refresh(); });
   app.querySelectorAll('[data-seg]').forEach(el=>{ const k=el.dataset.seg; el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { touch(); const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; }
@@ -4736,7 +4746,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.19.2</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.19.3</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4767,7 +4777,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.19.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.19.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
