@@ -896,7 +896,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.19.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.19.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4179,33 +4179,42 @@ function diagAngleCone(s){
   return _svgWrap(parts,all,170);
 }
 function diagTeeBend(s){
+  /* drawn the way the metal hangs (Craig, 26 Jul): riser UP, run away to the
+     right, trunnion dropping straight down under the corner onto the bend's
+     belly. Segments sketched like a lobster - that's what it lands on. */
   const cl=od=>od+2*(+s.insulation||0);
   const rt=cl(+s.mainPipeOD||0)/2, rb=cl(+s.stubPipeOD||0)/2;
-  const R=Math.max(+s.centreRadius||1,1), H=Math.max(+s.height||1,1), off=+s.offset||0;
-  const sc=Math.min(120/(2*R+2*rt+40), 84/(H+rt+16));
+  const R=Math.max(+s.centreRadius||1,rt+5), H=Math.max(+s.height||1,1), off=+s.offset||0;
+  const sc=Math.min(118/(R+rt+80), 82/(H+R+rt+20));
   const P=(x,z)=>[x*sc,-z*sc];
   const parts=[], all=[];
-  const arc=(r,st)=>{ const pts=[]; for(let i=0;i<=24;i++){ const a=Math.PI/2+i*(Math.PI/2)/24;
-      pts.push(P(-R+r*Math.cos(a), r*Math.sin(a))); } parts.push(_pl(pts,st)); all.push(pts[0],pts[24]); };
-  // bend: centre of curvature at (-R,0); riser leg vertical at x=-2R... keep the
-  // back quarter + throat quarter; main leg runs right from x=0 at z=0
-  arc(R+rt,INKST); if(R-rt>4) arc(R-rt,INKST);
-  const legX=R+rt+40;
-  parts.push(_ln(P(0,rt),P(legX,rt),INKST), _ln(P(0,-rt>0?-rt:-rt),P(legX,-rt),INKST));
-  parts.push(_ln(P(-R-6,0),P(legX,0),SEAMST));
-  all.push(P(legX,rt),P(legX,-rt));
-  // stub: vertical, axis x = -R + off, from top plane z=H down onto the back
-  const sx=-R+off;
-  const zHit=x=>Math.sqrt(Math.max(1,(R+rt)*(R+rt)-(x+R)*(x+R)));
-  parts.push(_ln(P(sx-rb,H),P(sx-rb,zHit(sx-rb)),INKST));
-  parts.push(_ln(P(sx+rb,H),P(sx+rb,zHit(sx+rb)),INKST));
-  parts.push(_ln(P(sx-rb,H),P(sx+rb,H),INKST));
-  parts.push(_ln(P(sx,H+8),P(sx,0),SEAMST));
+  // curvature centre at (0,0); riser tangent at (-R,0), run tangent at (0,-R)
+  const NSEG=4, a0=Math.PI, a1=1.5*Math.PI;
+  const ring=r=>{ const pts=[]; for(let i=0;i<=NSEG;i++){ const a=a0+(a1-a0)*i/NSEG;
+      pts.push(P(r*Math.cos(a), r*Math.sin(a))); } return pts; };
+  const outer=ring(R+rt), inner=ring(R-rt>4?R-rt:4);
+  parts.push(_pl(outer,INKST), _pl(inner,INKST));
+  outer.concat(inner).forEach(q=>all.push(q));
+  for(let i=1;i<NSEG;i++) parts.push(_ln(inner[i],outer[i],`stroke="${LY.text}" stroke-width="1.4" opacity=".55"`));
+  // riser up from the corner, run away to the right
+  const riseTop=rt+R*0.55, runEnd=rt+R*0.55;
+  parts.push(_ln(P(-R-rt,0),P(-R-rt,riseTop),INKST), _ln(P(-R+rt,0),P(-R+rt,riseTop),INKST));
+  parts.push(_ln(P(0,-R-rt),P(runEnd,-R-rt),INKST), _ln(P(0,-R+rt),P(runEnd,-R+rt),INKST));
+  all.push(P(-R-rt,riseTop),P(runEnd,-R-rt));
+  // centrelines
+  parts.push(_ln(P(-R,riseTop+8),P(-R,-6),SEAMST), _ln(P(-6,-R),P(runEnd+8,-R),SEAMST));
+  // trunnion: vertical under the belly, axis x=-R+off, bottom at z=-(R+H)
+  const sx=-R+off, zBot=-(R+H);
+  const hit=x=>-Math.sqrt(Math.max(1,(R+rt)*(R+rt)-x*x));
+  parts.push(_ln(P(sx-rb,zBot),P(sx-rb,hit(sx-rb)),INKST));
+  parts.push(_ln(P(sx+rb,zBot),P(sx+rb,hit(sx+rb)),INKST));
+  parts.push(_ln(P(sx-rb,zBot),P(sx+rb,zBot),INKST));
+  parts.push(_ln(P(sx,zBot-8),P(sx,hit(sx)),SEAMST));
   // saddle join highlight in gold
-  parts.push(`<path d="M${P(sx-rb,zHit(sx-rb)).map(v=>v.toFixed(1)).join(' ')} Q ${P(sx,zHit(sx)-4).map(v=>v.toFixed(1)).join(' ')} ${P(sx+rb,zHit(sx+rb)).map(v=>v.toFixed(1)).join(' ')}" fill="none" stroke="${LY.dim}" stroke-width="2.6"/>`);
-  all.push(P(sx-rb,H+14),P(sx+rb,0));
-  dimLead(parts,all,P(sx,H),rb*sc+30,-6,'top '+fmtDim(H));
-  dimLead(parts,all,P(-R,0),-14,14,'R '+fmtDim(R));
+  parts.push(`<path d="M${P(sx-rb,hit(sx-rb)).map(v=>v.toFixed(1)).join(' ')} Q ${P(sx,hit(sx)+6).map(v=>v.toFixed(1)).join(' ')} ${P(sx+rb,hit(sx+rb)).map(v=>v.toFixed(1)).join(' ')}" fill="none" stroke="${LY.dim}" stroke-width="2.6"/>`);
+  all.push(P(sx-rb,zBot-14),P(sx+rb,zBot));
+  dimLead(parts,all,P(sx,zBot),rb*sc+30,8,fmtDim(H)+' below CL');
+  dimLead(parts,all,P(-R*0.35,-R*0.35),20,-12,'R '+fmtDim(R));
   return _svgWrap(parts,all,170);
 }
 function fittingDiagram(kind,s){
@@ -4724,7 +4733,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.19.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.19.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -4755,7 +4764,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.19.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.19.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
