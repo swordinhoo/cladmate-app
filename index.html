@@ -548,9 +548,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         --ic-gold:#d08a12}
   .tile svg{width:100%;height:42px;display:block}
   .tmeta{flex:1;min-width:0;padding:10px 12px}
-  .tile .t{font-family:var(--fd);font-stretch:87.5%;font-weight:600;font-size:14.5px;
+  .tile .t{font-family:var(--fd);font-stretch:87.5%;font-weight:800;font-size:16.5px;
         letter-spacing:.01em;color:var(--ink)}
-  .tile .d{font-family:var(--fs);font-size:11px;color:var(--sub);margin-top:2px;line-height:1.3}
+  .tile .d{font-family:var(--fs);font-size:12.5px;font-weight:500;color:var(--sub);margin-top:3px;line-height:1.35}
   .tile .lock{position:absolute;top:50%;right:10px;transform:translateY(-50%);
         width:22px;height:22px;border-radius:6px;z-index:3;
         background:var(--panel2);border:1px solid var(--line);
@@ -558,13 +558,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .full{grid-column:1/-1}
 
   /* ---- category strip: one family on screen at a time ---- */
-  .cats{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 11px;
-        scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  .cats::-webkit-scrollbar{display:none}
-  .cats button{flex:none;font-family:var(--fm);font-size:10px;text-transform:uppercase;
-        letter-spacing:.12em;font-weight:700;color:#54606b;background:var(--panel);
-        border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;
-        display:flex;align-items:center;gap:6px;white-space:nowrap;
+  /* these used to scroll sideways, which hid half the families off the right
+     edge with nothing to say so. Wrapping costs one row and hides nothing. */
+  .cats{display:flex;flex-wrap:wrap;gap:7px;padding:2px 1px 11px}
+  .catwrap{position:relative}
+  .cats button{flex:0 0 auto;font-family:var(--fm);font-size:11.5px;text-transform:uppercase;
+        letter-spacing:.06em;font-weight:700;color:#54606b;background:var(--panel);
+        border:1px solid var(--line);border-radius:999px;padding:7px 11px;cursor:pointer;
+        display:flex;align-items:center;gap:5px;white-space:nowrap;
         transition:background .15s,color .15s,border-color .15s,transform .1s}
   .cats button::before{content:"";width:7px;height:7px;border-radius:2px;flex:none;
         background:var(--cc,#8b949c)}
@@ -607,10 +608,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
         box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);
         padding:14px;margin-bottom:12px}
-  label{display:block;font-family:var(--fm);font-size:10px;font-weight:700;text-transform:uppercase;
-        letter-spacing:.07em;color:#333c45;margin:12px 0 5px}
+  label{display:block;font-family:var(--fm);font-size:11.5px;font-weight:800;text-transform:uppercase;
+        letter-spacing:.06em;color:#232b33;margin:14px 0 6px}
   .card>label:first-child{margin-top:0}
-  input,select{width:100%;font-size:16.5px;font-weight:600;font-family:var(--fm);padding:10px 11px;
+  input,select{width:100%;font-size:18px;font-weight:700;font-family:var(--fm);padding:12px 12px;
         border:1px solid var(--line2);border-radius:6px;background:var(--field);color:var(--ink);
         font-variant-numeric:tabular-nums slashed-zero}
   input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(10,90,168,.22)}
@@ -633,7 +634,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         margin-bottom:12px;box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);overflow:hidden}
   .pvhead{display:flex;justify-content:space-between;align-items:center;gap:8px;
         background:var(--panel2);border-bottom:1px solid var(--line);padding:6px 9px}
-  .pvhead .k{font-family:var(--fm);font-size:9px;color:var(--sub);font-weight:700;
+  .pvhead .k{font-family:var(--fm);font-size:10.5px;color:var(--sub);font-weight:800;
         text-transform:uppercase;letter-spacing:.09em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pvhead .v{font-family:var(--fm);font-size:10px;color:var(--acc);font-weight:700;flex:none;
         font-variant-numeric:tabular-nums}
@@ -659,7 +660,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   #fitdiag svg{filter:drop-shadow(0 0 2.5px rgba(33,222,222,.22))}
   :root[data-canvas="paper"] #fitdiag svg{filter:none}
   /* zoom HUD cluster (sibling of #pv inside .pvwrap - survives re-renders) */
-  .pvctl{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:5px;z-index:4}
+  .pvctl{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:row;gap:5px;z-index:4;
+        opacity:.62;transition:opacity .15s}
+  .pvwrap:hover .pvctl,.pvctl:active,.pvctl:focus-within{opacity:1}
   .pvctl button{width:34px;height:34px;border-radius:5px;font-family:var(--fm);font-size:17px;font-weight:700;
       color:var(--ly-object);background:rgba(10,13,16,.62);border:1px solid var(--ly-object);
       line-height:1;display:grid;place-items:center;padding:0}
@@ -752,8 +755,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   @keyframes halo{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(2)}}
 
   /* ---- buttons: machined keys ---- */
-  .btn{width:100%;border:none;font-family:var(--fd);font-stretch:87.5%;font-size:14.5px;font-weight:600;
-        letter-spacing:.03em;padding:13px;border-radius:9px;
+  .btn{width:100%;border:none;font-family:var(--fd);font-stretch:87.5%;font-size:16.5px;font-weight:800;
+        letter-spacing:.03em;padding:15px 13px;border-radius:9px;
         transition:background .1s,transform .18s cubic-bezier(.2,1.4,.4,1),box-shadow .18s ease}
   .btn:active{transform:translateY(1px) scale(.995);transition-duration:.1s,.05s,.05s}
   .btn.primary{background:linear-gradient(180deg,var(--acc-hi),var(--acc));color:var(--acc-ink);
@@ -763,11 +766,38 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .btn.gold{background:var(--panel);color:var(--acc);border:1px solid var(--acc)}
   .btn.gold:hover{background:var(--acc-soft)}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-  .btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line2);font-size:12.5px;padding:10px}
+  .btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line2);font-size:14px;font-weight:700;padding:12px 10px}
   .btn.ghost:hover{border-color:var(--acc);color:var(--acc)}
   .btn.ghost:disabled,.btn.primary:disabled{opacity:.42}
-  .genwrap{position:sticky;bottom:0;z-index:5;padding-top:8px;
-        background:linear-gradient(transparent,var(--bg) 34%)}
+  .btn.primary:disabled{background:#9aa4ae;color:#f2f5f7;box-shadow:none;opacity:1;cursor:not-allowed}
+  .genwrap{position:sticky;bottom:-25px;z-index:5;background:var(--bg);
+        padding:10px 0 calc(31px + env(safe-area-inset-bottom,0px))}
+  .genwrap::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:22px;
+        background:linear-gradient(transparent,var(--bg));pointer-events:none}
+  .genwrap .btnrow{margin-top:8px}
+
+  /* ---- something is wrong: say so, in English, where the thumb already is ---- */
+  .prob{display:flex;gap:10px;align-items:flex-start;background:var(--danger-bg);
+        border:1.5px solid var(--danger);border-left-width:6px;border-radius:9px;
+        padding:11px 13px;margin-bottom:9px;color:#7a1a14;
+        font-family:var(--fs);font-size:14px;font-weight:600;line-height:1.45}
+  .prob[hidden]{display:none}
+  .prob .pi{font-family:var(--fd);font-weight:800;font-size:19px;line-height:1.05;flex:none;color:var(--danger)}
+  input.bad,select.bad{border-color:var(--danger);background:var(--danger-bg);
+        box-shadow:0 0 0 3px rgba(179,38,30,.13)}
+  .pverr{padding:34px 22px;text-align:center;color:#ffb4ad;font-family:var(--fs);
+        font-size:14.5px;font-weight:600;line-height:1.5}
+  .pverr b{display:block;font-family:var(--fd);font-stretch:87.5%;font-size:15px;
+        font-weight:800;letter-spacing:.09em;color:#ff6b5e;margin-bottom:7px}
+  :root[data-canvas="paper"] .pverr{color:#7a1a14}
+  :root[data-canvas="paper"] .pverr b{color:var(--danger)}
+
+  /* ---- the one thing that ruins a whole sheet of metal ---- */
+  .printwarn{background:var(--note-bg);border:1.5px solid var(--warn);border-left:6px solid var(--warn);
+        border-radius:9px;padding:11px 13px;margin-top:14px;color:#5c3d00}
+  .printwarn b{display:block;font-family:var(--fd);font-stretch:87.5%;font-size:15px;
+        font-weight:800;letter-spacing:.05em;margin-bottom:4px}
+  .printwarn span{display:block;font-size:12.5px;font-weight:600;line-height:1.5}
   /* Generate 'plots' the sheet before it saves */
   .btn.primary{position:relative;overflow:hidden}
   .btn.primary.plotting{color:transparent;pointer-events:none}
@@ -778,7 +808,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         animation:plotsweep .45s linear 2}
   @keyframes plotsweep{0%{opacity:1;transform:translateX(-110%)}100%{opacity:1;transform:translateX(320%)}}
 
-  .hint{font-size:11.5px;color:var(--sub);text-align:center;margin-top:8px;line-height:1.5}
+  .hint{font-size:12.5px;font-weight:500;color:var(--sub);text-align:center;margin-top:8px;line-height:1.5}
   /* engineering data table */
   table{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--fm);
         font-variant-numeric:tabular-nums slashed-zero}
@@ -791,7 +821,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   th:nth-child(3),td:nth-child(3){color:var(--acc);font-weight:700}
   tr:nth-child(even) td{background:var(--zebra)}
   @media(hover:hover){tbody tr:hover td{background:var(--acc-soft);box-shadow:inset 2px 0 0 var(--acc)}}
-  .note{font-size:11.5px;color:var(--warn);background:var(--note-bg);border:1px solid var(--note-line);
+  .note{font-size:12.5px;font-weight:600;color:var(--warn);background:var(--note-bg);border:1px solid var(--note-line);
         border-left:3px solid var(--warn);border-radius:4px;padding:8px 10px;margin-top:10px;line-height:1.45}
   .hide{display:none}
   .empty{text-align:center;color:var(--sub);padding:38px 20px;font-size:13px;line-height:1.6}
@@ -889,7 +919,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     .pane-left{position:sticky;top:8px}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
     .grid2 .full{grid-column:1 / -1}
-    .genwrap{position:static;background:none;padding-top:0}
+    .genwrap{position:static;background:none;padding:0}
+    .genwrap::before{display:none}
   }
   @media(min-width:1120px){ main{max-width:1340px} .workspace{grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr)} }
   @media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
@@ -901,7 +932,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.23.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.24.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -946,12 +977,48 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   const PAGES = { a3: [297, 420], a4: [210, 297] };
 
+  // ---- input guards -------------------------------------------------------
+  // Hole pitch and division count are user-editable. A blank or zero pitch
+  // makes span/pitch = Infinity, and `for (k=0; k<=Infinity; k++)` locks the
+  // phone up solid. Everything that walks a hole line goes through _nH.
+  const _hp = v => { const n = +v; return (isFinite(n) && n >= 5) ? n : 60; };
+  const _nH = (span, pitch) => { const s = +span;
+    if (!isFinite(s) || s <= 0) return 1;
+    return Math.max(1, Math.min(400, Math.round(s / _hp(pitch)))); };
+  const _nd = (v, d) => { const n = Math.round(+v);
+    return (isFinite(n) && n >= 2) ? Math.min(96, n) : (d || 12); };
+
+  // Biggest thing anyone clads. Above this it is a stray zero on a keypad, and
+  // the sampling loops start costing seconds, which on a phone is a dead screen.
+  const MAX_MM = 10000;
+  function _sz(v, label) {
+    const d = +v;
+    if (v === '' || v == null || !isFinite(d)) throw new Error('Fill in ' + label + '.');
+    if (d <= 0) throw new Error(label.charAt(0).toUpperCase() + label.slice(1) + ' must be more than 0.');
+    if (d > MAX_MM) throw new Error(label.charAt(0).toUpperCase() + label.slice(1)
+      + ' is ' + d + ' mm - that looks like a stray zero. Largest allowed is ' + MAX_MM + ' mm.');
+    return d;
+  }
+  // bare pipe + insulation both sides = finished cladding OD
+  function _od(pipe, insul, cg, label) {
+    const d = _sz(pipe, label), i = +insul || 0, g = +cg || 0;
+    if (!isFinite(i) || i < 0) throw new Error('Insulation thickness must be 0 or more.');
+    return _sz(d + 2 * (i + g), label);
+  }
+  // some builders take either a bare pipe size or a finished OD directly
+  function _odOr(pipe, direct, insul, cg, label) {
+    return (pipe != null && pipe !== '') ? _od(pipe, insul, cg, label) : _sz(direct, label);
+  }
+
   // ================= REDUCER (concentric frustum) =========================
   function reducer(p) {
-    const bigOD   = p.bigPipeOD  + 2 * (p.insulation + (p.cladGap || 0));
-    const smallOD = p.smallPipeOD + 2 * (p.insulation + (p.cladGap || 0));
+    const bigOD   = _od(p.bigPipeOD, p.insulation, p.cladGap, 'the big end pipe size');
+    const smallOD = _od(p.smallPipeOD, p.insulation, p.cladGap, 'the small end pipe size');
     const R = bigOD / 2, r = smallOD / 2;
-    if (Math.abs(R - r) < 1e-6) throw new Error('Both ends equal - not a reducer.');
+    if (!(bigOD > 0) || !(smallOD > 0)) throw new Error('Fill in both end sizes.');
+    if (Math.abs(R - r) < 1e-6) throw new Error('Both ends are the same size - that is a straight, not a reducer.');
+    if (R < r) throw new Error('The big end is smaller than the small end. Swap the two sizes over.');
+    if (!(p.height > 0)) throw new Error('Height must be more than 0.');
     const L  = Math.hypot(p.height, R - r);
     const SR = L * R / (R - r);
     const Sr = L * r / (R - r);
@@ -978,10 +1045,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim.push({ style: 'fold', pts: [pol(Sre, edge), pol(SRe, edge)] });
       // holes ON the seam (fold) line -> rolls to the correct diameter
       const start = Sr + p.holeEndGap, end = SR - p.holeEndGap, span = end - start;
-      const nH = Math.max(1, Math.round(span / p.holePitch));
+      const nH = _nH(span, p.holePitch);
       for (let k = 0; k <= nH; k++) holes.push(pol(start + span * k / nH, edge));
     });
-    const ND = p.nDiv || 12;
+    const ND = _nd(p.nDiv, 12);
     for (let i = 0; i <= ND; i++) {
       const phi = -half + theta * i / ND;
       [SR, Sr].forEach(s => prim.push({ style: 'centre', pts: [pol(s - 6, phi), pol(s + 6, phi)] }));
@@ -1008,7 +1075,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // Two half-ends = one full middle, so N "segment equivalents" turn through
   // 2*N*g total with g = bendAngle/(2N).  kind: 'end' or 'mid'.
   function _lobGore(p, kind) {
-    const cladOD = p.pipeOD + 2 * (p.insulation + (p.cladGap || 0));
+    const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
     const r = cladOD / 2;
     const N = Math.max(1, Math.round(p.segments));
     const g = (p.bendDeg * Math.PI / 180) / (2 * N);            // mitre half-angle
@@ -1016,7 +1083,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const C = p.centreRadius * g + (p.jointAllow || 0);         // half-gore mean length
     const circ = Math.PI * cladOD;
     const lapEach = p.lapTotal / 2;
-    const ND = p.nDiv || 12;
+    const ND = _nd(p.nDiv, 12);
     const seamEff = (p.bendHand === 'B' || p.bendHand === 'C') ? ((360 - (p.seamFromThroat || 0)) % 360) : (p.seamFromThroat || 0);
     const seamRad = seamEff * Math.PI / 180;
     const phiAt = x => seamRad + (x / circ) * 2 * Math.PI;
@@ -1032,7 +1099,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
       [0, circ].forEach(xf => { const h = hAt(phiAt(xf)); prim.push({ style: 'fold', pts: [[xf, -h], [xf, h]] }); });
       [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), t = h - p.holeEndGap, b = -(h - p.holeEndGap), span = t - b;
-        const nH = Math.max(1, Math.round(span / p.holePitch));
+        const nH = _nH(span, p.holePitch);
         for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
       for (let k = 0; k <= ND; k++) { const x = k * circ / ND, h = hAt(phiAt(x)); prim.push({ style: 'ord', pts: [[x, -h], [x, h]] }); ticks.push({ x, y: h, label: (2*h).toFixed(0) }); }
     } else {
@@ -1042,7 +1109,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim.push({ style: 'fold', pts: [[xLo, 0], [xHi, 0]] });   // flat flange edge (butts the straight pipe)
       [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, hAt(phiAt(xf))]] }));
       [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b;
-        const nH = Math.max(1, Math.round(span / p.holePitch));
+        const nH = _nH(span, p.holePitch);
         for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
       for (let k = 0; k <= ND; k++) { const x = k * circ / ND, h = hAt(phiAt(x)); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
     }
@@ -1127,7 +1194,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         // holes ON the seam (fold) line -> rolls to the correct size
         const seam = Math.hypot(Q[0]-P[0], Q[1]-P[1]);
         const g = o.holeEndGap, span = seam - 2*g;
-        const nH = Math.max(1, Math.round(span / o.holePitch));
+        const nH = _nH(span, o.holePitch);
         for (let k = 0; k <= nH; k++) { const tt = (g + span*k/nH) / seam; holes.push([P[0]+(Q[0]-P[0])*tt, P[1]+(Q[1]-P[1])*tt]); }
       }
     });
@@ -1136,8 +1203,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   // ---- offset reducer family: frustum-triangular / flat-back / oblique cone ----
   function offsetReducer(p) {
-    const bigOD   = (p.bigPipeOD  != null ? p.bigPipeOD  + 2*(p.insulation+(p.cladGap||0)) : p.bigOD);
-    const smallOD = (p.smallPipeOD != null ? p.smallPipeOD + 2*(p.insulation+(p.cladGap||0)) : p.smallOD);
+    const bigOD   = _odOr(p.bigPipeOD, p.bigOD, p.insulation, p.cladGap, 'the big end pipe size');
+    const smallOD = _odOr(p.smallPipeOD, p.smallOD, p.insulation, p.cladGap, 'the small end pipe size');
     const R = bigOD/2, r = smallOD/2, H = p.height;
     let off = p.offset || 0;
     if (p.mode === 'flatback') off = R - r;      // backs vertical
@@ -1155,7 +1222,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${(p.lapTotal/2)} each edge)   developed by triangulation`
       ],
       calc: { bigOD, smallOD, offset: off, H },
-      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: p.holePitch, holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
     });
   }
 
@@ -1167,21 +1234,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // Stub drop at wrap angle psi:  px = -(R+offset') + rb cos psi, py = rb sin psi,
   //   z = sqrt((R + sqrt(rt^2 - py^2))^2 - px^2),  h = height + R - z.
   function teeBendStub(p) {
-    const mainOD = p.mainPipeOD + 2*(p.insulation+(p.cladGap||0));
-    const stubOD = p.stubPipeOD + 2*(p.insulation+(p.cladGap||0));
+    const mainOD = _od(p.mainPipeOD, p.insulation, p.cladGap, 'the main pipe size');
+    const stubOD = _od(p.stubPipeOD, p.insulation, p.cladGap, 'the stub pipe size');
     const rt = mainOD/2, rb = stubOD/2, R = p.centreRadius;
-    if (rb >= rt) throw new Error('Stub cladding must be smaller than the bend cladding');
+    if (rb >= rt) throw new Error('The stub is bigger than the bend. Make the stub smaller than the bend cladding.');
     const xa = -R + (p.offset || 0);
     const Htop = p.height + R;
-    const circ = Math.PI*stubOD, lapEach = p.lapTotal/2, ND = p.nDiv || 12;
+    const circ = Math.PI*stubOD, lapEach = p.lapTotal/2, ND = _nd(p.nDiv, 12);
     const psi0 = ((p.seamFromThroat==null?0:p.seamFromThroat) * Math.PI/180);
     const drop = psi => { const px = xa + rb*Math.cos(psi), py = rb*Math.sin(psi);
       const q = rt*rt - py*py;
       const s2 = (R + Math.sqrt(q))*(R + Math.sqrt(q)) - px*px;
-      if (s2 < 0) throw new Error('Stub misses the bend back - reduce the offset or stub size');
+      if (s2 < 0) throw new Error('The stub misses the back of the bend. Reduce the offset or the stub size.');
       return Math.sqrt(s2); };
     const hAt = psi => { const h = Htop - drop(psi);
-      if (h <= 0) throw new Error('Stub is swallowed by the bend - increase the length');
+      if (h <= 0) throw new Error('The stub is swallowed by the bend. Increase the stub length.');
       return h; };
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [];
@@ -1191,7 +1258,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
     [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), tp = h - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
-      const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+      const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, h=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
     return { kind:'teebend', title:'Trunnion  -  Stub Wrap 1:1',
@@ -1213,15 +1280,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // (gap from the hole's far edge to the end of the 90-deg bend on the same
   // fibre) prints in the meta as a setout check.
   function teeBendHole(p) {
-    const mainOD = p.mainPipeOD + 2*(p.insulation+(p.cladGap||0));
-    const stubOD = p.stubPipeOD + 2*(p.insulation+(p.cladGap||0));
+    const mainOD = _od(p.mainPipeOD, p.insulation, p.cladGap, 'the main pipe size');
+    const stubOD = _od(p.stubPipeOD, p.insulation, p.cladGap, 'the stub pipe size');
     const rt = mainOD/2, rb = stubOD/2, R = p.centreRadius;
-    if (rb >= rt) throw new Error('Stub cladding must be smaller than the bend cladding');
+    if (rb >= rt) throw new Error('The stub is bigger than the bend. Make the stub smaller than the bend cladding.');
     const xa = -R + (p.offset || 0);
     const land = psi => { const px = xa + rb*Math.cos(psi), py = rb*Math.sin(psi);
       const q = Math.sqrt(Math.max(0, rt*rt - py*py));
       const z2 = (R+q)*(R+q) - px*px;
-      if (z2 < 0) throw new Error('Stub misses the bend back - reduce the offset or stub size');
+      if (z2 < 0) throw new Error('The stub misses the back of the bend. Reduce the offset or the stub size.');
       const th = Math.atan2(Math.sqrt(z2), -px);
       return { u: (R+rt)*th, v: Math.sign(Math.sin(psi))*rt*Math.asin(Math.min(1, Math.abs(py)/rt)) }; };
     // trace the lens; datum u=0 at the edge nearest the riser
@@ -1255,22 +1322,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // on the cone R(z). Shortest generator (bottom of the branch, toward the
   // big end) = the branch min length, exactly as typed.
   function teeOnCone(p) {
-    const bigOD   = p.bigPipeOD   + 2*(p.insulation+(p.cladGap||0));
-    const smallOD = p.smallPipeOD + 2*(p.insulation+(p.cladGap||0));
-    const brOD    = p.branchPipeOD+ 2*(p.insulation+(p.cladGap||0));
+    const bigOD   = _od(p.bigPipeOD, p.insulation, p.cladGap, 'the big end pipe size');
+    const smallOD = _od(p.smallPipeOD, p.insulation, p.cladGap, 'the small end pipe size');
+    const brOD    = _od(p.branchPipeOD, p.insulation, p.cladGap, 'the branch pipe size');
     const Rb = bigOD/2, Rs = smallOD/2, H = p.height, rb = brOD/2;
     const zc = p.branchZ, L = p.minLen != null ? p.minLen : 50;
-    if (!(H > 0)) throw new Error('Reducer height must be positive');
-    if (zc - rb < 0 || zc + rb > H) throw new Error('Branch runs off the end of the reducer - move it or shrink it');
+    if (!(H > 0)) throw new Error('Reducer height must be more than 0.');
+    if (zc - rb < 0 || zc + rb > H) throw new Error('The branch runs off the end of the reducer. Move it down or make it smaller.');
     const Rz = z => Rb - (Rb - Rs)*z/H;
     const flat = p.coneMode === 'flatback';   // flat back OPPOSITE the branch
     const surf = psi => { const z = zc - rb*Math.cos(psi), y = rb*Math.sin(psi), R = Rz(z);
       const s2 = R*R - y*y;
-      if (s2 <= 0) throw new Error('Branch is bigger than the cone at that height - reduce the branch');
+      if (s2 <= 0) throw new Error('The branch is bigger than the cone is at that height. Make the branch smaller or move it down.');
       return (flat ? R - Rb : 0) + Math.sqrt(s2); };
     const x0 = surf(0);                       // bottom of the branch - nearest the big end
     const hAt = psi => L + x0 - surf(psi);
-    const circ = Math.PI*brOD, lapEach = p.lapTotal/2, ND = p.nDiv || 12;
+    const circ = Math.PI*brOD, lapEach = p.lapTotal/2, ND = _nd(p.nDiv, 12);
     const psi0 = ((p.seamFromThroat==null?90:p.seamFromThroat) * Math.PI/180);
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [];
@@ -1280,7 +1347,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
     [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
-      const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+      const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, hh=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,hh]]}); ticks.push({x,y:hh,label:hh.toFixed(0)}); }
     const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
     return { kind:'teeoncone', title:(flat?'Tee on Flat Back Reducer':'Tee on Reducer')+'  -  Branch Wrap 1:1',
@@ -1300,19 +1367,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // surf(r) = sqrt(Rc^2 - r^2) on the crown.
   function teeOnDome(p) {
     const D = p.dia, H = p.height, a = p.teePos || 0;
-    const brOD = p.branchPipeOD + 2*(p.insulation+(p.cladGap||0));
+    const brOD = _od(p.branchPipeOD, p.insulation, p.cladGap, 'the branch pipe size');
     const rb = brOD/2, L = p.minLen != null ? p.minLen : 50;
     if (!(H > 0 && H < D/2)) throw new Error('Dome height must be more than 0 and less than the radius (D/2).');
     const R = D/2;
     const qa = 2, qb = -(D + 2*H), qc = 3*D*D/4 - (H - D)*(H - D);
     const Rk = (-qb - Math.sqrt(qb*qb - 4*qa*qc)) / (2*qa), Rc = D - Rk;
     const rT = (R - Rk) * Rc / (Rc - Rk);      // crown/knuckle join radius
-    if (a + rb > rT) throw new Error('Tee runs onto the knuckle - move it toward the centre (crown ends at r=' + rT.toFixed(0) + ' mm)');
+    if (a + rb > rT) throw new Error('The tee runs onto the knuckle. Move it toward the centre - the crown ends at ' + rT.toFixed(0) + ' mm out.');
     const surf = r => Math.sqrt(Rc*Rc - r*r);
     const rMin = Math.max(0, a - rb), s0 = surf(rMin);
     const hAt = psi => { const r = Math.hypot(a + rb*Math.cos(psi), rb*Math.sin(psi));
       return L + s0 - surf(r); };            // psi=pi = toward the centre = shortest
-    const circ = Math.PI*brOD, lapEach = p.lapTotal/2, ND = p.nDiv || 12;
+    const circ = Math.PI*brOD, lapEach = p.lapTotal/2, ND = _nd(p.nDiv, 12);
     const psi0 = Math.PI + ((p.seamFromThroat==null?90:p.seamFromThroat) * Math.PI/180);
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [];
@@ -1322,7 +1389,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
     [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
-      const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+      const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, hh=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,hh]]}); ticks.push({x,y:hh,label:hh.toFixed(0)}); }
     return { kind:'teedome', title:'Tee on Dome  -  Branch Wrap 1:1',
       meta:[ `Branch Ø ${brOD.toFixed(0)} on a Ø${D} × ${H} dished end   crown R ${Rc.toFixed(0)} · knuckle R ${Rk.toFixed(0)}`,
@@ -1343,22 +1410,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // shares with the other branch over the inner half (drop r*|cos(psi)|*cot x).
   // The two facets meet at the crotch points where all three cylinders touch.
   function _yWrap(p, which) {
-    const OD = p.pipeOD + 2*(p.insulation + (p.cladGap || 0));
+    const OD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
     const r = OD/2, x = (p.branchAngle == null ? 45 : p.branchAngle) * Math.PI/180;
-    if (!(r > 0)) throw new Error('Pipe diameter must be positive');
+    if (!(r > 0)) throw new Error('Pipe diameter must be more than 0.');
     if (!(p.branchAngle >= 5 && p.branchAngle <= 85))
-      throw new Error('Branch angle must be between 5 and 85 degrees off the main');
+      throw new Error('Branch angle must be between 5 and 85 degrees off the main.');
     const isMain = which === 'main';
     const L = isMain ? p.mainLen : p.branchLen;
     const A = (isMain ? p.mainAllow : p.branchAllow) || 0;
-    if (!(L > 0)) throw new Error((isMain ? 'Main' : 'Branch') + ' length must be positive');
+    if (!(L > 0)) throw new Error((isMain ? 'Main' : 'Branch') + ' length must be more than 0.');
     const t2 = Math.tan(x/2), ct = 1/Math.tan(x);
     const fB = psi => { const c = Math.cos(psi); return c >= 0 ? c*t2 : -c*ct; };
     const fMax = Math.max(t2, ct);
     const hAt = isMain
       ? psi => L + A + r*t2*(1 - Math.abs(Math.cos(psi)))
       : psi => L + A + r*(fMax - fB(psi));
-    const circ = Math.PI*OD, lapEach = p.lapTotal/2, ND = p.nDiv || 12;
+    const circ = Math.PI*OD, lapEach = p.lapTotal/2, ND = _nd(p.nDiv, 12);
     // seam 0 = the SHORT point: on the main that is the crotch line, on a
     // branch it is the inside of the fork. Both are the natural datum.
     const psi0 = (isMain ? 0 : Math.PI) + ((p.seamFromThroat == null ? 0 : p.seamFromThroat) * Math.PI/180);
@@ -1370,7 +1437,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
     [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
-      const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+      const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const xx=k*circ/ND, hh=hAt(phiAt(xx)); prim.push({style:'ord',pts:[[xx,0],[xx,hh]]}); ticks.push({x:xx,y:hh,label:hh.toFixed(0)}); }
     const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
     const inc = 2*(p.branchAngle == null ? 45 : p.branchAngle);
@@ -1398,8 +1465,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // its CENTRE at height H and horizontal throw X toward the throat; the
   // +throat side of the small end is the LOW side of the tilt.
   function angledCone(p) {
-    const bigOD   = (p.bigPipeOD  != null ? p.bigPipeOD  + 2*(p.insulation+(p.cladGap||0)) : p.bigOD);
-    const smallOD = (p.smallPipeOD != null ? p.smallPipeOD + 2*(p.insulation+(p.cladGap||0)) : p.smallOD);
+    const bigOD   = _odOr(p.bigPipeOD, p.bigOD, p.insulation, p.cladGap, 'the big end pipe size');
+    const smallOD = _odOr(p.smallPipeOD, p.smallOD, p.insulation, p.cladGap, 'the small end pipe size');
     const R = bigOD/2, r = smallOD/2, H = p.height, X = p.offset || 0;
     const A = (p.topAngle || 0) * Math.PI/180;
     const N = 48;
@@ -1418,14 +1485,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${(p.lapTotal/2)} each edge)   developed by triangulation`
       ],
       calc: { bigOD, smallOD, H, X, angle: p.topAngle||0 },
-      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: p.holePitch, holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
     });
   }
 
   // ---- square / rectangle to round (concentric or offset) ----
   function squareToRound(p) {
     const w = p.sqW, dpt = p.sqD != null ? p.sqD : p.sqW;
-    const rTop = (p.pipeOD != null ? p.pipeOD + 2*(p.insulation+(p.cladGap||0)) : p.roundOD) / 2;
+    const rTop = _odOr(p.pipeOD, p.roundOD, p.insulation, p.cladGap, 'the pipe size') / 2;
     const H = p.height, ox = p.offsetX || 0, oy = p.offsetY || 0, N = p.round || 24;
     const corners = [[w/2, dpt/2, 0], [-w/2, dpt/2, 0], [-w/2, -dpt/2, 0], [w/2, -dpt/2, 0]];
     const seam = ((p.seamFromThroat || 0) % 360 + 360) % 360;
@@ -1452,18 +1519,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${p.lapTotal/2} each edge)   developed by triangulation`
       ],
       calc: { w, dpt, roundOD: 2*rTop, H, ox, oy },
-      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: p.holePitch, holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
     });
   }
 
   // ---- elbow: 2-piece / N-piece mitred (parallel line) ----
   function elbow(p) {
-    const cladOD = p.pipeOD + 2*(p.insulation+(p.cladGap||0));
+    const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
     const r = cladOD/2, circ = Math.PI*cladOD, lapEach = p.lapTotal/2;
     const pieces = p.pieces || 2;
     const alpha = (p.bendDeg * Math.PI/180) / (2*(pieces-1));   // mitre half-angle per joint
     const A = r * Math.tan(alpha), minLen = p.minLen != null ? p.minLen : 25;
-    const ND = p.nDiv || 12;
+    const ND = _nd(p.nDiv, 12);
     const seamEffE = (p.bendHand === 'B' || p.bendHand === 'C') ? ((360 - (p.seamFromThroat==null?180:p.seamFromThroat)) % 360) : (p.seamFromThroat==null?180:p.seamFromThroat);
     const seamRad = seamEffE * Math.PI/180;
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
@@ -1476,7 +1543,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (swE > 0) { prim.push({ style: 'fold', pts: topT }); prim.push({ style: 'fold', pts: [[xLo,0],[xHi,0]] }); }
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,-swE],[xf, yTop(phiAt(xf)) + swE]] }));
-    [0, circ].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = Math.max(1, Math.round(span/p.holePitch)); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+    [0, circ].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, h=yTop(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     return { kind:'elbow', title:`${p.bendDeg}° Mitred Elbow  -  1:1 Template`,
       meta:[ (p.insulation||0)===0
@@ -1507,15 +1574,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // consistent with one another.
   function trunnionOnBend(p) {
     const insul = p.insulation || 0, cg = p.cladGap || 0;
-    const tOD = (p.trunnionPipeOD != null ? p.trunnionPipeOD + 2*(insul+cg) : p.trunnionOD);
-    const bOD = (p.bendPipeOD != null ? p.bendPipeOD + 2*(insul+cg) : p.bendOD);
+    const tOD = _odOr(p.trunnionPipeOD, p.trunnionOD, insul, cg, 'the trunnion pipe size');
+    const bOD = _odOr(p.bendPipeOD, p.bendOD, insul, cg, 'the bend pipe size');
     const R = bOD/2, r = Math.min(tOD/2, R - 0.001);
-    if (tOD/2 >= R) throw new Error('Trunnion cannot be wider than the bend.');
+    if (tOD/2 >= R) throw new Error('The trunnion is wider than the bend. Make the trunnion smaller.');
     const th = Math.PI/2;                                   // radial (perpendicular) into the bend tube
     const tInt = phi => Math.sqrt(Math.max(R*R - r*r*Math.sin(phi)*Math.sin(phi), 0));
 
     const circ = Math.PI * tOD, lapEach = p.lapTotal/2, L = p.minLen != null ? p.minLen : 200;
-    const JA = p.jointAllow || 0, ND = p.nDiv || 12;
+    const JA = p.jointAllow || 0, ND = _nd(p.nDiv, 12);
     const seamRad = (p.seamFromThroat == null ? 0 : p.seamFromThroat) * Math.PI/180;
     // phi=0 (point 1) sits on the crown line - shortest cut; sides wrap furthest onto the bend.
     let tmax = -1e9; for (let i = 0; i <= 360; i++) { const t = tInt(seamRad + 2*Math.PI*i/360); if (t > tmax) tmax = t; }
@@ -1527,7 +1594,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style:'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style:'fold', pts: [[xf,0],[xf, yb(phiAt(xf))]] }));
     [0, circ].forEach(xl => { const h = yb(phiAt(xl)), tp = h - p.holeEndGap, b = p.holeEndGap, span = tp - b;
-      const nH = Math.max(1, Math.round(span / p.holePitch));
+      const nH = _nH(span, p.holePitch);
       for (let k = 0; k <= nH; k++) holes.push([xl, b + span*k/nH]); });
     for (let k = 0; k <= ND; k++) { const x = k*circ/ND, h = yb(phiAt(x)); prim.push({ style:'ord', pts: [[x,0],[x,h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
     const o12 = []; for (let k = 0; k <= 6; k++) { const phi = seamRad + 2*Math.PI*k/12; o12.push(Math.round(L + JA + (tmax - tInt(phi)))); }
@@ -1542,10 +1609,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // ================= CYLINDER-INTO-CYLINDER (parallel line) ================
   function _branchGeom(p) {
     const insul = p.insulation || 0, cg = p.cladGap || 0;
-    const mainOD = (p.mainPipeOD != null ? p.mainPipeOD + 2*(insul+cg) : p.mainOD);
-    const brOD   = (p.branchPipeOD != null ? p.branchPipeOD + 2*(insul+cg) : p.branchOD);
-    const R = mainOD/2, r = Math.min(brOD/2, R - 0.001);
-    const th = (p.angle || 90) * Math.PI/180;
+    const mainOD = _odOr(p.mainPipeOD, p.mainOD, insul, cg, 'the main pipe size');
+    const brOD   = _odOr(p.branchPipeOD, p.branchOD, insul, cg, 'the branch pipe size');
+    if (!(mainOD > 0) || !(brOD > 0)) throw new Error('Fill in both the main and the branch size.');
+    if (brOD >= mainOD) throw new Error('The branch must be smaller than the main. Main is '
+      + mainOD.toFixed(0) + ' mm cladding, branch is ' + brOD.toFixed(0) + ' mm.');
+    const ang = p.angle == null ? 90 : +p.angle;
+    if (!(ang >= 15 && ang <= 90)) throw new Error('Branch angle must be between 15 and 90 degrees off the main.');
+    const R = mainOD/2, r = brOD/2;
+    const th = ang * Math.PI/180;
     const tInt = phi => { const s = Math.sqrt(Math.max(R*R - r*r*Math.sin(phi)*Math.sin(phi), 0)); return (s - r*Math.cos(phi)*Math.cos(th))/Math.sin(th); };
     return { mainOD, brOD, R, r, th, tInt };
   }
@@ -1553,7 +1625,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   function branchOnCylinder(p) {
     const g = _branchGeom(p), R = g.R, r = g.r, th = g.th, tInt = g.tInt;
     const circ = Math.PI*g.brOD, lapEach = p.lapTotal/2, minLen = p.minLen != null ? p.minLen : 30;
-    const ND = p.nDiv || 12, seamRad = (p.seamFromThroat||0)*Math.PI/180;
+    const ND = _nd(p.nDiv, 12), seamRad = (p.seamFromThroat||0)*Math.PI/180;
     let tmax = -1e9; for (let i=0;i<=360;i++){ const t=tInt(seamRad + 2*Math.PI*i/360); if(t>tmax)tmax=t; }
     const yb = phi => minLen + (tmax - tInt(phi));
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
@@ -1564,7 +1636,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if(fl>0) prim.push({style:'fold', pts:bot});   // saddle line - bend the flange out flat here
     prim.push({style:'centre', pts:[[xLo,0],[xHi,0]]});
     [0,circ].forEach(xf=>prim.push({style:'fold', pts:[[xf,0],[xf,yb(phiAt(xf))+fl]]}));
-    [0, circ].forEach(xl=>{ const h=yb(phiAt(xl)),top=h-p.holeEndGap,b=p.holeEndGap,span=top-b; const nH=Math.max(1,Math.round(span/p.holePitch)); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
+    [0, circ].forEach(xl=>{ const h=yb(phiAt(xl)),top=h-p.holeEndGap,b=p.holeEndGap,span=top-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
     for(let k=0;k<=ND;k++){ const x=k*circ/ND, h=yb(phiAt(x)); prim.push({style:'ord', pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     const names={inctee:'Inclined Tee',trunnion:'Trunnion',teereducer:'Tee Reducer'};
     return { kind:p.mode||'branch', title:(names[p.mode]||'Branch')+'  -  1:1 Template',
@@ -1607,13 +1679,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // Two mitred joints jumping an offset S over middle-piece length d.
   // Middle piece = cylinder cut by two mirrored planes -> lobster-segment wave.
   function swanNeck(p) {
-    const cladOD = p.pipeOD + 2*(p.insulation+(p.cladGap||0));
+    const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
     const r = cladOD/2, circ = Math.PI*cladOD, lapEach = p.lapTotal/2;
     const S = p.offset, d = p.middleLen;
     if (!(d > S)) throw new Error('Middle length must be greater than the offset.');
     const alpha = Math.asin(S/d);                 // tilt of middle piece
     const A = r*Math.tan(alpha/2), C = d/2 + (p.jointAllow||0);
-    const ND = p.nDiv || 12;
+    const ND = _nd(p.nDiv, 12);
     const seamEffS = (p.bendHand === 'B' || p.bendHand === 'C') ? ((360 - (p.seamFromThroat==null?90:p.seamFromThroat)) % 360) : (p.seamFromThroat==null?90:p.seamFromThroat);
     const seamRad = seamEffS*Math.PI/180;
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
@@ -1623,7 +1695,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({style:'cut', pts: top.concat([[xHi,-hAt(phiAt(xHi))]], bot.slice().reverse(), [top[0]])});
     prim.push({style:'centre', pts:[[xLo,0],[xHi,0]]});
     [0,circ].forEach(xf=>{ const h=hAt(phiAt(xf)); prim.push({style:'fold', pts:[[xf,-h],[xf,h]]}); });
-    [0,circ].forEach(xl=>{ const h=hAt(phiAt(xl)), tp=h-p.holeEndGap, b=-(h-p.holeEndGap), span=tp-b; const nH=Math.max(1,Math.round(span/p.holePitch)); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
+    [0,circ].forEach(xl=>{ const h=hAt(phiAt(xl)), tp=h-p.holeEndGap, b=-(h-p.holeEndGap), span=tp-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
     for(let k=0;k<=ND;k++){ const x=k*circ/ND, h=hAt(phiAt(x)); prim.push({style:'ord', pts:[[x,-h],[x,h]]}); ticks.push({x,y:h,label:(2*h).toFixed(0)}); }
     return { kind:'swanneck', title:'Offset (Swan Neck)  -  Middle Piece 1:1',
       meta:[`Bare pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD`,
@@ -1641,7 +1713,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // direction: 'opposite' = S-bend (like an offset), 'same' = continuing bend.
   // twist: bend 2's plane rolled about the pipe axis, -90..+90 deg.
   function bendOnBend(p) {
-    const cladOD = p.pipeOD + 2*(p.insulation + (p.cladGap||0));
+    const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
     const r = cladOD/2, circ = Math.PI*cladOD, lapEach = p.lapTotal/2;
     const g1 = (p.bendDeg1*Math.PI/180)/(2*p.segments1), g2 = (p.bendDeg2*Math.PI/180)/(2*p.segments2);
     const A1 = r*Math.tan(g1), A2 = r*Math.tan(g2);
@@ -1656,16 +1728,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
     const yB = th => A1*Math.cos(th);                       // bend-1 cut (throat at 0)
     const yT = th => L0 - A2*Math.cos(th - th2);            // bend-2 cut
-    if (L0 - A1 - A2 < 5) throw new Error('Bends too tight - the shared segment pinches out. Increase radius or segments.');
+    if (L0 - A1 - A2 < 5) throw new Error('The bends are too tight - the piece they share pinches out to nothing. Increase the radius or the number of segments.');
     const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, top=[], bot=[];
     for (let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, th=phiAt(x); top.push([x,yT(th)]); bot.push([x,yB(th)]); }
     prim.push({ style:'cut', pts: top.concat([[xHi, yB(phiAt(xHi))]], bot.slice().reverse(), [top[0]]) });
     prim.push({ style:'centre', pts: [[xLo, L0/2],[xHi, L0/2]] });
     [0, circ].forEach(xf => { const th=phiAt(xf); prim.push({ style:'fold', pts: [[xf, yB(th)],[xf, yT(th)]] }); });
     [0, circ].forEach(xl => { const th=phiAt(xl), b=yB(th)+p.holeEndGap, t=yT(th)-p.holeEndGap, span=t-b;
-      const nH=Math.max(1, Math.round(span/p.holePitch));
+      const nH=_nH(span, p.holePitch);
       for (let k=0;k<=nH;k++) holes.push([xl, b + span*k/nH]); });
-    const ND = p.nDiv || 12;
+    const ND = _nd(p.nDiv, 12);
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, th=phiAt(x); prim.push({ style:'ord', pts: [[x,yB(th)],[x,yT(th)]] });
       ticks.push({ x, y: yT(th), label: (yT(th)-yB(th)).toFixed(0) }); }
     const oT = []; for (let k=0;k<=6;k++){ const th=seamRad + 2*Math.PI*k/12; oT.push(Math.round(yT(th)-yB(th))); }
@@ -1699,10 +1771,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
   function _lineHoles(holes, x0, y0, x1, y1, pitch, endGap) {
     const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L;
-    const span = L - 2 * endGap;
+    const eG = (isFinite(+endGap) && +endGap >= 0) ? +endGap : 20;
+    const span = L - 2 * eG;
     if (span <= 0) { holes.push([(x0 + x1) / 2, (y0 + y1) / 2]); return; }
-    const n = Math.max(1, Math.round(span / pitch));
-    for (let k = 0; k <= n; k++) holes.push([x0 + ux * (endGap + span * k / n), y0 + uy * (endGap + span * k / n)]);
+    const n = _nH(span, pitch);
+    for (let k = 0; k <= n; k++) holes.push([x0 + ux * (eG + span * k / n), y0 + uy * (eG + span * k / n)]);
   }
   // two intersection points of circle(c1,r1) and circle(c2,r2) - the triangulation
   // "swing two arcs" operation. Returns [] if they don't meet.
@@ -1887,7 +1960,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const style = p.splitStyle, SS = p.splitSize;
     const ext = style === 'flange' ? SS : style === 'lap2' ? SS / 2 : (meta.over ? SS : 0);
     const G = sec.G, span = (((gb - ga) % G) + G) % G;
-    const N = Math.max(24, Math.round(span / 6));
+    const N = Math.max(24, Math.min(1440, Math.round(span / 6)));
     // sample the girth edge; a tilted top cheek (vertical watershed) is the
     // section stretched 1/cos(angle) along x, so normals come numerically
     const K = meta.stretch || 1;
@@ -2092,9 +2165,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   function endCapKit(p) {
     p = Object.assign({ splitStyle: 'lap2', splitSize: 50, slotFlange: 10,
       holePitch: 60, holeEndGap: 20, style: 'flat' }, p);
+    _sz(p.dia, 'the cap diameter');
     if (!(p.dia > 10)) throw new Error('Cap diameter must be at least 10 mm.');
+    if (p.hole) { const hd = +p.hole.dia, ox = +p.hole.ox || 0, oy = +p.hole.oy || 0;
+      if (!(hd > 0)) throw new Error('Pipe hole diameter must be more than 0.');
+      if (Math.hypot(ox, oy) + hd / 2 > p.dia / 2 - 5)
+        throw new Error('The pipe hole runs off the edge of the cap. Cap is '
+          + p.dia + ' mm, hole is ' + hd + ' mm' + ((ox || oy) ? ' offset ' + ox + ', ' + oy : '') + '.'); }
     if (p.style === 'cone') {
-      if (p.hole) throw new Error('A conical cap cannot take a pipe hole yet - use a flat cap.');
+      if (p.hole) throw new Error('A conical cap cannot take a pipe hole yet. Switch the cap to flat.');
       const styleDesc = p.splitStyle === 'flange' ? `Split flanges ${p.splitSize} mm fold OUT`
         : p.splitStyle === 'lap2' ? `Split laps ${p.splitSize / 2} mm each side of the line`
         : `50/0 lap - the over half carries ${p.splitSize} mm`;
@@ -2718,7 +2797,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     // sketch default: vertical boxes split down the face centres (front/back);
     // horizontal boxes split on the level so the top half lifts off (sides)
     if (!p.preset) p.preset = p.orientation === 'horizontal' ? 'sides' : 'frontback';
+    if (p.shape === 'round') _sz(p.dia, 'the diameter');
+    else if (p.shape === 'square') { _sz(p.boxW, 'the box width'); _sz(p.boxH, 'the box height'); }
+    else { _sz(p.boxW, 'the box width'); _sz(p.boxH, 'the box height'); }
     p.exLen = p.shape === 'round' ? p.height : p.shape === 'square' ? p.boxL : p.boxLen;
+    _sz(p.exLen, p.shape === 'round' ? 'the height' : 'the box length');
     if (!(p.exLen > 0)) throw new Error('Box length must be positive.');
     const ws = !!p.watershed, th = (p.wsAngle || 10) * Math.PI / 180, T = Math.tan(th);
     // horizontal watershed: the flat top of the section slopes (round sheds anyway)
@@ -2788,7 +2871,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const same = JSON.stringify(hA) === JSON.stringify(hB);
     const upC = [upness(chord[0], chord[1]), upness(chord[1], chord[0])];
     const vertWS = ws && !horiz;
-    if (vertWS && hB) throw new Error('A watershed top cannot take a pipe hole yet - run the pipe through end A (the bottom).');
+    if (vertWS && hB) throw new Error('A watershed top cannot take a pipe hole yet. Run the pipe through end A, the bottom.');
     const cheekHalves = (hole, endName, cutN, stretch) => [0, 1].map(k => {
       const ga = chord[k], gb = chord[(k + 1) % 2];
       const over = p.splitStyle === 'lap1' && (horiz && Math.abs(upC[0] - upC[1]) > 1e-6 ? upC[k] > upC[1 - k] : k === 0);
@@ -3116,10 +3199,18 @@ function setView(t,s,back){ ttl.textContent=t; subttl.textContent=s; backBtn.cla
 /* px = horizontal slide-in offset for direction-aware tab moves (0 = plain rise) */
 function repage(fn,px){ const el=app; el.style.setProperty('--px',(px||0)+'px');
   el.classList.remove('page'); void el.offsetWidth; el.classList.add('page'); fn(); }
-function plan(pat,page){ const P=FP.PAGES[page]; let best=null,bn=1e9;
+// bn used to be seeded at 1e9 SHEETS, so a daft pattern that needed more than
+// that beat neither orientation and plan() handed back null - which blew up as
+// "Cannot read properties of null" two lines later. Infinity, and the first
+// candidate always wins, so this can only ever return a plan.
+function plan(pat,page){ const P=FP.PAGES[page]||FP.PAGES.a3; let best=null,bn=Infinity;
+  const w=(pat&&pat.bbox&&isFinite(pat.bbox.w))?Math.max(1,pat.bbox.w):1,
+        h=(pat&&pat.bbox&&isFinite(pat.bbox.h))?Math.max(1,pat.bbox.h):1;
   [[P[0],P[1]],[P[1],P[0]]].forEach(c=>{ const sx=c[0]-2*PM-OV, sy=c[1]-2*PM-OV;
-    const n=Math.ceil(pat.bbox.w/sx)*Math.ceil(pat.bbox.h/sy); if(n<bn){bn=n;best={n,c};}});
+    const n=Math.ceil(w/sx)*Math.ceil(h/sy); if(best===null||n<bn){bn=n;best={n,c};}});
   return best; }
+// nobody tapes 400 sheets together. Past this it is a typo, not a template.
+const MAX_SHEETS=400;
 
 /* ================= PVZoom: the viewport controller =================
    Pinch / wheel / drag / double-tap on #pv. State lives HERE, not in the
@@ -3515,7 +3606,7 @@ function showUnlock(){
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
     <input id="licIn" placeholder="Licence code  CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
-    <div class="hint">Get a code at cladmate.app (or from the Play Store version).</div>`);
+    <div class="hint">Codes come with the paid version. If you have bought it and lost your code, email swordy@phatstax.co.uk.</div>`);
   bg.querySelector('#licGo').onclick=()=>{
     if(checkCode(bg.querySelector('#licIn').value)){ PRO=true; store.set('cm_pro',true); renderPro(); bg.remove(); toast('Pro unlocked — nice one!'); route(); }
     else { toast('That code isn’t right — check it and try again.'); } };
@@ -3552,8 +3643,12 @@ function home(){
   SECS.push({t:'Reference',c:'#5b6b7a',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; long &amp; short radius</div></div></div></div>`});
   if(HOMECAT>SECS.length) HOMECAT=0;
   const solo=HOMECAT>0;
-  const strip=`<div class="cats">`+['All'].concat(SECS.map(x=>x.t)).map((t,i)=>
-      `<button data-cat="${i}"${i?` style="--cc:${SECS[i-1].c}"`:''}${i===HOMECAT?' class="on"':''}>${t}</button>`).join('')+`</div>`;
+  /* the chips wrap, so they have to be short - the section heading below still
+     spells the family out in full. */
+  const SHORT={'Tees & Branches':'Tees','Reducers & Cones':'Reducers',
+               'Watershed Tops':'Watershed','Vessel Ends':'Vessels','Reference':'Chart'};
+  const strip=`<div class="catwrap"><div class="cats">`+['All'].concat(SECS.map(x=>SHORT[x.t]||x.t)).map((t,i)=>
+      `<button data-cat="${i}"${i?` style="--cc:${SECS[i-1].c}"`:''}${i===HOMECAT?' class="on"':''}>${t}</button>`).join('')+`</div></div>`;
   const tiles=SECS.map((x,i)=>(solo&&HOMECAT!==i+1)?'':
       `<section class="grp${solo?' solo':''}" style="--cat:${x.c}">${solo?'':`<h2>${x.t}</h2>`}${x.body()}</section>`).join('');
   app.innerHTML=`${strip}${tiles}
@@ -3573,7 +3668,7 @@ function home(){
     const g=e.dataset.go; repage(()=>{ g==='chart'?chart():form(g); }); });
   const ub=document.getElementById('upBtn'); if(ub) ub.onclick=showUnlock;
   if(window._installEvt){ const w=document.getElementById('installWrap'); w.classList.remove('hide');
-    document.getElementById('installBtn').onclick=async()=>{ window._installEvt.prompt(); const r=await window._installEvt.userChoice; if(r.outcome==='accepted'){ toast('Installing — check your home screen'); w.classList.add('hide'); window._installEvt=null; } }; }
+    document.getElementById('installBtn').onclick=async()=>{ window._installEvt.prompt(); const r=await window._installEvt.userChoice; if(r.outcome==='accepted'){ toast('Installing - check your home screen.'); w.classList.add('hide'); window._installEvt=null; } }; }
 }
 
 /* ================= pipe chart ================= */
@@ -4699,13 +4794,14 @@ function form(kind, presetParams){
   // insulation is already baked in - build/diagram with insulation forced 0.
   const eff=()=>SET.sizeMode==='diameter'?Object.assign({},s,{insulation:0}):s;
   const locked=!unlocked(kind);
+  const blanks=[];              // labels of any box left empty, refilled each readAll()
   setView(fit.name, kind==='squarebox'&&s.seamMode==='plan' ? 'Seam planner · you place the seams' : fit.sub, true);
   const seamF=fit.fields.find(f=>f.type==='seam');
   const BOXHERO={roundbox:1,squarebox:1,valvebox:1,flangebox:1,wsbox:1};
   const boxHero=!!BOXHERO[kind];
   const hasSplits=boxHero&&fit.fields.some(f=>f.k==='pieces');
   const previewCard=`<div class="preview">
-    <div class="pvhead"><span class="k" id="pvtitle">${boxHero?'Cut patterns (1:1)':'Live preview (1:1 flat pattern)'}</span>
+    <div class="pvhead"><span class="k" id="pvtitle">${boxHero?'Cut patterns · 1:1':'Live preview · 1:1'}</span>
       <button id="pvback" class="pvpill" style="display:none">◂ FULL PATTERN</button>
       <span id="pvcoord"></span>
       <span class="v"><span id="pvzoom" class="pvz">100%</span> · <span id="pvsheets"></span></span></div>
@@ -4741,10 +4837,11 @@ function form(kind, presetParams){
   html+=`</div>`;
   if(fit.note) html+=`<div class="note">${fit.note}</div>`;
   html+=`<div class="hint" style="margin-top:4px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
-  if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">Preview is live — Pro unlocks the printable PDF, DXF and Jobs.</div>`;
-  else html+=`<div class="genwrap"><button class="btn primary" id="genBtn">Generate printable PDF</button></div>
-    <div class="btnrow" style="grid-template-columns:1fr 1fr 1fr"><button class="btn ghost" id="shareBtn">Share</button><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>+ Job${PRO?'':' (Pro)'}</button></div>
-    <div class="hint">Prints 1:1 across multiple sheets — print at <b>100% / Actual size</b> (never "Fit to page"), tape on the red crosshairs, check the 100&nbsp;mm bar, then mark out.</div>`;
+  if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">You can size it up and check the preview for free. Pro unlocks the printable PDF, DXF and Jobs.</div>`;
+  else html+=`<div class="printwarn"><b>PRINT AT 100% — ACTUAL SIZE</b><span>Never "Fit to page" or "Shrink to fit". Tape the sheets together on the red crosshairs, then measure the 100&nbsp;mm bar with your tape before you mark any metal.</span></div>
+    <div class="genwrap"><div class="prob" id="probbox" hidden></div>
+      <button class="btn primary" id="genBtn">Generate printable PDF</button>
+      <div class="btnrow" style="grid-template-columns:1fr 1fr 1fr"><button class="btn ghost" id="shareBtn">Share</button><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>+ Job${PRO?'':' (Pro)'}</button></div></div>`;
   html+=`</div></div>`;
   if(boxHero) html+=`<div class="cutdemote">${previewCard}</div>`;
   app.innerHTML=html;
@@ -4843,19 +4940,25 @@ function form(kind, presetParams){
   /* Generate 'plots' the sheet: sweep starts, then the synchronous jsPDF build */
   const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{
     if(gb.classList.contains('plotting')) return;
+    flushRefresh();
+    if(form._problem){ toast(form._problem);
+      const pb=document.getElementById('probbox');
+      if(pb){ pb.animate?pb.animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:220}):0;
+        pb.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+      return; }
     gb.classList.add('plotting');
     setTimeout(()=>{ try{ const d=buildDoc(); d.out.doc.save(d.name); toast(d.msg); }
-      catch(e){ toast(e.message); }
+      catch(e){ setProblem(e.message||'That will not make a pattern.'); toast(e.message); }
       finally{ setTimeout(()=>gb.classList.remove('plotting'),350); } },80); };
   const sb=document.getElementById('shareBtn'); if(sb) sb.onclick=async()=>{ const d=buildDoc();
     const file=new File([d.out.doc.output('blob')], d.name, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       try{ await navigator.share({files:[file], title:'CladMate template'}); }catch(e){} }
-    else { d.out.doc.save(d.name); toast('Sharing not supported here — saved the PDF instead'); } };
+    else { d.out.doc.save(d.name); toast('This browser cannot share files - saved the PDF instead.'); } };
   const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!PRO) return showUnlock();
     flushRefresh();
     const blob=new Blob([FP.toDXF(form._pat)],{type:'application/dxf'}); const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download='CladMate_'+kind+'.dxf'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('DXF exported'); };
+    a.href=URL.createObjectURL(blob); a.download='CladMate_'+kind+'.dxf'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('DXF saved to your downloads.'); };
   const jb=document.getElementById('jobBtn'); if(jb) jb.onclick=()=>{ if(!PRO) return showUnlock(); flushRefresh(); saveToJob(kind); };
   refresh();
 
@@ -4868,10 +4971,50 @@ function form(kind, presetParams){
     const dn=host.querySelector('#seamDone'); if(dn) dn.onclick=()=>{ s.show3d=1; again(); };
     const ed=host.querySelector('#seamEdit'); if(ed) ed.onclick=()=>{ s.show3d=0; again(); };
   }
+  function labelOf(e){ const box=e.closest('.fld')||e.parentElement;
+    const l=box&&box.querySelector('label');
+    return l ? l.textContent.replace(/\s*\(mm\)\s*$/i,'').trim() : e.dataset.k; }
   function readAll(){
-    app.querySelectorAll('[data-k]').forEach(e=>{ const v=parseFloat(e.value); if(!isNaN(v)) s[e.dataset.k]=v; });
+    blanks.length=0;
+    app.querySelectorAll('[data-k]').forEach(e=>{
+      if(e.closest('.hide')) return;                       // collapsed custom boxes do not count
+      const raw=(e.value||'').trim(), v=parseFloat(raw), empty=(raw===''||isNaN(v));
+      e.classList.toggle('bad',empty);
+      if(empty){ blanks.push(labelOf(e)); } else s[e.dataset.k]=v; });
     fit.fields.filter(f=>f.type==='pipe').forEach(f=>{ const sel=app.querySelector(`[data-pipe="${f.k}"]`); if(!sel)return;
-      if(sel.value==='custom'){ const c=app.querySelector(`[data-cus="${f.k}"]`); const v=parseFloat(c.value); if(!isNaN(v))s[f.k]=v; } else s[f.k]=parseFloat(sel.value); });
+      if(sel.value==='custom'){ const c=app.querySelector(`[data-cus="${f.k}"]`); const v=parseFloat(c.value);
+        const empty=isNaN(v); c.classList.toggle('bad',empty);
+        if(empty) blanks.push(labelOf(sel)); else s[f.k]=v; }
+      else s[f.k]=parseFloat(sel.value); });
+  }
+  // A corrupt saved job, an old preset or a half-typed number must never reach
+  // the engine. Anything that is not a real number goes back to this fitting's
+  // own default rather than sailing on as NaN.
+  // Anything the defaults say is a NUMBER has to arrive at the engine as a real
+  // number. The form always parses, so this is really for the paths that do not
+  // go near the form: a restored backup, a job saved by an older version, a
+  // hand-edited file. A string or an undefined slipping through used to come out
+  // the far end as "h.toFixed is not a function" - useless on a site.
+  function sanitise(){
+    const d=fit.defaults||{};
+    for(const k in d){ if(k.charAt(0)==='_') continue;
+      if(typeof d[k]!=='number') continue;
+      const n=(typeof s[k]==='number')?s[k]:parseFloat(s[k]);
+      s[k]=isFinite(n)?n:d[k]; }
+    for(const k in s){ if(k.charAt(0)==='_') continue;
+      if(typeof s[k]==='number'&&!isFinite(s[k])) s[k]=(typeof d[k]==='number')?d[k]:0; }
+  }
+  function listOf(a){ const u=a.filter((x,i)=>a.indexOf(x)===i);
+    return u.length===1?u[0]:u.slice(0,-1).join(', ')+' and '+u[u.length-1]; }
+  function setProblem(msg){
+    const pb=document.getElementById('probbox');
+    if(pb){ pb.hidden=!msg;
+      if(msg){ pb.innerHTML='<span class="pi">!</span><span></span>'; pb.lastChild.textContent=msg; } }
+    const gb=document.getElementById('genBtn'); if(gb) gb.disabled=!!msg;
+    const sh=document.getElementById('shareBtn'); if(sh) sh.disabled=!!msg;
+    const dx=document.getElementById('dxfBtn'); if(dx) dx.disabled=!!msg||!PRO;
+    const jb=document.getElementById('jobBtn'); if(jb) jb.disabled=!!msg||!PRO;
+    form._problem=msg||null;
   }
   function refresh(){
     readAll();
@@ -4886,8 +5029,21 @@ function form(kind, presetParams){
     if('nDiv' in s && !own('nDiv')) s.nDiv=SET.nDiv||12;
     if(kind==='inctee'||kind==='teereducer') s.flange=SET.flange;   // flat flange rollout from settings
     rebuildCr();   // Finished-Ø mode: radius multiples follow the typed Ø
-    let pat;
-    try{ pat=fit.build(eff()); }catch(e){ document.getElementById('pv').innerHTML='<div class="hint" style="padding:30px">'+e.message+'</div>'; return; }
+    sanitise();
+    let pat=null, err=null;
+    if(blanks.length) err=blanks.length===1
+      ? 'Fill in the '+blanks[0]+' box.'
+      : 'These boxes are empty: '+listOf(blanks)+'.';
+    if(!err){ try{ pat=fit.build(eff());
+      const pn=plan(pat,SET.page);
+      if(pn.n>MAX_SHEETS) throw new Error('That comes out at '+pn.n+' sheets of '
+        +SET.page.toUpperCase()+' - check the sizes, one of them looks like a stray zero.');
+    }catch(e){ err=e.message||'That will not make a pattern.'; pat=null; } }
+    setProblem(err);
+    if(err){ const pvE=document.getElementById('pv');
+      if(pvE){ pvE.innerHTML='<div class="pverr"><b>CAN\u2019T DRAW THIS YET</b><span></span></div>';
+        pvE.querySelector('span').textContent=err; }
+      return; }
     form._pat=pat;
     /* kit-piece inspection: a tapped kit thumbnail is promoted into the viewport */
     form._kit=null;
@@ -4902,10 +5058,10 @@ function form(kind, presetParams){
     const pill=document.getElementById('pvback');
     if(pill) pill.style.display=activePc==null?'none':'inline-block';
     const pvt=document.getElementById('pvtitle');
-    if(pvt) pvt.textContent=activePc==null?(boxHero?'Cut patterns (1:1)':'Live preview (1:1 flat pattern)'):kitCaption(shown);
+    if(pvt) pvt.textContent=activePc==null?(boxHero?'Cut patterns · 1:1':'Live preview · 1:1'):kitCaption(shown);
     const pl=plan(pat,SET.page);
     const pvs=document.getElementById('pvsheets'),
-          ptxt=pl.n+' × '+SET.page.toUpperCase()+' ('+(pl.c[0]>pl.c[1]?'landscape':'portrait')+')';
+          ptxt=pl.n+' × '+SET.page.toUpperCase();
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(pat,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,eff());
@@ -4962,7 +5118,7 @@ function saveToJob(kind){
     job.items.push({kind, params, name:F[kind].name, ts:Date.now(), qty:1, note:''});
     saveJobs(); bg.remove(); toast('Saved to '+job.name); };
   bg.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>add(JOBS.find(j=>j.id==b.dataset.j)));
-  bg.querySelector('#njGo').onclick=()=>{ const n=bg.querySelector('#njName').value.trim(); if(!n) return toast('Give the job a name');
+  bg.querySelector('#njGo').onclick=()=>{ const n=bg.querySelector('#njName').value.trim(); if(!n) return toast('Give the job a name first.');
     const job={id:Date.now(), name:n, items:[]}; JOBS.unshift(job); add(job); };
 }
 function jobsPage(){
@@ -5000,7 +5156,7 @@ function jobDetail(id){
     <button class="btn primary" id="jobPdf" style="margin-top:4px">Print whole job — every template, one PDF</button>
     <div class="hint">Tap a fitting to open it with its saved sizes. − / + sets how many of that fitting the job needs (each pattern prints once, marked ×N).</div>`;
   app.querySelectorAll('[data-i]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.di||e.target.dataset.q||e.target.dataset.nt||e.target.closest('.qty')) return;
-    const it=job.items[+r.dataset.i]; if(!F[it.kind]){ toast('That fitting type is no longer in the app'); return; }
+    const it=job.items[+r.dataset.i]; if(!F[it.kind]){ toast('That fitting is no longer in the app - it was saved by an older version.'); return; }
     TAB='fit'; repage(()=>form(it.kind, it.params)); });
   app.querySelectorAll('[data-di]').forEach(b=>b.onclick=()=>{ job.items.splice(+b.dataset.di,1); saveJobs(); repage(()=>jobDetail(id)); });
   app.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ const it=job.items[+b.dataset.qi];
@@ -5017,7 +5173,7 @@ function jobDetail(id){
       const q=it.qty||1;
       ps.forEach(pt=>{ if(q>1) pt.title='[×'+q+']  '+pt.title; if(it.note) pt.meta=(pt.meta||[]).concat(['Job note: '+it.note]); });
       pats.push(...ps); }
-    if(!pats.length) return toast('Nothing printable in this job');
+    if(!pats.length) return toast('Nothing in this job to print yet - add a fitting.');
     const out=FP.makeKitPDF(window.jspdf.jsPDF, pats, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
     out.doc.save('CladMate_job_'+job.name.replace(/[^\w-]+/g,'_')+'.pdf');
     toast('Job pack — '+out.pieces+' patterns, '+out.sheets+' sheets'); };
@@ -5045,12 +5201,14 @@ function settingsPage(){
     <div><label>Seam lap total (mm)</label><input type="number" id="sLap" value="${SET.lapTotal}"></div></div>
     <div class="row"><div><label>Hole pitch (mm)</label><input type="number" id="sHole" value="${SET.holePitch}"></div>
     <div><label>Paper</label><div class="seg" id="sPage"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div></div>
-    <div class="row"><div><label>Bend swage allowance (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
+    <div class="row"><div><label>Swage per joint (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
     <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
+    <div class="hint" style="text-align:left">Swage is added at every bend and lobster joint. The tee flange is a flat lip rolled out on the branch saddle to rivet onto the main - used instead of a swage.</div>
     <label>Ordinate divisions</label><div class="seg" id="sDiv"><button data-v="12" ${(SET.nDiv||12)==12?'class="on"':''}>12</button><button data-v="24" ${SET.nDiv==24?'class="on"':''}>24</button></div>
     <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
+    <div class="hint" style="text-align:left">Basic shows diameter and circumference. Detailed adds mitre angles, ordinates, area, weight and sheet counts.</div>
     <label>Canvas</label><div class="seg" id="sCanvas"><button data-v="model" ${SET.canvas!=='paper'?'class="on"':''}>Model space</button><button data-v="paper" ${SET.canvas==='paper'?'class="on"':''}>Paper space</button></div>
-    <div class="hint" style="text-align:left">Basic shows just diameter &amp; circumference on the preview. Detailed adds mitre angles, ordinates, area, weight and sheet counts. Swage is added at every bend/lobster joint. The tee flange is a flat lip rolled out on the branch saddle to rivet onto the main (used instead of a swage).</div></div>
+    <div class="hint" style="text-align:left">Model space is the dark drawing screen. Paper space turns it white, easier to read in bright sun on site.</div></div>
    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Boxes</h3>
     <div class="row"><div><label>Lockform allowance (mm)</label><input type="number" id="sLock" value="${SET.lockform}"></div>
     <div><label>Cheek slot flange (mm)</label><input type="number" id="sSlot" value="${SET.slotFlange}"></div></div>
@@ -5073,26 +5231,39 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.23.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.24.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
    </div>
    <div class="hint">© Craig Sword · Phat Stax · all rights reserved</div>`;
-  const save=()=>{ SET.insulation=+document.getElementById('sIns').value||SET.insulation;
-    SET.lapTotal=+document.getElementById('sLap').value||SET.lapTotal;
-    SET.holePitch=+document.getElementById('sHole').value||SET.holePitch;
+  // Settings feed EVERY fitting, so a daft value here poisons the whole app -
+  // a 0 hole pitch used to hang it solid. Anything out of range is put back to
+  // the nearest sane value and written into the box so you can see it happen.
+  const rd=(id,lo,hi,cur)=>{ const el=document.getElementById(id); if(!el) return cur;
+    let v=parseFloat(el.value);
+    if(!isFinite(v)) { el.value=cur; return cur; }
+    const c=Math.min(hi,Math.max(lo,v));
+    if(c!==v){ el.value=c; el.classList.add('bad'); setTimeout(()=>el.classList.remove('bad'),1200);
+      toast(el.previousElementSibling&&el.previousElementSibling.tagName==='LABEL'
+        ? el.previousElementSibling.textContent+' has to be between '+lo+' and '+hi+' - set to '+c
+        : 'Out of range - set to '+c); }
+    return c; };
+  const save=()=>{
+    SET.insulation = rd('sIns',        0,   500, SET.insulation);
+    SET.lapTotal   = rd('sLap',        0,   200, SET.lapTotal);
+    SET.holePitch  = rd('sHole',       5,   500, SET.holePitch);
+    SET.swage      = rd('sSwage',      0,    50, SET.swage);
+    SET.flange     = rd('sFlange',     0,   100, SET.flange);
+    SET.lockform   = rd('sLock',       0,    60, SET.lockform);
+    SET.slotFlange = rd('sSlot',       0,    60, SET.slotFlange);
+    SET.splitSize  = rd('sSplitSize',  0,   200, SET.splitSize);
+    SET.wsAngle    = rd('sWs',         0,    60, SET.wsAngle);
+    SET.thickness  = rd('sThk',      0.2,     6, SET.thickness);
+    SET.sheetW     = rd('sSW',       200,  5000, SET.sheetW);
+    SET.sheetH     = rd('sSH',       200,  5000, SET.sheetH);
     SET.material=document.getElementById('sMat').value;
-    SET.thickness=+document.getElementById('sThk').value||SET.thickness;
-    SET.sheetW=+document.getElementById('sSW').value||SET.sheetW;
-    SET.sheetH=+document.getElementById('sSH').value||SET.sheetH;
-    SET.swage=(v=>isNaN(v)?SET.swage:v)(parseFloat(document.getElementById('sSwage').value));
-    SET.flange=(v=>isNaN(v)?SET.flange:v)(parseFloat(document.getElementById('sFlange').value));
-    SET.lockform=(v=>isNaN(v)?SET.lockform:v)(parseFloat(document.getElementById('sLock').value));
-    SET.slotFlange=(v=>isNaN(v)?SET.slotFlange:v)(parseFloat(document.getElementById('sSlot').value));
-    SET.splitSize=(v=>isNaN(v)?SET.splitSize:v)(parseFloat(document.getElementById('sSplitSize').value));
-    SET.wsAngle=(v=>isNaN(v)?SET.wsAngle:v)(parseFloat(document.getElementById('sWs').value));
     const b=document.getElementById('sBrand'); if(b&&!b.disabled) SET.brand=b.value;
     saveSet(); ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); }); };
   app.querySelectorAll('input,select').forEach(e=>e.onchange=save);
@@ -5104,11 +5275,11 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.23.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.24.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved — keep it somewhere safe'); };
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
   const impF=document.getElementById('sImportFile');
   document.getElementById('sImport').onclick=()=>impF.click();
   impF.onchange=()=>{ const f=impF.files[0]; if(!f) return;
