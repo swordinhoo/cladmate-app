@@ -943,7 +943,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.25.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.26.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3326,20 +3326,20 @@ const F={
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Circ '+(Math.PI*c.bigOD).toFixed(0)+' → '+(Math.PI*c.smallOD).toFixed(0)],
   stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
-  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:180,nDiv:12},
+  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)'),num('segments','Segments'),FAST],
   build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Middle gore — cut '+c.nMid],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Middle gore — cut '+c.nMid],
   note:'Generate prints the MIDDLE GORE template — wavy both edges. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
-  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:180,nDiv:12},
+  defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)'),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
   build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
-  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,bendHand:'A',nDiv:12},
+  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
     num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
     num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
@@ -3372,40 +3372,40 @@ const F={
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'The Twister - cut 1'],
   note:'Pick the FIRST and SECOND bend types and the diagram draws the fitting as it hangs — A with A (or B with B) runs the same way, A with B makes an S. Prints in fitting order: first bend (starter + middles), the TWISTER, end bend (middles + finisher). Twist rolls bend 2 out of plane. The end-bend seam is auto-rolled so the seam line runs true along the whole fitting.'},
  sqround:{name:'Square to Round',sub:'Transition',icon:I.str,
-  defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
+  defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.squareToRound(s),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
   note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
-  defaults:{seamFromThroat:0,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
+  defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.squareToRound(s),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox],
   note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  flatback:{name:'Flat Back Cone',sub:'Eccentric reducer',icon:I.econe,
-  defaults:{swage:3,seamFromThroat:180,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
+  defaults:{swage:3,seamFromThroat:90,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'flatback'})),
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Circ '+(Math.PI*c.bigOD).toFixed(0)+' → '+(Math.PI*c.smallOD).toFixed(0)],
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  oblique:{name:'Oblique Cone',sub:'Offset-apex cone',icon:I.obl,
-  defaults:{swage:3,seamFromThroat:180,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:70,lapTotal:50,holePitch:40,holeEndGap:20},
+  defaults:{swage:3,seamFromThroat:90,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:70,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),num('offset','Offset (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.offsetReducer(Object.assign({},s,{mode:'oblique'})),
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Circ '+(Math.PI*c.bigOD).toFixed(0)+' → '+(Math.PI*c.smallOD).toFixed(0)],
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Offset '+c.offset.toFixed(0)]},
  anglecone:{name:'Angle Cone',sub:'Small end on a tilted plane',icon:I.acone,
-  defaults:{swage:3,seamFromThroat:0,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:80,topAngle:30,lapTotal:50,holePitch:40,holeEndGap:20},
+  defaults:{swage:3,seamFromThroat:90,bigPipeOD:219.1,smallPipeOD:114.3,insulation:25,height:200,offset:80,topAngle:30,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Small-end centre height (mm)'),num('offset','Throw toward throat (mm)'),num('topAngle','Small end tilt (°)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.angledCone(s),
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Tilt '+c.angle+'°'],
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Tilt '+c.angle+'°','H '+c.H+' · throw '+c.X],
   note:'Taper onto a pipe that leaves at an angle: the small end sits in a plane tilted by the angle you set, its centre at the height and throw you give (throw is toward the throat — the short side). Seam defaults to the throat. Geometry verified against published trade tables to 0.05 mm.'},
  inctee:{name:'Tee',sub:'Any angle · any branch',icon:I.inctee,
-  defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
+  defaults:{seamFromThroat:90,mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Branch angle (°)'),num('minLen','Branch min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'})),
   kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'inctee'}));
@@ -3414,7 +3414,7 @@ const F={
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Angle '+c.angle+'°','Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  trunnion:{name:'Trunnion on Bend',sub:'Support stub under a lobster',icon:I.trunb,
-  defaults:{trunnionPipeOD:114.3,bendPipeOD:219.1,insulation:25,centreRadius:305,segments:4,offset:200,minLen:200,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12,seamFromThroat:0},
+  defaults:{trunnionPipeOD:114.3,bendPipeOD:219.1,insulation:25,centreRadius:305,segments:4,offset:200,minLen:200,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12,seamFromThroat:90},
   fields:[pipe('trunnionPipeOD','Trunnion pipe'),pipe('bendPipeOD','Bend pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('segments','Bend segments'),num('offset','Offset from riser axis (mm)'),num('minLen','Trunnion length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.trunnionOnBend(s),
   kit:s=>{ const br=FP.trunnionOnBend(s);
@@ -3424,7 +3424,7 @@ const F={
   stats:c=>['Trun Ø'+c.tOD.toFixed(0),'Bend Ø'+c.bOD.toFixed(0),'S '+c.S.toFixed(0),'o12 '+c.o12.join(',')],
   note:'Support trunnion into the BACK of a lobster bend. The trunnion is developed as a radial branch into the bend tube (a clean saddle), and Generate prints BOTH the trunnion pattern AND the hole to cut in the bend cladding — same geometry, so they match. Centre radius / offset just mark where the hole sits on the bend. Offer the first one up to the metal before cutting a batch.'},
  teereducer:{name:'Tee Reducer',sub:'Small branch tee',icon:I.teered,
-  defaults:{seamFromThroat:0,mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
+  defaults:{seamFromThroat:90,mainPipeOD:219.1,branchPipeOD:88.9,insulation:25,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('minLen','Branch min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90})),
   kit:s=>{ const br=FP.branchOnCylinder(Object.assign({},s,{mode:'teereducer',angle:90}));
@@ -3433,7 +3433,7 @@ const F={
   stats:c=>['Main Ø'+c.mainOD.toFixed(0),'Branch Ø'+c.brOD.toFixed(0),'Saddle '+c.saddle.toFixed(0)],
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  teebend:{name:'Trunnion',sub:'Support stub on a bend',icon:I.tbend,
-  defaults:{seamFromThroat:0,mainPipeOD:219.1,stubPipeOD:114.3,insulation:25,centreRadius:305,height:450,offset:0,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
+  defaults:{seamFromThroat:90,mainPipeOD:219.1,stubPipeOD:114.3,insulation:25,centreRadius:305,height:450,offset:0,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Bend pipe'),pipe('stubPipeOD','Stub / trunnion pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('height','Stub top to main centreline (mm)'),Object.assign(num('offset','Offset off the leg axis (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.teeBendStub(s),
   kit:s=>[FP.teeBendStub(s), FP.teeBendHole(s)],
@@ -3459,7 +3459,7 @@ const F={
   stats:c=>['Branch Ø'+c.brOD.toFixed(0),'Dome Ø'+c.dia+' · crown R '+c.Rc.toFixed(0),'Ordinates '+c.hMin.toFixed(0)+'–'+c.hMax.toFixed(0)],
   note:'Branch standing on the crown of a dished end. Same head rule as the Dome tile — crown + knuckle radius = diameter, worked from the dome height — so the two fittings always agree. Shortest generator faces the dome centre and IS your min length. Keeps you off the knuckle and says so if the branch strays onto it. Verified against published trade tables to 0.7 mm.'},
  ybranch:{name:'Y Branch',sub:'Breeches piece · two legs off one',icon:I.ybr,
-  defaults:{seamFromThroat:0,pipeOD:219.1,insulation:25,branchAngle:45,mainLen:250,branchLen:250,mainAllow:10,branchAllow:10,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
+  defaults:{seamFromThroat:90,pipeOD:219.1,insulation:25,branchAngle:45,mainLen:250,branchLen:250,mainAllow:10,branchAllow:10,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('pipeOD','Pipe size (all three legs)'),num('insulation','Insulation (mm)'),
     num('branchAngle','Branch angle off the main (\u00b0)'),
     num('mainLen','Main length to the crotch (mm)'),num('branchLen','Branch length to the crotch (mm)'),
@@ -5246,7 +5246,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.25.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.26.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -5290,7 +5290,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.25.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.26.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
