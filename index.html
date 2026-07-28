@@ -943,7 +943,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.26.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.26.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1596,7 +1596,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const JA = p.jointAllow || 0, ND = _nd(p.nDiv, 12);
     const seamRad = (p.seamFromThroat == null ? 0 : p.seamFromThroat) * Math.PI/180;
     // phi=0 (point 1) sits on the crown line - shortest cut; sides wrap furthest onto the bend.
-    let tmax = -1e9; for (let i = 0; i <= 360; i++) { const t = tInt(seamRad + 2*Math.PI*i/360); if (t > tmax) tmax = t; }
+    /* saddle depth is a property of the FITTING, not of where you put the seam.
+       Sweeping only for tmax and then reading the minimum off tInt(seam+90) was
+       right by luck while every seam defaulted to 0; move the wheel and the
+       stat went wrong. Sweep for both ends. */
+    let tmax = -1e9, tmin = 1e9;
+    for (let i = 0; i <= 360; i++) { const t = tInt(seamRad + 2*Math.PI*i/360); if (t > tmax) tmax = t; if (t < tmin) tmin = t; }
     const yb = phi => L + JA + (tmax - tInt(phi));
     const phiAt = x => seamRad + (x/circ) * 2*Math.PI;
     const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, top=[];
@@ -1610,10 +1615,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let k = 0; k <= ND; k++) { const x = k*circ/ND, h = yb(phiAt(x)); prim.push({ style:'ord', pts: [[x,0],[x,h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
     const o12 = []; for (let k = 0; k <= 6; k++) { const phi = seamRad + 2*Math.PI*k/12; o12.push(Math.round(L + JA + (tmax - tInt(phi)))); }
     return { kind:'trunbend', title:'Trunnion on Bend  -  1:1 Template',
-      meta:[`Trunnion Ø${tOD.toFixed(0)} into bend Ø${bOD.toFixed(0)} (cladding)   saddle depth ${(tmax - tInt(seamRad+Math.PI/2)).toFixed(0)} mm`,
+      meta:[`Trunnion Ø${tOD.toFixed(0)} into bend Ø${bOD.toFixed(0)} (cladding)   saddle depth ${(tmax - tmin).toFixed(0)} mm`,
             `Position ${p.offset||0} mm from the riser, CR ${p.centreRadius||'-'} mm - marks where the hole goes on the bend.`,
             `Length ${L} + joint ${JA} mm.  Lap ${p.lapTotal} (${lapEach} each end).  Saddle edge sits against the bend.`],
-      calc:{ tOD, bOD, S: (p.centreRadius||0) - (p.offset||0), o12, circ, saddle:(tmax - tInt(seamRad+Math.PI/2)) },
+      calc:{ tOD, bOD, S: (p.centreRadius||0) - (p.offset||0), o12, circ, saddle:(tmax - tmin) },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:null };
   }
 
@@ -1623,8 +1628,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const mainOD = _odOr(p.mainPipeOD, p.mainOD, insul, cg, 'the main pipe size');
     const brOD   = _odOr(p.branchPipeOD, p.branchOD, insul, cg, 'the branch pipe size');
     if (!(mainOD > 0) || !(brOD > 0)) throw new Error('Fill in both the main and the branch size.');
-    if (brOD >= mainOD) throw new Error('The branch must be smaller than the main. Main is '
-      + mainOD.toFixed(0) + ' mm cladding, branch is ' + brOD.toFixed(0) + ' mm.');
+    /* EQUAL is fine and it is a real fitting - two same-size pipes at 90 develop
+       to a clean pair of half-cosine arches meeting in a point at 3 and 9.
+       tInt() handles r == R exactly (the sqrt term goes to R*|cos phi|); it is
+       only r > R that goes imaginary and gets silently clamped to a flat-
+       bottomed lie by the Math.max below. So the guard is > , not >= . */
+    if (brOD > mainOD) throw new Error('The branch is bigger than the main. Main is '
+      + mainOD.toFixed(0) + ' mm cladding, branch is ' + brOD.toFixed(0)
+      + ' mm - swap them round, or drop the branch size.');
     const ang = p.angle == null ? 90 : +p.angle;
     if (!(ang >= 15 && ang <= 90)) throw new Error('Branch angle must be between 15 and 90 degrees off the main.');
     const R = mainOD/2, r = brOD/2;
@@ -1637,7 +1648,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const g = _branchGeom(p), R = g.R, r = g.r, th = g.th, tInt = g.tInt;
     const circ = Math.PI*g.brOD, lapEach = p.lapTotal/2, minLen = p.minLen != null ? p.minLen : 30;
     const ND = _nd(p.nDiv, 12), seamRad = (p.seamFromThroat||0)*Math.PI/180;
-    let tmax = -1e9; for (let i=0;i<=360;i++){ const t=tInt(seamRad + 2*Math.PI*i/360); if(t>tmax)tmax=t; }
+    let tmax = -1e9, tmin = 1e9;   // see trunbend: sweep both ends, the saddle is not seam-relative
+    for (let i=0;i<=360;i++){ const t=tInt(seamRad + 2*Math.PI*i/360); if(t>tmax)tmax=t; if(t<tmin)tmin=t; }
     const yb = phi => minLen + (tmax - tInt(phi));
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
     const fl = p.flange || 0;                // flat flange rolled out on the saddle edge (folds against the main)
@@ -1653,21 +1665,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { kind:p.mode||'branch', title:(names[p.mode]||'Branch')+'  -  1:1 Template',
       meta:[`Main Ø${g.mainOD.toFixed(0)}  branch Ø${g.brOD.toFixed(0)} mm (cladding)   angle ${(p.angle||90)}°`,
             `Branch pattern, saddle cut to fit main.  Lap ${p.lapTotal} (${lapEach} each end)  min length ${minLen} mm`
-            + (fl>0 ? `   flat flange ${fl} mm on the saddle (fold on the dashed saddle line, rivet to the main)` : '')],
-      calc:{mainOD:g.mainOD, brOD:g.brOD, angle:p.angle||90, circ, saddle:(tmax-tInt(seamRad+Math.PI/2)), flange:fl},
+            + (fl>0 ? `   flat flange ${fl} mm on the saddle (fold on the dashed saddle line, rivet to the main)` : '')]
+            .concat(Math.abs(g.brOD-g.mainOD)<0.5 && Math.abs(th-Math.PI/2)<1e-6
+              ? [`EQUAL TEE - same size both ways. The saddle runs out to a sharp point at 3 and 9 o'clock, where the branch lies tangent to the main and there is no metal overlapping. Fix each side of the point, not on it.`] : []),
+      calc:{mainOD:g.mainOD, brOD:g.brOD, angle:p.angle||90, circ, saddle:(tmax-tmin), flange:fl},
       prim, holes, ticks, bbox:bboxOf(prim), cutNote:null };
   }
   // hole cut-out on the MAIN (Tee/Trunnion Hole Cut Out)
   function branchHole(p) {
     const g=_branchGeom(p), R=g.R, r=g.r, th=g.th, tInt=g.tInt;
+    /* i<N, not i<=N. phi=0 and phi=2*PI are the SAME point, and counting it
+       twice dragged the mean off centre - about 0.75 mm on an equal tee, which
+       shifted the whole hole and read 1.5 mm long on the stat. Close the
+       outline explicitly afterwards instead. */
     const N=180, pts=[];
-    for(let i=0;i<=N;i++){ const phi=2*Math.PI*i/N;
+    for(let i=0;i<N;i++){ const phi=2*Math.PI*i/N;
       const Py=r*Math.sin(phi), Pz=Math.sqrt(Math.max(R*R-r*r*Math.sin(phi)*Math.sin(phi),0));
       const psi=Math.atan2(Py,Pz), arc=R*psi, Px=tInt(phi)*Math.cos(th) - r*Math.cos(phi)*Math.sin(th);
       pts.push([arc,Px]); }
     // centre
     let cx=0,cy=0; pts.forEach(pp=>{cx+=pp[0];cy+=pp[1];}); cx/=pts.length; cy/=pts.length;
-    const c=pts.map(pp=>[pp[0]-cx,pp[1]-cy]);
+    const c=pts.map(pp=>[pp[0]-cx,pp[1]-cy]); c.push(c[0].slice());   // close it
     let w=0,h=0; c.forEach(pp=>{w=Math.max(w,Math.abs(pp[0]));h=Math.max(h,Math.abs(pp[1]));});
     const prim=[{style:'cut',pts:c}];
     prim.push({style:'centre',pts:[[-w-10,0],[w+10,0]]});
@@ -3889,6 +3907,9 @@ function diagOffset(S,d,hand){
   return _svgWrap(parts,o.concat(u),160);
 }
 
+/* Most lines any 210px schematic can usefully show. Nothing about the real
+   fitting - purely a limit on how much ink the little picture draws. */
+const DCAP=64;
 function diagDouble(st){
   // True 3D tube model, orthographic isometric-ish projection, painter's algorithm.
   const rad=a=>a*Math.PI/180;
@@ -3898,7 +3919,10 @@ function diagDouble(st){
   const R1=44, sc=R1/Math.max(st.centreRadius1||229, cl+5);
   const r=Math.max(7,Math.min(cl*sc, R1*0.62));
   const R2=Math.max(r+5,(st.centreRadius2||229)*sc);
-  const n1=Math.max(1,Math.round(st.segments1||4)), n2=Math.max(1,Math.round(st.segments2||4));
+  /* same cap as the other schematics - a corrupt job carrying segments 1e9 sat
+     here for twelve seconds with the phone frozen. DCAP is a drawing limit,
+     it never touches the pattern the engine builds. */
+  const n1=Math.max(1,Math.min(DCAP,Math.round(st.segments1||4))), n2=Math.max(1,Math.min(DCAP,Math.round(st.segments2||4)));
   const phi1=+st.bendDeg1||90, phi2=+st.bendDeg2||90, opp=(st.direction!=='same');
   const tau=Math.max(-90,Math.min(90,+st.twist||0));
   const seam=(+st.seamFromThroat||0), th2=(opp?180:0)+tau, seam2=seam-th2;
@@ -4421,6 +4445,11 @@ function diagWsBox(s){
 }
 function diagDome(s){
   const D=Math.max(1,+s.dia||2500), H=Math.max(1,+s.height||500), N=Math.max(3,Math.round(+s.segments||26));
+  /* A corrupted saved job can carry segments:1e9. The schematic then tried to
+     draw a billion gore lines and locked the phone up solid - reachable since
+     the error path started redrawing this diagram. Cap what we DRAW; the
+     label below still tells the truth about N. */
+  const Ng=Math.min(N,DCAP);
   const sc=120/D, R=D*sc/2, h=Math.min(H*sc,R*0.98);
   const parts=[], all=[];
   // torispherical profile: crown + knuckle arcs (same rule as the engine)
@@ -4438,7 +4467,7 @@ function diagDome(s){
   const rp=prof.map(P), lp=prof.map(p=>[-p[0]*sc,-p[1]*sc]).reverse();
   parts.push(_pl(rp.concat(lp),INKST)); rp.concat(lp).forEach(p=>all.push(p));
   // gore lines (verticals from base to apex, foreshortened)
-  for(let g=1;g<N/2;g++){ const f=g/(N/2); const gx=R*Math.cos(f*Math.PI/2);
+  for(let g=1;g<Ng/2;g++){ const f=g/(Ng/2); const gx=R*Math.cos(f*Math.PI/2);
     const merTop=prof[prof.length-1]; parts.push(_ln([gx,0],[0,-h],`stroke="${LY.faint}" stroke-width="1"`)); parts.push(_ln([-gx,0],[0,-h],`stroke="${LY.faint}" stroke-width="1"`)); }
   parts.push(_ln([-R,0],[R,0],INKST));  // base / tan line
   dimLin(parts,all,[-R,0],[R,0],16,'Ø'+fmtDim(D));
@@ -4657,7 +4686,7 @@ function fittingDiagram(kind,s){
     if(kind==='dome') return diagDome(s);
     if(kind==='valvebox'||kind==='wvalvebox') return diagValveBox(s);
     const clad=x=>x+2*(s.insulation||0);
-    if(kind==='lobster'){ const N=Math.max(1,Math.round(s.segments||4)), phi=s.bendDeg||90;
+    if(kind==='lobster'){ const N=Math.max(1,Math.min(DCAP,Math.round(s.segments||4))), phi=s.bendDeg||90;
       const r=clad(s.pipeOD)/2, k=Math.min(0.8, r/Math.max(s.centreRadius||r*2, r+5));
       // half starter + (N-1) full middles + half finisher: joints at (j-0.5)*phi/N
       const va=[90]; for(let j=1;j<=N;j++) va.push(90-(j-0.5)*phi/N); va.push(90-phi);
@@ -4674,7 +4703,7 @@ function fittingDiagram(kind,s){
       {d1:fmtDim(s.sqW)+'×'+fmtDim(s.sqD),d2:'Ø'+fmtDim(clad(s.pipeOD)),L:fmtDim(s.height)});
     if(kind==='obliqueround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'obliqueround',s.offsetX,null,
       {d1:fmtDim(s.sqW)+'×'+fmtDim(s.sqD),d2:'Ø'+fmtDim(clad(s.pipeOD)),L:fmtDim(s.height),v:'V '+fmtDim(s.offsetX||0)});
-    if(kind==='trunnion'){ const n=Math.max(2,Math.round(s.segments||4));
+    if(kind==='trunnion'){ const n=Math.max(2,Math.min(DCAP,Math.round(s.segments||4)));
       const rad=a=>a*Math.PI/180, Rc=52;
       const Rt=(s.bendPipeOD+2*(s.insulation||0))/2, rt=(s.trunnionPipeOD+2*(s.insulation||0))/2, CR=Math.max(s.centreRadius||300, Rt+10);
       const sc=Rc/CR, rb=Math.max(9,Math.min(Rt*sc,Rc*0.6)), rr=Math.max(6,rt*sc);
@@ -5058,6 +5087,17 @@ function form(kind, presetParams){
     if(err){ const pvE=document.getElementById('pv');
       if(pvE){ pvE.innerHTML='<div class="pverr"><b>CAN\u2019T DRAW THIS YET</b><span></span></div>';
         pvE.querySelector('span').textContent=err; }
+      /* Nothing built, so every number still on the page belongs to the LAST
+         good build - and the page then argues with itself. Craig caught it on
+         an equal tee: the chips read "Branch 166" (the old default) while the
+         error underneath read "branch is 271". Wipe what came off the pattern.
+         The little schematic is drawn from the BOXES, not from the pattern, so
+         it can and must still redraw - two equal circles is half the answer. */
+      const stE=document.getElementById('pvstat'); if(stE) stE.innerHTML='';
+      const shE=document.getElementById('pvsheets'); if(shE) shE.textContent='\u2014';
+      const fdE=document.getElementById('fitdiag');
+      if(fdE){ try{ fdE.innerHTML=fittingDiagram(kind,eff()); }catch(e){ fdE.innerHTML=''; } }
+      form._pat=null; form._kit=null;
       return; }
     form._pat=pat;
     /* kit-piece inspection: a tapped kit thumbnail is promoted into the viewport */
@@ -5246,7 +5286,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.26.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.26.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -5290,7 +5330,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.26.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.26.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
