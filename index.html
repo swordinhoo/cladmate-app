@@ -747,22 +747,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .seamvis .seamwheel{flex:0 0 44%;max-width:158px;height:auto}
   .seamvis #fitdiag{flex:1;display:flex;align-items:center;justify-content:center;min-width:0}
   .seamvis #fitdiag svg{width:100%!important;max-width:210px;height:auto}
-  /* ---- ordinate table: the numbers off the drawing, as a table ----
-     On a tablet this is what fills the bottom half of the screen. On a bench it
-     is what you read with a tape when you would rather mark the metal straight
-     off the numbers than trust a taped-together printout. */
-  .ordcard{padding:0;overflow:hidden}
-  .ordcard[data-shut]{display:none}
-  .ordbar{border:1px solid var(--line);border-radius:9px;margin-bottom:12px}
-  .ordgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px;padding:10px}
-  .ordc{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
-        padding:6px 3px;text-align:center;font-family:var(--fm);line-height:1.2;
-        display:flex;flex-direction:column;justify-content:center}
-  .ordc .n{display:block;font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--sub)}
-  .ordc b{display:block;font-size:17px;font-weight:800;color:var(--acc);
-        font-variant-numeric:tabular-nums;margin:1px 0}
-  .ordc .x{display:block;font-size:8.5px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
-  .ordcard .hint{text-align:left;padding:0 11px 11px;margin:0}
   .seamdot{transition:r .16s cubic-bezier(.34,1.56,.5,1),fill .16s ease;
         transform-box:fill-box;transform-origin:center}
   [data-dot]:active .seamdot{transform:scale(1.15)}
@@ -931,36 +915,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   @media(min-width:700px){ .grid{grid-template-columns:1fr 1fr;gap:9px} }
   @media(min-width:760px){
     main{max-width:1120px;padding:18px}
-    /* Two things fill a tablet. The drawing takes the full width up top - boxed
-       into one column it could never get taller than its own aspect ratio let it.
-       And the lower row is TOLD to reach the bottom of the screen: left to
-       itself it stopped where its content stopped, which is what left half a
-       tablet sitting empty. */
+    /* The drawing takes the full width up top - boxed into one column it could
+       never get taller than its own aspect ratio let it, which is what left half
+       a tablet sitting empty. */
     .workspace{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
-          grid-template-rows:auto 1fr;gap:0 18px;align-items:stretch;
-          min-height:calc(100vh - 168px);min-height:calc(100dvh - 168px)}
+          gap:0 18px;align-items:start}
     .pane-top{grid-column:1 / -1}
-    .pane-left,.pane-right{min-width:0;display:flex;flex-direction:column}
-    /* the ordinate table swallows the slack, so the growth lands on something
-       worth reading instead of on empty card padding */
-    /* the phone folds this away to keep the boxes near the top; a tablet has the
-       room, so it is simply always open there */
-    .ordbar{display:none}
-    .ordcard[data-shut]{display:block}
-    .pane-left>#ordwrap{flex:1 1 auto;display:flex;min-height:0}
-    .pane-left>#ordwrap .ordcard{flex:1;display:flex;flex-direction:column;margin-bottom:0}
-    /* auto rows + stretch: the slack goes into taller tiles, so the numbers get
-       bigger rather than the card getting emptier */
-    .pane-left>#ordwrap .ordgrid{flex:1;grid-auto-rows:minmax(52px,auto)}
-    .pane-left>#ordwrap .ordc b{font-size:21px}
+    .pane-left,.pane-right{min-width:0}
     /* cap the container, not the svg - the diagram carries an inline
        width:100%, so only the box it sits in can hold it back. Uncapped, a wide
        laptop blew the little schematic up to half a metre tall. */
     .seamvis .seamwheel{max-width:190px}
     .seamvis #fitdiag{flex:0 1 340px;max-width:340px}
     .diagcard>#fitdiag{max-width:360px}
-    /* thumb sits bottom-right on a tablet - so the buttons go there */
-    .pane-right>.printwarn,.pane-right>#lockBtn{margin-top:auto}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
     .grid2 .full{grid-column:1 / -1}
     .genwrap{position:static;background:none;padding:0}
@@ -976,7 +943,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.25.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.25.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4826,7 +4793,7 @@ function fieldHTML(f,s){
 }
 function form(kind, presetParams){
   CUR=()=>form(kind);
-  let kitOpen=false, kitJustOpened=false, activePc=null, plotOnce=true, ordOpen=false;
+  let kitOpen=false, kitJustOpened=false, activePc=null, plotOnce=true;
   const fit=F[kind];
   if(presetParams) states[kind]=Object.assign({},presetParams,{__touched:true});
   const s=states[kind];
@@ -4875,7 +4842,6 @@ function form(kind, presetParams){
      <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
   if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else if(!boxHero) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
-  html+=`<div id="ordwrap"></div>`;
   html+=`</div><div class="pane-right">`;
   const VARG=varGroupOf(kind);
   if(VARG) html+=`<div class="card varcard"><label>${VARG.label}</label><div class="seg" data-varsel="1">${VARG.opts.map(o=>`<button data-vk="${o.k}" ${o.k===kind?'class="on"':''}>${o.label}</button>`).join('')}</div></div>`;
@@ -5137,32 +5103,7 @@ function form(kind, presetParams){
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
       +(basic?'':`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.kg.toFixed(2)} kg · ${ms.perSheet}/sheet</span>`);
-    renderOrds(pat);
     renderKit();
-  }
-  /* Only a genuine ordinate run gets a table: every tick numeric, evenly spaced
-     along the datum. Ticks elsewhere in the engine carry words - LOCKFORM 25,
-     HIGH SIDE, O150 - and tabling those would be nonsense, so they fall out here
-     and the card simply does not appear. */
-  function ordSet(pat){
-    const t=(pat&&pat.ticks)||[]; if(t.length<5) return null;
-    for(const k of t) if(!/^-?\d+(\.\d+)?$/.test(String(k.label))) return null;
-    const step=t[1].x-t[0].x; if(!(step>0.5)) return null;
-    for(let i=1;i<t.length;i++) if(Math.abs((t[i].x-t[i-1].x)-step)>0.6) return null;
-    return {step,rows:t.map((k,i)=>({n:i+1,x:k.x,v:k.label}))};
-  }
-  function renderOrds(pat){
-    const w=document.getElementById('ordwrap'); if(!w) return;
-    const o=ordSet(pat); if(!o){ w.innerHTML=''; return; }
-    const loop=o.rows[0].v===o.rows[o.rows.length-1].v;
-    w.innerHTML=`<button class="kitbar ordbar" id="ordToggle">${ordOpen?'Hide the ordinate table ▾':'Show the ordinate table — the numbers off the drawing ▸'}</button>`
-      +`<div class="card ordcard"${ordOpen?'':' data-shut="1"'}><div class="pvhead"><span class="k">Ordinates — off the datum line</span>`
-      +`<span class="v">${o.rows.length} stations · ${o.step.toFixed(1)} apart</span></div>`
-      +`<div class="ordgrid">`+o.rows.map(r=>`<div class="ordc"><span class="n">${r.n}</span><b>${r.v}</b><span class="x">at ${r.x.toFixed(0)}</span></div>`).join('')+`</div>`
-      +`<div class="hint">Step along the datum by ${o.step.toFixed(1)} mm, square up, mark the height, then join through the marks.`
-      +(loop?' The last station lands back on the first — that is the seam coming round.':'')+`</div></div>`;
-    const tg=document.getElementById('ordToggle');
-    if(tg) tg.onclick=()=>{ ordOpen=!ordOpen; renderOrds(pat); };
   }
   function kitCaption(p){ const t=(p.title||'').replace(/\s*1:1\s*$/,'');
     const parts=t.split(/\s+-\s+/); return (parts.length>1?parts.slice(1).join(' - '):t).trim(); }
@@ -5305,7 +5246,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.25.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.25.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -5349,7 +5290,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.25.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.25.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
