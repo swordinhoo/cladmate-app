@@ -947,7 +947,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.27.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.28.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -2449,6 +2449,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   function watershedBoxKit(p) {
+    /* The UI always hands over lockform and slotFlange out of Settings, so
+       these two never bit in the app - but a caller that leaves them out (a
+       test, a script, the library generator) got NaN silently propagated the
+       whole way through the pattern and a null bbox out the far end. Same
+       shop defaults the settings page ships with. */
+    if (p.lockform == null) p = Object.assign({}, p, { lockform: 25 });
+    if (p.slotFlange == null) p = Object.assign({}, p, { slotFlange: 10 });
     if (p.splitMode === 'horiz') return wsHorizKit(p);
     const L = p.boxL, W = p.boxW, H = p.boxH, D = p.shedDepth;
     const LF = p.lockform, FE = p.foldedEdge == null ? 5 : p.foldedEdge, lap = p.lap == null ? 50 : p.lap;
@@ -3110,23 +3117,120 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { W, H, PM, OV, uw: r.uw, uh: r.uh, sx: r.sx, sy: r.sy,
              nCols: Math.ceil(pw / r.sx), nRows: Math.ceil(ph / r.sy), pw, ph, bb };
   }
+
+  /* ---- WHERE DOES THE INFO PANEL GO? -------------------------------------
+     It used to be dropped dead on the centre of the pattern's bounding box.
+     On a straight run of ducting that is blank paper; on anything with a bend
+     in it that is precisely where the linework is. The panel is an opaque
+     white knockout, so it was punching a hole through the very lines you are
+     meant to be cutting to. Craig, with the printout in his hand: "this is no
+     good. it blocks out the line. it should intellectually put it somewhere
+     suitable on each drawing for all the fittings."
+
+     "For all the fittings" is the hard part, and it rules out any per-fitting
+     rule of thumb. So this does not look at the fitting at all. It burns every
+     line, hole and tick label into a coarse occupancy grid laid over the whole
+     layout, builds a summed-area table off that grid, and can then ask "is
+     this rectangle clear?" in constant time no matter how big the rectangle
+     or how many thousand points the pattern has. Sweep every candidate spot on
+     every sheet, keep the clear one nearest the pattern so the panel still
+     reads as belonging to this drawing rather than being parked in a far
+     corner. Ask for a generous margin of clear paper first and only ease off
+     if the pattern really is that congested.
+
+     A sheet's own furniture is off limits too: the header and tape hint along
+     the top, the 50 mm scale check in the bottom left, and both overlap bands
+     - anything printed in an overlap band comes out twice, once on each of the
+     two sheets that share it. */
+  function _placeInfo(doc, pat, plan) {
+    if (!pat.info) return null;
+    const { H, PM, OV, uw, uh, sx, sy, nCols, nRows, pw, ph, bb } = plan;
+    const sz = infoBoxSize(doc, pat.info);
+    const CELL = 2.5;
+    const GC = Math.max(1, Math.ceil(pw / CELL) + 2), GR = Math.max(1, Math.ceil(ph / CELL) + 2);
+    const occ = new Uint8Array(GC * GR);
+    const mark = (x, y) => {
+      const c = Math.floor((x - bb.x0) / CELL), r = Math.floor((y - bb.y0) / CELL);
+      if (c >= 0 && c < GC && r >= 0 && r < GR) occ[r * GC + c] = 1;
+    };
+    // walk every segment at sub-cell steps: a long straight must not leave a
+    // string of empty cells between its two endpoints for the panel to sit in
+    pat.prim.forEach(pr => {
+      for (let i = 1; i < pr.pts.length; i++) {
+        const A = pr.pts[i-1], B = pr.pts[i];
+        const n = Math.max(1, Math.ceil(Math.hypot(B[0]-A[0], B[1]-A[1]) / (CELL * 0.6)));
+        for (let t = 0; t <= n; t++) mark(A[0] + (B[0]-A[0])*t/n, A[1] + (B[1]-A[1])*t/n);
+      }
+    });
+    const blob = (x, y, rx, ry) => { for (let dx = -rx; dx <= rx; dx += CELL) for (let dy = -ry; dy <= ry; dy += CELL) mark(x+dx, y+dy); };
+    (pat.holes || []).forEach(h => blob(h[0], h[1], 4, 4));      // the drawn cross is +/-3 mm
+    (pat.ticks || []).forEach(t => blob(t.x, t.y + 2, 6, 3));    // and its little number
+
+    // summed-area table: occupancy of any rectangle in four lookups
+    const S = new Int32Array((GC + 1) * (GR + 1));
+    for (let r = 0; r < GR; r++) for (let c = 0; c < GC; c++)
+      S[(r+1)*(GC+1) + c+1] = occ[r*GC+c] + S[r*(GC+1)+c+1] + S[(r+1)*(GC+1)+c] - S[r*(GC+1)+c];
+    const cl = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+    const busy = (x0, y0, x1, y1) => {
+      const c0 = cl(Math.floor((x0-bb.x0)/CELL), 0, GC), c1 = cl(Math.ceil((x1-bb.x0)/CELL), 0, GC);
+      const r0 = cl(Math.floor((y0-bb.y0)/CELL), 0, GR), r1 = cl(Math.ceil((y1-bb.y0)/CELL), 0, GR);
+      if (c1 <= c0 || r1 <= r0) return 0;
+      return S[r1*(GC+1)+c1] - S[r0*(GC+1)+c1] - S[r1*(GC+1)+c0] + S[r0*(GC+1)+c0];
+    };
+
+    const clipY = H - PM - uh, STEP = 4;
+    const midX = (bb.x0 + bb.x1) / 2, midY = (bb.y0 + bb.y1) / 2;
+    const sweep = gap => {
+      let win = null, ws = Infinity;
+      for (let row = 0; row < nRows; row++) for (let col = 0; col < nCols; col++) {
+        const xLo = PM + 3, xHi = PM + uw - 3 - sz.w - (col < nCols - 1 ? OV : 0);
+        const yLo = clipY + 14 + (row < nRows - 1 ? OV : 0), yHi = clipY + uh - 3 - sz.h;
+        for (let py = yLo; py <= yHi; py += STEP) for (let px = xLo; px <= xHi; px += STEP) {
+          if (px < PM + 100 && py + sz.h > H - PM - 13) continue;   // 50 mm scale check
+          const X0 = px - PM + col*sx + bb.x0, X1 = X0 + sz.w;
+          const Y1 = H - PM + row*sy - py + bb.y0, Y0 = Y1 - sz.h;
+          const n = busy(X0-gap, Y0-gap, X1+gap, Y1+gap);
+          // clear paper beats everything; among equals, closest to the pattern
+          const sc = n * 100000 + Math.hypot((X0+X1)/2 - midX, (Y0+Y1)/2 - midY);
+          if (sc < ws) { ws = sc; win = { col, row, x: px + sz.w/2, y: py + sz.h/2, n,
+                                          w: sz.w, h: sz.h, rect: [X0, Y0, X1, Y1] }; }
+        }
+      }
+      return win;
+    };
+    let fallback = null;
+    const gaps = [9, 5, 2.5, 0.8];
+    for (let i = 0; i < gaps.length; i++) {
+      const c = sweep(gaps[i]);
+      if (!fallback) fallback = c;
+      if (c && !c.n) return c;
+    }
+    // nothing on any sheet is properly clear, or the panel is wider than the
+    // paper: it still has to be printed, so take the emptiest spot going
+    return fallback || { col: 0, row: 0, x: PM + uw/2, y: H - PM - uh/2, w: sz.w, h: sz.h,
+                         rect: [midX - sz.w/2, midY - sz.h/2, midX + sz.w/2, midY + sz.h/2] };
+  }
   function _renderPattern(doc, pattern, opts, plan, first) {
     const { W, H, PM, OV, uw, uh, sx, sy, nCols, nRows, pw, ph, bb } = plan;
     const nx = x => x - bb.x0, ny = y => y - bb.y0;
     const orient = W > H ? 'landscape' : 'portrait';
     if (!first) doc.addPage([W, H], orient);
     drawCover(doc, pattern, { W, H, nCols, nRows, pw, ph, nx, ny, brand: opts.brand });
+    // worked out once for the whole set, not once per sheet - the panel prints
+    // on exactly one tile and the others need to know to leave it alone
+    const infoAt = _placeInfo(doc, pattern, plan);
     for (let row = 0; row < nRows; row++) for (let col = 0; col < nCols; col++) {
       doc.addPage([W, H], orient);
-      drawTile(doc, pattern, { W, H, uw, uh, sx, sy, col, row, nCols, nRows, PM, OV, nx, ny });
+      drawTile(doc, pattern, { W, H, uw, uh, sx, sy, col, row, nCols, nRows, PM, OV, nx, ny, infoAt });
     }
+    return infoAt;
   }
   function makePDF(JsPDF, pattern, opts) {
     opts = opts || {};
     const plan = _planPage(pattern, opts);
     const doc = new JsPDF({ unit: 'mm', format: [plan.W, plan.H], orientation: plan.W > plan.H ? 'landscape' : 'portrait' });
-    _renderPattern(doc, pattern, opts, plan, true);
-    return { doc, nCols: plan.nCols, nRows: plan.nRows, sheets: plan.nCols * plan.nRows, orient: plan.W > plan.H ? 'landscape' : 'portrait', W: plan.W, H: plan.H };
+    const infoAt = _renderPattern(doc, pattern, opts, plan, true);
+    return { doc, nCols: plan.nCols, nRows: plan.nRows, sheets: plan.nCols * plan.nRows, orient: plan.W > plan.H ? 'landscape' : 'portrait', W: plan.W, H: plan.H, plan, infoAt };
   }
   function makeKitPDF(JsPDF, patterns, opts) {
     opts = opts || {};
@@ -3174,18 +3278,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                  mx + o.nx(pr.pts[i][0])   * s, my + mh - o.ny(pr.pts[i][1])   * s);
       }
     });
-    drawKey(doc, pat, { x1: o.W - 14, yTop: 26 }, null);
+    drawKey(doc, pat, { x1: o.W - 14, yTop: 26 });
     doc.setTextColor(0);
   }
 
   // big, blocky, bold info panel printed INTO the blank of the pattern
-  function drawInfoBox(doc, info, cx, cy) {
+/* How big is the panel? Asked BEFORE anything is drawn, because the
+     placement search has to know what size hole it is hunting for. One
+     function, so the measured size and the drawn size cannot drift apart. */
+  function infoBoxSize(doc, info) {
     const lines = info.lines || [], title = (info.name || '').toUpperCase();
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15); let mw = doc.getTextWidth(title);
     doc.setFontSize(11); lines.forEach(l => { mw = Math.max(mw, doc.getTextWidth(l)); });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
     const padX = 7, lineH = 6.6, titleH = 10, headH = titleH + 4;
-    const boxW = mw + 2 * padX, boxH = headH + lines.length * lineH + 5;
+    return { w: mw + 2 * padX, h: headH + lines.length * lineH + 5, lineH, titleH, headH };
+  }
+  function drawInfoBox(doc, info, cx, cy) {
+    const lines = info.lines || [], title = (info.name || '').toUpperCase();
+    const m = infoBoxSize(doc, info);
+    const boxW = m.w, boxH = m.h, lineH = m.lineH, titleH = m.titleH, headH = m.headH;
     const x0 = cx - boxW / 2, y0 = cy - boxH / 2;
     // white knockout so nothing shows through, then a bold black frame + black title bar
     doc.setFillColor(255, 255, 255); doc.setDrawColor(0); doc.setLineWidth(0.8);
@@ -3202,7 +3315,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      used by this pattern are listed, so a plain elbow does not carry a line
      about flanges. White knockout behind it so it stays readable if it lands
      over the drawing. */
-  function drawKey(doc, pat, box, place) {
+  function drawKey(doc, pat, box) {
     const used = LORDER.filter(k => pat.prim.some(pr => pr.style === k));
     if (pat.holes && pat.holes.length) used.push('_hole');
     if (!used.length) return;
@@ -3214,9 +3327,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     /* The key is an opaque white patch. Drop it on top of the pattern and it
        hides linework - the one thing a template must never do. So the caller
        hands over the whole printable rectangle and a scorer, and the key goes
-       in whichever corner of THIS tile has the least drawing under it. */
-    const pos = place ? place(boxW, boxH) : { x0: box.x1 - boxW, yTop: box.yTop };
-    const x0 = pos.x0, yTop = pos.yTop;
+       in whichever corner of THIS tile has the least drawing under it.
+       4.28: it does not go on the tiles at ALL any more. Craig, on site with
+       the sheets in his hand: "this legend only needs to be on the front
+       preview page i think". He is right. No corner of a printed template is
+       reliably empty - the corners are where the registration crosses and the
+       tape hints live - and a white patch over a crosshair is worse than no
+       legend at all. Cover page only, where the sheet is ours to fill. */
+    const x0 = box.x1 - boxW, yTop = box.yTop;
     doc.setFillColor(255, 255, 255); doc.setDrawColor(190); doc.setLineWidth(0.15);
     doc.rect(x0, yTop, boxW, boxH, 'FD');
     doc.setTextColor(90); doc.text('KEY', x0 + padX, yTop + padY + 3);
@@ -3288,7 +3406,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
           let ang = Math.atan2(dy, dx) * 180 / Math.PI;
           if (ang > 90) ang -= 180; else if (ang < -90) ang += 180;
           const ux = dx/L, uy = dy/L;        // lift it clear of its own line
-          doc.text(pr.note, X(px) - uy*2.2, Y(py) - ux*2.2, { angle: ang });
+          const tx = X(px) - uy*2.2, ty = Y(py) - ux*2.2;
+          /* The sheet header owns the top strip and the 50 mm scale check owns
+             the bottom left. A note printed across either just gives you two
+             strings of text on top of each other and neither can be read. Skip
+             this repeat and let the next one along the run carry the word. */
+          const onFurniture = ty < clipY + 13 || (tx < o.PM + 100 && ty > o.H - o.PM - 12);
+          if (!onFurniture) doc.text(pr.note, tx, ty, { angle: ang });
           next += STEP;
         }
         acc += L;
@@ -3319,29 +3443,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.line(o.PM + 3, sy2, o.PM + 53, sy2); doc.line(o.PM + 3, sy2 - 2, o.PM + 3, sy2 + 2); doc.line(o.PM + 53, sy2 - 2, o.PM + 53, sy2 + 2);
     doc.setTextColor(0); doc.setFontSize(7); doc.text('50 mm check', o.PM + 55, sy2 + 1);
 
-    drawKey(doc, pat, null, (bw, bh) => {
-      // corners of the printable area, inset off the border
-      const L = o.PM + 2, R = o.PM + o.uw - 2 - bw, T = clipY + 2, B = clipY + o.uh - 2 - bh;
-      // top-left carries the sheet number and tape hint; bottom-left the scale bar
-      const cands = [ {x0:R, yTop:T, pen:0}, {x0:R, yTop:B, pen:0}, {x0:L, yTop:B, pen:60}, {x0:L, yTop:T, pen:400} ];
-      const score = c => { let n = c.pen;
-        pat.prim.forEach(pr => { const st = Math.max(1, Math.floor(pr.pts.length / 200));
-          for (let i = 0; i < pr.pts.length; i += st) { const px = X(pr.pts[i][0]), py = Y(pr.pts[i][1]);
-            if (px > c.x0 - 3 && px < c.x0 + bw + 3 && py > c.yTop - 3 && py < c.yTop + bh + 3) n++; } });
-        return n; };
-      let best = cands[0], bn = Infinity;
-      cands.forEach(c => { const n = score(c); if (n < bn) { bn = n; best = c; } });
-      return best;
-    });
-
-    // print the info panel once, on whichever sheet holds the pattern centroid
-    if (pat.info) {
-      const cxn = o.nx((pat.bbox.x0 + pat.bbox.x1) / 2), cyn = o.ny((pat.bbox.y0 + pat.bbox.y1) / 2);
-      const cc = Math.min(o.nCols - 1, Math.max(0, Math.floor(cxn / o.sx)));
-      const cr = Math.min(o.nRows - 1, Math.max(0, Math.floor(cyn / o.sy)));
-      if (o.col === cc && o.row === cr) {
-        drawInfoBox(doc, pat.info, o.PM - o.col * o.sx + cxn, o.H - o.PM + o.row * o.sy - cyn);
-      }
+    /* The info panel prints ONCE across the whole set, on the sheet and at
+       the spot _placeInfo found in the clear. It is NOT dropped on the middle
+       of the pattern any more - on anything with a bend in it, the middle
+       of the pattern is exactly where the linework is. */
+    if (pat.info && o.infoAt && o.infoAt.col === o.col && o.infoAt.row === o.row) {
+      drawInfoBox(doc, pat.info, o.infoAt.x, o.infoAt.y);
     }
   }
 
@@ -3584,8 +3691,8 @@ const F={
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
   defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
-    num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),num('centreRadius1','Bend 1 centre radius (mm)'),
-    num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),num('centreRadius2','Bend 2 centre radius (mm)'),
+    num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),{type:'crad',k:'centreRadius1',label:'Bend 1 centre radius'},
+    num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),{type:'crad',k:'centreRadius2',label:'Bend 2 centre radius'},
     num('midLen','Straight between bends (mm)'),
     Object.assign(num('twist','Twist (°) · tap ± to flip'),{neg:1}),
     sego('orientation','How it hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),
@@ -3658,7 +3765,7 @@ const F={
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  trunnion:{name:'Trunnion on Bend',sub:'Support stub under a lobster',icon:I.trunb,
   defaults:{trunnionPipeOD:114.3,bendPipeOD:219.1,insulation:25,centreRadius:305,segments:4,offset:200,minLen:200,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12,seamFromThroat:90},
-  fields:[pipe('trunnionPipeOD','Trunnion pipe'),pipe('bendPipeOD','Bend pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('segments','Bend segments'),num('offset','Offset from riser axis (mm)'),num('minLen','Trunnion length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('trunnionPipeOD','Trunnion pipe'),pipe('bendPipeOD','Bend pipe'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Bend centre radius',pipeK:'bendPipeOD'},num('segments','Bend segments'),num('offset','Offset from riser axis (mm)'),num('minLen','Trunnion length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.trunnionOnBend(s),
   kit:s=>{ const br=FP.trunnionOnBend(s);
     const h=FP.branchHole({mainPipeOD:s.bendPipeOD,branchPipeOD:s.trunnionPipeOD,insulation:s.insulation,angle:90,mode:'trunnionhole'});
@@ -3677,7 +3784,7 @@ const F={
   note:'Generate prints BOTH patterns: the branch with its saddle cut, then the hole cut-out to mark on the main.'},
  teebend:{name:'Trunnion',sub:'Support stub on a bend',icon:I.tbend,
   defaults:{seamFromThroat:90,mainPipeOD:219.1,stubPipeOD:114.3,insulation:25,centreRadius:305,height:450,offset:0,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
-  fields:[pipe('mainPipeOD','Bend pipe'),pipe('stubPipeOD','Stub / trunnion pipe'),num('insulation','Insulation (mm)'),num('centreRadius','Bend centre radius (mm)'),num('height','Stub top to main centreline (mm)'),Object.assign(num('offset','Offset off the leg axis (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('mainPipeOD','Bend pipe'),pipe('stubPipeOD','Stub / trunnion pipe'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Bend centre radius',pipeK:'mainPipeOD'},num('height','Stub top to main centreline (mm)'),Object.assign(num('offset','Offset off the leg axis (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.teeBendStub(s),
   kit:s=>[FP.teeBendStub(s), FP.teeBendHole(s)],
   mini:c=>['Stub Ø '+c.stubOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 1 off'],
@@ -4971,16 +5078,25 @@ function fittingDiagram(kind,s){
   return '';
 }
 
-function crBasePipe(s){
-  if(SET.sizeMode==='diameter'&&s._crpipe){ const e=FP.PIPE_CHART.find(pp=>pp.od==s._crpipe); if(e) return e; }
-  const exact=FP.PIPE_CHART.find(pp=>pp.od==s.pipeOD); if(exact) return exact;
+/* A double bend has TWO centre radii, and a trunnion's bend radius belongs to
+   a pipe that is not called pipeOD. So every scrap of picker state is keyed on
+   the field it belongs to - except for plain 'centreRadius', which keeps the
+   bare '_xd' / '_crpipe' names it has always had so jobs saved by an older
+   version still open with the right multiple already chosen. */
+const crK=(f,base)=> (f&&f.k&&f.k!=='centreRadius') ? base+'_'+f.k : base;
+const crPipeK=f=> (f&&f.pipeK) || 'pipeOD';
+function crBasePipe(s,f){
+  const pk=crPipeK(f);
+  const pick=s[crK(f,'_crpipe')];
+  if(SET.sizeMode==='diameter'&&pick){ const e=FP.PIPE_CHART.find(pp=>pp.od==pick); if(e) return e; }
+  const exact=FP.PIPE_CHART.find(pp=>pp.od==s[pk]); if(exact) return exact;
   // no exact chart match: guess the pipe underneath. In Finished-Ø mode the
   // typed value is the CLADDING Ø, so strip the default insulation first.
-  const D=(+s.pipeOD||0)-(SET.sizeMode==='diameter'?2*(SET.insulation||0):0);
+  const D=(+s[pk]||0)-(SET.sizeMode==='diameter'?2*(SET.insulation||0):0);
   let best=FP.PIPE_CHART[0];
   FP.PIPE_CHART.forEach(pp=>{ if(Math.abs(pp.od-D)<Math.abs(best.od-D)) best=pp; });
   return best; }
-function crOpts(s){ const e=crBasePipe(s);
+function crOpts(s,f){ const e=crBasePipe(s,f);
   return [1,1.5,2,3,5].map(m=>{ let mm;
     if(m===1.5&&e.lr) mm=e.lr;                         // trade long radius (ASME) - what the charts use
     else if(m===1&&e.sr) mm=e.sr;                      // trade short radius
@@ -5037,12 +5153,12 @@ function fieldHTML(f,s){
     return `<label style="${f.compact?'font-size:10px':''}">${f.label}</label>
       <div style="display:flex;justify-content:center;margin-top:4px"><svg data-splitsvg="1" viewBox="0 0 160 160" style="width:${sz}px;height:${sz}px"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/><g id="splitcuts"></g>${dots}</svg></div>
       <div class="hint" style="margin-top:2px;${f.compact?'font-size:10px;line-height:1.35;text-align:center':''}">${hint}</div>`; }
-  if(f.type==='crad'){ const opts=crOpts(s), cur=+s[f.k]||0;
+  if(f.type==='crad'){ const opts=crOpts(s,f), cur=+s[f.k]||0;
     const hit=opts.find(o=>Math.abs(o.mm-cur)<0.5);
     const picker=SET.sizeMode==='diameter'
-      ? (()=>{ const bp=crBasePipe(s); return `<select data-crpipe="1" style="margin-bottom:6px">${FP.PIPE_CHART.map(pp=>`<option value="${pp.od}" ${pp.od===bp.od?'selected':''}>Bend of ${pp.inch}&quot; · DN${pp.dn} pipe</option>`).join('')}</select>`; })()
+      ? (()=>{ const bp=crBasePipe(s,f); return `<select data-crpipe="${f.k}" style="margin-bottom:6px">${FP.PIPE_CHART.map(pp=>`<option value="${pp.od}" ${pp.od===bp.od?'selected':''}>Bend of ${pp.inch}&quot; · DN${pp.dn} pipe</option>`).join('')}</select>`; })()
       : '';
-    return `<label>${f.label}</label>${picker}<select data-crsel="1">${opts.map(o=>`<option value="${o.mm}" ${(hit&&hit.mm===o.mm)?'selected':''}>${o.label}</option>`).join('')}<option value="custom" ${hit?'':'selected'}>Custom…</option></select><div data-crwrap="1" class="${hit?'hide':''}"><input type="number" inputmode="decimal" data-k="${f.k}" value="${cur}" step="1" style="margin-top:8px" placeholder="radius in mm"></div>`; }
+    return `<label>${f.label}</label>${picker}<select data-crsel="${f.k}">${opts.map(o=>`<option value="${o.mm}" ${(hit&&hit.mm===o.mm)?'selected':''}>${o.label}</option>`).join('')}<option value="custom" ${hit?'':'selected'}>Custom…</option></select><div data-crwrap="${f.k}" class="${hit?'hide':''}"><input type="number" inputmode="decimal" data-k="${f.k}" value="${cur}" step="1" style="margin-top:8px" placeholder="radius in mm"></div>`; }
   return '';
 }
 function form(kind, presetParams){
@@ -5060,6 +5176,7 @@ function form(kind, presetParams){
   const eff=()=>SET.sizeMode==='diameter'?Object.assign({},s,{insulation:0}):s;
   const locked=!unlocked(kind);
   const blanks=[];              // labels of any box left empty, refilled each readAll()
+  const cradFields=fit.fields.filter(f=>f.type==='crad');
   setView(fit.name, kind==='squarebox'&&s.seamMode==='plan' ? 'Seam planner · you place the seams' : fit.sub, true);
   const seamF=fit.fields.find(f=>f.type==='seam');
   const BOXHERO={roundbox:1,squarebox:1,valvebox:1,flangebox:1,wsbox:1};
@@ -5148,7 +5265,7 @@ function form(kind, presetParams){
   const refreshSoon=()=>{ _pend=true; clearTimeout(_rt); _rt=setTimeout(()=>{_pend=false;refresh();},140); };
   const flushRefresh=()=>{ if(_pend){ clearTimeout(_rt); _pend=false; refresh(); } };
 
-  app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ touch(); app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(sel.dataset.pipe==='pipeOD'){ readAll(); rebuildCr(); } refresh(); });
+  app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ touch(); app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(cradFields.some(f=>crPipeK(f)===sel.dataset.pipe)){ readAll(); rebuildCr(); } refresh(); });
   app.querySelectorAll('input').forEach(i=>i.oninput=()=>{ touch(); refreshSoon(); });
   app.querySelectorAll('[data-negk]').forEach(b=>b.onclick=()=>{ touch();
     const inp=app.querySelector(`[data-k="${b.dataset.negk}"]`); if(!inp) return;
@@ -5158,24 +5275,26 @@ function form(kind, presetParams){
     if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { touch(); const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; }
     if(el.dataset.reflow) return repage(()=>form(kind));
     refresh(); }); });
-  function rebuildCr(){ const cs=app.querySelector('[data-crsel]'); if(!cs) return;
-    const wasCustom=cs.value==='custom', opts=crOpts(s), keep=s._xd||1.5;
-    const sig=crBasePipe(s).od+':'+opts.map(o=>o.mm).join(','); if(cs.dataset.sig===sig) return; cs.dataset.sig=sig;
-    const ps=app.querySelector('[data-crpipe]'); if(ps) ps.value=String(crBasePipe(s).od);
+  function rebuildCr(){ cradFields.forEach(f=>{
+    const cs=app.querySelector(`[data-crsel="${f.k}"]`); if(!cs) return;
+    const wasCustom=cs.value==='custom', opts=crOpts(s,f), keep=s[crK(f,'_xd')]||1.5;
+    const sig=crBasePipe(s,f).od+':'+opts.map(o=>o.mm).join(','); if(cs.dataset.sig===sig) return; cs.dataset.sig=sig;
+    const ps=app.querySelector(`[data-crpipe="${f.k}"]`); if(ps) ps.value=String(crBasePipe(s,f).od);
     cs.innerHTML=opts.map(o=>`<option value="${o.mm}">${o.label}</option>`).join('')+'<option value="custom">Custom…</option>';
     if(wasCustom){ cs.value='custom'; return; }
     const o=opts.find(x=>x.m===keep)||opts[1];
-    cs.value=String(o.mm); s.centreRadius=o.mm;
-    const inp=app.querySelector('[data-crwrap] input'); if(inp) inp.value=o.mm; }
-  { const ps=app.querySelector('[data-crpipe]');
-    if(ps) ps.onchange=()=>{ touch(); s._crpipe=+ps.value; rebuildCr(); refresh(); }; }
-  { const cs=app.querySelector('[data-crsel]');
-    if(cs) cs.onchange=()=>{ touch(); const w=app.querySelector('[data-crwrap]');
-      if(cs.value==='custom'){ s._xd=null; w.classList.remove('hide'); const inp=w.querySelector('input'); if(inp) inp.focus(); }
-      else { w.classList.add('hide'); s.centreRadius=+cs.value;
-        const o=crOpts(s).find(x=>Math.abs(x.mm-s.centreRadius)<0.5); s._xd=o?o.m:null;
-        const inp=w.querySelector('input'); if(inp) inp.value=s.centreRadius; }
-      refresh(); }; }
+    cs.value=String(o.mm); s[f.k]=o.mm;
+    const inp=app.querySelector(`[data-crwrap="${f.k}"] input`); if(inp) inp.value=o.mm; }); }
+  cradFields.forEach(f=>{
+    const ps=app.querySelector(`[data-crpipe="${f.k}"]`);
+    if(ps) ps.onchange=()=>{ touch(); s[crK(f,'_crpipe')]=+ps.value; rebuildCr(); refresh(); };
+    const cs=app.querySelector(`[data-crsel="${f.k}"]`); if(!cs) return;
+    cs.onchange=()=>{ touch(); const w=app.querySelector(`[data-crwrap="${f.k}"]`);
+      if(cs.value==='custom'){ s[crK(f,'_xd')]=null; w.classList.remove('hide'); const inp=w.querySelector('input'); if(inp) inp.focus(); }
+      else { w.classList.add('hide'); s[f.k]=+cs.value;
+        const o=crOpts(s,f).find(x=>Math.abs(x.mm-s[f.k])<0.5); s[crK(f,'_xd')]=o?o.m:null;
+        const inp=w.querySelector('input'); if(inp) inp.value=s[f.k]; }
+      refresh(); }; });
 
   { const svg=app.querySelector('[data-seamsvg]');
     if(svg){
@@ -5513,7 +5632,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.27.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.28.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -5557,7 +5676,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.27.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.28.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
