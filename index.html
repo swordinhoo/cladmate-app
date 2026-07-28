@@ -943,7 +943,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.26.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.26.2</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1653,19 +1653,44 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const yb = phi => minLen + (tmax - tInt(phi));
     const phiAt = x => seamRad + (x/circ)*2*Math.PI;
     const fl = p.flange || 0;                // flat flange rolled out on the saddle edge (folds against the main)
+    /* The lip is a width measured SQUARE to the saddle line, not straight up the
+       pattern. Offsetting vertically was inside a rounding error on a reducing
+       tee, where the saddle curve is lazy - but an equal tee reaches 45 deg at
+       the tangent point, and there a 15 mm setting came out 10.6 mm across the
+       metal: narrowest exactly where you want the most. Take the outer edge as
+       the upper envelope of circles of radius fl rolled along the saddle line.
+       Every point of the fold then carries its full fl square to it; where the
+       line turns a corner the nose rounds itself off instead of the two lips
+       crossing over; and the envelope is never LOWER than the old y+fl (u = x
+       is always in the running), so no pattern anyone has already cut to comes
+       out short - a 45 deg corner just gains about fl*(root2-1) of nose. */
+    const FLM = 24;                          // samples each side of x across the roll
+    const flAt = x => { const y0 = yb(phiAt(x)); if (fl <= 0) return y0;
+      const at = d => { const s2 = fl*fl - d*d; return s2 <= 0 ? -1e9 : yb(phiAt(x+d)) + Math.sqrt(s2); };
+      let best = y0 + fl, bj = 0;
+      for (let j=-FLM;j<=FLM;j++){ const v = at(fl*j/FLM); if (v > best) { best = v; bj = j; } }
+      /* the coarse scan lands within one step of the true maximum; on the nose
+         of a corner that step was costing 0.3 mm of lip. Bisect down around it
+         so the number on the pattern is the number in Settings. */
+      let lo = fl*(bj-1)/FLM, hi = fl*(bj+1)/FLM;
+      for (let k=0;k<40;k++){ const m1 = lo+(hi-lo)/3, m2 = hi-(hi-lo)/3;
+        const v1 = at(m1), v2 = at(m2);
+        if (v1 > best) best = v1; if (v2 > best) best = v2;
+        if (v1 < v2) lo = m1; else hi = m2; }
+      return best; };
     const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, bot=[], flg=[];
-    for(let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, y=yb(phiAt(x)); bot.push([x, y]); flg.push([x, y+fl]); }
+    for(let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, y=yb(phiAt(x)); bot.push([x, y]); flg.push([x, flAt(x)]); }
     prim.push({style:'cut', pts:[[xLo,0]].concat(fl>0?flg:bot,[[xHi,0]],[[xLo,0]])});
     if(fl>0) prim.push({style:'fold', pts:bot});   // saddle line - bend the flange out flat here
     prim.push({style:'centre', pts:[[xLo,0],[xHi,0]]});
-    [0,circ].forEach(xf=>prim.push({style:'fold', pts:[[xf,0],[xf,yb(phiAt(xf))+fl]]}));
+    [0,circ].forEach(xf=>prim.push({style:'fold', pts:[[xf,0],[xf,flAt(xf)]]}));
     [0, circ].forEach(xl=>{ const h=yb(phiAt(xl)),top=h-p.holeEndGap,b=p.holeEndGap,span=top-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
     for(let k=0;k<=ND;k++){ const x=k*circ/ND, h=yb(phiAt(x)); prim.push({style:'ord', pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     const names={inctee:'Inclined Tee',trunnion:'Trunnion',teereducer:'Tee Reducer'};
     return { kind:p.mode||'branch', title:(names[p.mode]||'Branch')+'  -  1:1 Template',
       meta:[`Main Ø${g.mainOD.toFixed(0)}  branch Ø${g.brOD.toFixed(0)} mm (cladding)   angle ${(p.angle||90)}°`,
             `Branch pattern, saddle cut to fit main.  Lap ${p.lapTotal} (${lapEach} each end)  min length ${minLen} mm`
-            + (fl>0 ? `   flat flange ${fl} mm on the saddle (fold on the dashed saddle line, rivet to the main)` : '')]
+            + (fl>0 ? `   flat flange ${fl} mm on the saddle, measured square to the saddle line (fold on the dashed line, rivet to the main)` : '')]
             .concat(Math.abs(g.brOD-g.mainOD)<0.5 && Math.abs(th-Math.PI/2)<1e-6
               ? [`EQUAL TEE - same size both ways. The saddle runs out to a sharp point at 3 and 9 o'clock, where the branch lies tangent to the main and there is no metal overlapping. Fix each side of the point, not on it.`] : []),
       calc:{mainOD:g.mainOD, brOD:g.brOD, angle:p.angle||90, circ, saddle:(tmax-tmin), flange:fl},
@@ -3190,7 +3215,7 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
-let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:10, nDiv:12, detail:false,
+let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:15, nDiv:12, detail:false,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model', sizeMode:'pipeins',
   lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10 }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
@@ -5286,7 +5311,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.26.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.26.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -5330,7 +5355,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.26.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.26.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
