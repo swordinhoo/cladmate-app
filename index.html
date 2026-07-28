@@ -426,6 +426,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --ly-centre:#ff6f61;      /* red     - centrelines, seams   */
     --ly-dim:#4cd964;         /* green   - dimensions           */
     --ly-fold:#ff7ddb;        /* magenta - fold lines           */
+    --ly-flange:#ffa94d;      /* amber   - flange, fold out flat*/
+    --ly-swage:#b892ff;       /* violet  - swage, rolled not bent*/
     --ly-text:#dbe2e8;
     --ly-fill:rgba(33,222,222,.08);
     --ly-fill2:rgba(33,222,222,.15);
@@ -444,6 +446,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --canvas:#ffffff; --grid:#e9edf1; --grid2:#dce2e8;
     --ly-object:#0f1216; --ly-hidden:#0f1216; --ly-centre:#9e1b1b;
     --ly-dim:#084a8c; --ly-fold:#8e1b88; --ly-text:#0f1216;
+    --ly-flange:#a35c00; --ly-swage:#00736b;
     --ly-fill:rgba(15,18,22,.05); --ly-fill2:rgba(15,18,22,.10);
   }
 
@@ -686,7 +689,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       appearance:none;background:none}
   .lgc.off{opacity:.4;text-decoration:line-through}
   .lgc i{width:15px;height:0;border-top-width:2.5px;border-top-style:solid;display:inline-block}
-  #pv.off-cut .ly-cut,#pv.off-fold .ly-fold,#pv.off-ord .ly-ord,#pv.off-hole .ly-hole{opacity:.08}
+  #pv.off-cut .ly-cut,#pv.off-fold .ly-fold,#pv.off-ord .ly-ord,#pv.off-hole .ly-hole,
+  #pv.off-flange .ly-flange,#pv.off-swage .ly-swage{opacity:.08}
   .kitpc:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
   /* glove-sized targets on touch devices */
   @media(pointer:coarse){
@@ -943,7 +947,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.26.2</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.27.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1048,7 +1052,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let i = 0; i <= N; i++) { const phi = -halfL + 2*halfL * i / N; outer.push(pol(SRe, phi)); inner.push(pol(Sre, phi)); }
     prim.push({ style: 'cut', pts: outer.concat(inner.slice().reverse(), [outer[0]]) });
     if (sw > 0) { const fo=[], fi=[]; for (let i = 0; i <= 72; i++) { const phi = -halfL + 2*halfL*i/72; fo.push(pol(SR,phi)); fi.push(pol(Sr,phi)); }
-      prim.push({ style:'fold', pts: fo }); prim.push({ style:'fold', pts: fi }); }
+      prim.push({ style:'swage', pts: fo, note:'SWAGE '+sw }); prim.push({ style:'swage', pts: fi, note:'SWAGE '+sw }); }
     prim.push({ style: 'centre', pts: [pol(Sre, 0), pol(SRe, 0)] });
 
     [-1, 1].forEach(sgn => {
@@ -1197,7 +1201,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       ? [tab(b2x[0],nL)].concat(b2x, [tab(b2x[nn-1],nR), tab(t2x[nn-1],nR)], t2x.slice().reverse(), [tab(t2x[0],nL), tab(b2x[0],nL)])
       : b2x.concat(t2x.slice().reverse(), [b2x[0]]);
     prim.push({ style: 'cut', pts: outline });
-    if (sw) { prim.push({ style: 'fold', pts: b2 }); prim.push({ style: 'fold', pts: t2 }); }
+    /* These are the TRUE ends of the fitting; the cut edge sits sw beyond them
+       and gets rolled back into the swage. They were being drawn as ordinary
+       folds, which is exactly what they are not - you do not bend on this line,
+       you roll it. Own style, own colour, own dash. */
+    if (sw) { prim.push({ style: 'swage', pts: b2, note: 'SWAGE ' + sw });
+              prim.push({ style: 'swage', pts: t2, note: 'SWAGE ' + sw }); }
     [[b2x[0], t2x[0]], [b2x[nn-1], t2x[nn-1]]].forEach(edge => {
       const [P, Q] = edge;
       prim.push({ style: 'fold', pts: [P, Q] });        // seam line (dashed)
@@ -1551,7 +1560,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [], topT = [];
     for (let i = 0; i <= steps; i++) { const x = xLo + (xHi-xLo)*i/steps; top.push([x, yTop(phiAt(x)) + swE]); topT.push([x, yTop(phiAt(x))]); }
     prim.push({ style: 'cut', pts: [[xLo,-swE]].concat(top, [[xHi,-swE]], [[xLo,-swE]]) });
-    if (swE > 0) { prim.push({ style: 'fold', pts: topT }); prim.push({ style: 'fold', pts: [[xLo,0],[xHi,0]] }); }
+    if (swE > 0) { prim.push({ style: 'swage', pts: topT, note: 'SWAGE ' + swE });
+                   prim.push({ style: 'swage', pts: [[xLo,0],[xHi,0]], note: 'SWAGE ' + swE }); }
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,-swE],[xf, yTop(phiAt(xf)) + swE]] }));
     [0, circ].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
@@ -1681,7 +1691,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const prim=[], holes=[], ticks=[], steps=400, xLo=-lapEach, xHi=circ+lapEach, bot=[], flg=[];
     for(let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, y=yb(phiAt(x)); bot.push([x, y]); flg.push([x, flAt(x)]); }
     prim.push({style:'cut', pts:[[xLo,0]].concat(fl>0?flg:bot,[[xHi,0]],[[xLo,0]])});
-    if(fl>0) prim.push({style:'fold', pts:bot});   // saddle line - bend the flange out flat here
+    if(fl>0){
+      prim.push({style:'flange', pts:bot, note:'FLANGE '+fl+' - FOLD OUT FLAT'});   // bend the lip out on this line
+      /* The rolled-circle envelope above is the SAFE outline: every point of
+         the fold keeps its full width and no pattern can come out short. But
+         it rounds the nose off at a peak, and a lot of the time you would
+         rather cut it to a point and dress it, because a mitred corner folds
+         up into a proper sharp corner instead of a radius you then fettle by
+         hand. So draw both on the one sheet. The mitre is only drawn where it
+         actually stands clear of the round nose - everywhere else the two
+         lines are the same line and printing it twice is just ink. */
+      const mit = _mitreOffset(bot, fl);
+      let run = [];
+      const flush = () => { if(run.length > 1) prim.push({style:'mitre', pts:run}); run = []; };
+      for(let i=0;i<mit.length;i++){
+        const P = mit[i], clear = P[1] - flAt(P[0]);
+        if(clear > 0.15){ if(!run.length && i) run.push(mit[i-1].slice()); run.push(P); }
+        else { if(run.length) run.push(P); flush(); }
+      }
+      flush();
+    }
     prim.push({style:'centre', pts:[[xLo,0],[xHi,0]]});
     [0,circ].forEach(xf=>prim.push({style:'fold', pts:[[xf,0],[xf,flAt(xf)]]}));
     [0, circ].forEach(xl=>{ const h=yb(phiAt(xl)),top=h-p.holeEndGap,b=p.holeEndGap,span=top-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
@@ -2828,6 +2857,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const left = []; for (let i = 12; i >= 0; i--) left.push([-hw[i], mer[i]]); left.push([-hw[0], -lap]);
     prim.push({ style: 'cut', pts: right.concat(left, [right[0]]) });
     prim.push({ style: 'fold', pts: [[-hw[0], 0], [hw[0], 0]] });          // tan line (top of body lap)
+    /* sw is baked into every half-width, so the gore edge you see IS the swaged
+       edge - the true gore line was never drawn at all. Draw it, on both sides,
+       so the swage is a line you can see rather than a number in the meta. */
+    if (sw > 0) { const sr = [], sl = [];
+      for (let i = 0; i <= 12; i++) { sr.push([hw[i]-sw, mer[i]]); sl.push([-(hw[i]-sw), mer[i]]); }
+      prim.push({ style: 'swage', pts: sr, note: 'SWAGE ' + sw });
+      prim.push({ style: 'swage', pts: sl, note: 'SWAGE ' + sw }); }
     for (let i = 1; i <= 12; i++) prim.push({ style: 'ord', pts: [[-hw[i], mer[i]], [hw[i], mer[i]]] });
     prim.push({ style: 'centre', pts: [[0, -lap], [0, meridian]] });        // gore centreline
     _lineHoles(holes, 0, -lap / 2, 0, -lap / 2, hp, eg);                    // (single, tiny lap edge)
@@ -2980,13 +3016,74 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { areaM2: area/1e6, kg, perSheet, sheetW: SW, sheetH: SH };
   }
 
+  // ================= LINE ROLES ============================================
+  /* ONE table, three consumers: the printed PDF, the on-screen SVG preview and
+     the DXF layer names. Those used to be three separate if-chains in three
+     parts of the file and they had already drifted apart.
+     Colour is the fast signal, but it is NOT the only one. Half the printers
+     on a site are mono, or the colour cartridge ran dry a fortnight ago and
+     nobody replaced it. So every role also carries its own line WEIGHT and its
+     own DASH pattern: print the sheet in black and white and it still tells
+     you what has to be done to each edge. Never let colour be the only thing
+     separating two roles. */
+  const LAYERS = {
+    cut:    { rgb:[198, 40, 40], w:0.60, dash:[],                dxf:'CUT',    key:'object', label:'CUT LINE' },
+    mitre:  { rgb:[198, 40, 40], w:0.35, dash:[3.5, 1.5],        dxf:'MITRE',  key:'object', label:'SHARP MITRE - optional' },
+    fold:   { rgb:[142, 27,136], w:0.30, dash:[1.4, 1],          dxf:'FOLD',   key:'fold',   label:'FOLD / SEAM' },
+    flange: { rgb:[163, 92,  0], w:0.45, dash:[3, 1.2],          dxf:'FLANGE', key:'flange', label:'FLANGE - fold out flat' },
+    swage:  { rgb:[  0,115,107], w:0.45, dash:[2.6,.9,.5,.9],    dxf:'SWAGE',  key:'swage',  label:'SWAGE' },
+    lap:    { rgb:[  8, 74,140], w:0.30, dash:[0.4, 0.8],        dxf:'LAP',    key:'lap',    label:'LAP' },
+    ord:    { rgb:[128,138,147], w:0.15, dash:[0.8, 1],          dxf:'REF',    key:'centre', label:'ORDINATE' },
+    centre: { rgb:[128,138,147], w:0.20, dash:[4,1.2,0.8,1.2],   dxf:'REF',    key:'centre', label:'CENTRELINE' }
+  };
+  const LAY = st => LAYERS[st] || LAYERS.centre;
+  const LORDER = ['cut','mitre','fold','flange','swage','lap','ord','centre'];
+
+  /* Offset a polyline by d and MITRE the joins, instead of rolling a circle
+     along it. Offset each SEGMENT bodily along its own normal, then intersect
+     consecutive offset segments and use the crossing as the shared vertex.
+     On a smooth curve consecutive normals barely differ, so the mitre lands
+     right on top of the rolled-circle envelope; it is only at a cusp - the
+     point where two saddle arches meet on an equal tee - that it shoots up
+     past it to a sharp peak. That difference is the whole point: it lets the
+     same sheet show the safe round nose AND the sharp point at once.
+     A near-reversal would throw the crossing off to infinity, so anything
+     past four times the offset falls back to a bevel. */
+  function _mitreOffset(pts, d) {
+    if (!(d > 0) || !pts || pts.length < 2) return [];
+    const seg = [];
+    for (let i = 1; i < pts.length; i++) {
+      const P = pts[i-1], Q = pts[i];
+      let nx = -(Q[1]-P[1]), ny = Q[0]-P[0];
+      const L = Math.hypot(nx, ny); if (!L) continue;
+      nx /= L; ny /= L; if (ny < 0) { nx = -nx; ny = -ny; }   // grow upward
+      seg.push([[P[0]+nx*d, P[1]+ny*d], [Q[0]+nx*d, Q[1]+ny*d]]);
+    }
+    if (!seg.length) return [];
+    const out = [seg[0][0].slice()];
+    for (let i = 1; i < seg.length; i++) {
+      const a = seg[i-1], b = seg[i];
+      const r = [a[1][0]-a[0][0], a[1][1]-a[0][1]], q = [b[1][0]-b[0][0], b[1][1]-b[0][1]];
+      const den = r[0]*q[1] - r[1]*q[0];
+      let v = null;
+      if (Math.abs(den) > 1e-12) {
+        const t = ((b[0][0]-a[0][0])*q[1] - (b[0][1]-a[0][1])*q[0]) / den;
+        const c = [a[0][0]+r[0]*t, a[0][1]+r[1]*t];
+        if (Math.hypot(c[0]-a[1][0], c[1]-a[1][1]) < 4*d) v = c;
+      }
+      if (v) out.push(v); else { out.push(a[1].slice()); out.push(b[0].slice()); }
+    }
+    out.push(seg[seg.length-1][1].slice());
+    return out;
+  }
+
   // ================= DXF EXPORT ============================================
   function toDXF(pat) {
     const L = [];
     const push = (...v) => L.push(...v);
     push(0,'SECTION',2,'HEADER',9,'$INSUNITS',70,4,0,'ENDSEC');
     push(0,'SECTION',2,'ENTITIES');
-    const layer = s => s==='cut' ? 'CUT' : s==='fold' ? 'FOLD' : s==='lap' ? 'LAP' : 'REF';
+    const layer = st => LAY(st).dxf;
     pat.prim.forEach(pr => {
       const pts = pr.pts; if (pts.length < 2) return;
       const closed = pts.length > 2 && Math.hypot(pts[0][0]-pts[pts.length-1][0], pts[0][1]-pts[pts.length-1][1]) < 1e-6;
@@ -3077,6 +3174,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                  mx + o.nx(pr.pts[i][0])   * s, my + mh - o.ny(pr.pts[i][1])   * s);
       }
     });
+    drawKey(doc, pat, { x1: o.W - 14, yTop: 26 }, null);
     doc.setTextColor(0);
   }
 
@@ -3098,6 +3196,43 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.setTextColor(0); doc.setFontSize(11);
     lines.forEach((l, i) => doc.text(l, cx, y0 + headH + (i + 1) * lineH - 1.5, { align: 'center' }));
   }
+  /* A key on EVERY sheet, not just the cover. A big pattern comes off the
+     printer as eight sheets that get taped up on the deck and walked over;
+     the cover is in somebody's back pocket by then. Only the roles actually
+     used by this pattern are listed, so a plain elbow does not carry a line
+     about flanges. White knockout behind it so it stays readable if it lands
+     over the drawing. */
+  function drawKey(doc, pat, box, place) {
+    const used = LORDER.filter(k => pat.prim.some(pr => pr.style === k));
+    if (pat.holes && pat.holes.length) used.push('_hole');
+    if (!used.length) return;
+    const rowH = 4.0, samp = 9, gap = 2.5, padX = 3, padY = 3;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(5.6);
+    let tw = doc.getTextWidth('KEY');
+    used.forEach(k => { const t = k === '_hole' ? 'RIVET HOLE' : LAY(k).label; tw = Math.max(tw, doc.getTextWidth(t)); });
+    const boxW = padX*2 + samp + gap + tw, boxH = padY*2 + rowH*(used.length + 1);
+    /* The key is an opaque white patch. Drop it on top of the pattern and it
+       hides linework - the one thing a template must never do. So the caller
+       hands over the whole printable rectangle and a scorer, and the key goes
+       in whichever corner of THIS tile has the least drawing under it. */
+    const pos = place ? place(boxW, boxH) : { x0: box.x1 - boxW, yTop: box.yTop };
+    const x0 = pos.x0, yTop = pos.yTop;
+    doc.setFillColor(255, 255, 255); doc.setDrawColor(190); doc.setLineWidth(0.15);
+    doc.rect(x0, yTop, boxW, boxH, 'FD');
+    doc.setTextColor(90); doc.text('KEY', x0 + padX, yTop + padY + 3);
+    used.forEach((k, i) => {
+      const y = yTop + padY + rowH*(i + 1) + 2, sx = x0 + padX;
+      if (k === '_hole') { doc.setDrawColor(24, 128, 56); doc.setLineWidth(0.25); doc.setLineDashPattern([], 0);
+        const cx = sx + samp/2; doc.circle(cx, y - 1, 1.3, 'S'); doc.line(cx - 2, y - 1, cx + 2, y - 1); doc.line(cx, y - 3, cx, y + 1);
+        doc.setTextColor(90); doc.text('RIVET HOLE', sx + samp + gap, y); return; }
+      const c = LAY(k);
+      doc.setDrawColor(c.rgb[0], c.rgb[1], c.rgb[2]); doc.setLineWidth(c.w); doc.setLineDashPattern(c.dash, 0);
+      doc.line(sx, y - 1, sx + samp, y - 1); doc.setLineDashPattern([], 0);
+      doc.setTextColor(c.rgb[0], c.rgb[1], c.rgb[2]); doc.text(c.label, sx + samp + gap, y);
+    });
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(0); doc.setLineDashPattern([], 0);
+  }
+
   function drawTile(doc, pat, o) {
     const X = x => o.PM - o.col * o.sx + o.nx(x);
     const Y = y => o.H - o.PM + o.row * o.sy - o.ny(y);   // y-down flip
@@ -3111,12 +3246,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (o.col < o.nCols - 1) doc.rect(o.PM + o.uw - o.OV, clipY, o.OV, o.uh, 'F');
     if (o.row < o.nRows - 1) doc.rect(o.PM, clipY, o.uw, o.OV, 'F');
 
-    pat.prim.forEach(pr => {
-      if (pr.style === 'cut')      { doc.setDrawColor(0);   doc.setLineWidth(0.5); doc.setLineDashPattern([], 0); }
-      else if (pr.style === 'fold'){ doc.setDrawColor(0);   doc.setLineWidth(0.25); doc.setLineDashPattern([1.4, 1], 0); }
-      else if (pr.style === 'lap') { doc.setDrawColor(26, 115, 232); doc.setLineWidth(0.3); doc.setLineDashPattern([0.4, 0.8], 0); }
-      else if (pr.style === 'ord') { doc.setDrawColor(150); doc.setLineWidth(0.15); doc.setLineDashPattern([0.8, 1], 0); }
-      else                         { doc.setDrawColor(150); doc.setLineWidth(0.2); doc.setLineDashPattern([1, 1], 0); }
+    /* Draw light-to-heavy so the cut line always finishes on top. Fittings
+       push their prims in whatever order suits the geometry, and an ordinate
+       laid over the cut line reads as a nick in it. */
+    const ORD = LORDER.slice().reverse();
+    pat.prim.slice().sort((a, b) => ORD.indexOf(a.style) - ORD.indexOf(b.style)).forEach(pr => {
+      const c = LAY(pr.style);
+      doc.setDrawColor(c.rgb[0], c.rgb[1], c.rgb[2]); doc.setLineWidth(c.w); doc.setLineDashPattern(c.dash, 0);
       for (let i = 1; i < pr.pts.length; i++) doc.line(X(pr.pts[i-1][0]), Y(pr.pts[i-1][1]), X(pr.pts[i][0]), Y(pr.pts[i][1]));
     });
     doc.setLineDashPattern([], 0);
@@ -3128,6 +3264,37 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     // tick labels
     doc.setTextColor(120); doc.setFontSize(6);
     pat.ticks.forEach(t => doc.text(t.label, X(t.x), Y(t.y) - 1.5, { align: 'center' }));
+
+    /* Small pale writing set along any edge that needs something doing to it,
+       so you do not have to keep looking back at the legend with a pair of
+       snips in your hand. Kept faint on purpose - it must never be mistaken
+       for a line to cut. Faded by mixing the role colour toward white rather
+       than by real transparency, because a PDF alpha layer is the first thing
+       a cheap site printer gets wrong. Repeated along the run so it lands on
+       more than one tile of a big pattern. */
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(5.2);
+    pat.prim.forEach(pr => {
+      if (!pr.note || pr.pts.length < 2) return;
+      const c = LAY(pr.style), pale = k => Math.round(k + (255 - k) * 0.55);
+      doc.setTextColor(pale(c.rgb[0]), pale(c.rgb[1]), pale(c.rgb[2]));
+      const STEP = 130, LEAD = 30;           // mm of pattern between repeats
+      let acc = 0, next = LEAD;
+      for (let i = 1; i < pr.pts.length; i++) {
+        const A = pr.pts[i-1], B = pr.pts[i];
+        const dx = B[0]-A[0], dy = B[1]-A[1], L = Math.hypot(dx, dy);
+        if (L < 1e-9) continue;
+        while (acc + L >= next) {
+          const t = (next - acc) / L, px = A[0] + dx*t, py = A[1] + dy*t;
+          let ang = Math.atan2(dy, dx) * 180 / Math.PI;
+          if (ang > 90) ang -= 180; else if (ang < -90) ang += 180;
+          const ux = dx/L, uy = dy/L;        // lift it clear of its own line
+          doc.text(pr.note, X(px) - uy*2.2, Y(py) - ux*2.2, { angle: ang });
+          next += STEP;
+        }
+        acc += L;
+      }
+    });
+    doc.setFont('helvetica', 'normal');
 
     doc.restoreGraphicsState();
 
@@ -3152,6 +3319,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.line(o.PM + 3, sy2, o.PM + 53, sy2); doc.line(o.PM + 3, sy2 - 2, o.PM + 3, sy2 + 2); doc.line(o.PM + 53, sy2 - 2, o.PM + 53, sy2 + 2);
     doc.setTextColor(0); doc.setFontSize(7); doc.text('50 mm check', o.PM + 55, sy2 + 1);
 
+    drawKey(doc, pat, null, (bw, bh) => {
+      // corners of the printable area, inset off the border
+      const L = o.PM + 2, R = o.PM + o.uw - 2 - bw, T = clipY + 2, B = clipY + o.uh - 2 - bh;
+      // top-left carries the sheet number and tape hint; bottom-left the scale bar
+      const cands = [ {x0:R, yTop:T, pen:0}, {x0:R, yTop:B, pen:0}, {x0:L, yTop:B, pen:60}, {x0:L, yTop:T, pen:400} ];
+      const score = c => { let n = c.pen;
+        pat.prim.forEach(pr => { const st = Math.max(1, Math.floor(pr.pts.length / 200));
+          for (let i = 0; i < pr.pts.length; i += st) { const px = X(pr.pts[i][0]), py = Y(pr.pts[i][1]);
+            if (px > c.x0 - 3 && px < c.x0 + bw + 3 && py > c.yTop - 3 && py < c.yTop + bh + 3) n++; } });
+        return n; };
+      let best = cands[0], bn = Infinity;
+      cands.forEach(c => { const n = score(c); if (n < bn) { bn = n; best = c; } });
+      return best;
+    });
+
     // print the info panel once, on whichever sheet holds the pattern centroid
     if (pat.info) {
       const cxn = o.nx((pat.bbox.x0 + pat.bbox.x1) / 2), cyn = o.ny((pat.bbox.y0 + pat.bbox.y1) / 2);
@@ -3170,9 +3352,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // always plot black on white.
   const CANVAS_LAYERS = {
     model: { object:'#21dede', fold:'#ff7ddb', centre:'#ff6f61', lap:'#4cd964',
+             flange:'#ffa94d', swage:'#b892ff',
              hole:'#4cd964', text:'#d5dde3', canvas:'#1a1e22' },
     paper: { object:'#0f1216', fold:'#8e1b88', centre:'#9e1b1b', lap:'#084a8c',
+             flange:'#a35c00', swage:'#00736b',
              hole:'#1c7a43', text:'#39424b', canvas:'#ffffff' }
+  };
+  /* Screen-side of the same roles: px weights, px dashes, which legend chip
+     the line answers to, and which of the two draw animations it joins. */
+  const SCREEN = {
+    cut:    { ly:'cut',    w:1.7, dash:'',          anim:'ln-draw'   },
+    mitre:  { ly:'cut',    w:1.1, dash:'10 5',      anim:'ln-detail' },
+    fold:   { ly:'fold',   w:1.1, dash:'7 4',       anim:'ln-detail' },
+    flange: { ly:'flange', w:1.4, dash:'9 3',       anim:'ln-detail' },
+    swage:  { ly:'swage',  w:1.4, dash:'7 3 1 3',   anim:'ln-detail' },
+    lap:    { ly:'hole',   w:1,   dash:'2 3',       anim:'ln-detail' },
+    ord:    { ly:'ord',    w:0.7, dash:'',          anim:'ln-draw', op:0.75 },
+    centre: { ly:'ord',    w:0.9, dash:'9 3 2 3',   anim:'ln-detail' }
   };
   let CANVAS = 'model';
   function setCanvas(mode) { CANVAS = (mode === 'paper') ? 'paper' : 'model'; }
@@ -3191,11 +3387,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     let li = 0;
     pat.prim.forEach(pr => {
       const ai = ` style="--i:${li++}"`;
-      if (pr.style === 'cut') s += `<path class="ly-cut ln-draw" pathLength="1"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.object}" stroke-width="1.7" stroke-linejoin="round"/>`;
-      else if (pr.style === 'fold') s += `<path class="ly-fold ln-detail"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.fold}" stroke-width="1.1" stroke-dasharray="7 4"/>`;
-      else if (pr.style === 'lap') s += `<path class="ly-hole ln-detail"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.lap}" stroke-width="1" stroke-dasharray="2 3"/>`;
-      else if (pr.style === 'ord') s += `<path class="ly-ord ln-draw" pathLength="1"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.centre}" stroke-width="0.7" opacity="0.75"/>`;
-      else s += `<path class="ly-ord ln-detail"${ai} d="${path(pr.pts)}" fill="none" stroke="${L.centre}" stroke-width="0.9" stroke-dasharray="9 3 2 3"/>`;
+      /* Same LAYERS table the printer uses, so what is on the glass is what
+         comes out of the machine. Widths and dashes are in screen px here and
+         mm there, hence the separate numbers - the ROLES are shared. */
+      const c = LAY(pr.style), col = L[c.key] || L.centre;
+      const SP = SCREEN[pr.style] || SCREEN.centre;
+      s += `<path class="ly-${SP.ly} ${SP.anim}"${SP.anim === 'ln-draw' ? ' pathLength="1"' : ''}${ai}` +
+           ` d="${path(pr.pts)}" fill="none" stroke="${col}" stroke-width="${SP.w}"` +
+           (SP.dash ? ` stroke-dasharray="${SP.dash}"` : '') +
+           (SP.op ? ` opacity="${SP.op}"` : '') + ` stroke-linejoin="round"/>`;
     });
     pat.holes.forEach(h => { const x=X(h[0]),y=Y(h[1]); s+=`<circle class="ly-hole ln-detail" style="--i:${li++}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="none" stroke="${L.hole}" stroke-width="1"/>`; });
     pat.ticks.forEach(t => { s += `<text class="ly-txt ln-detail" style="--i:${li++}" x="${X(t.x).toFixed(1)}" y="${(Y(t.y)-3).toFixed(1)}" font-size="8" font-family="'Cascadia Mono',Consolas,monospace" fill="${L.text}" paint-order="stroke" stroke="${L.canvas}" stroke-width="2.4" stroke-linejoin="round" text-anchor="middle">${t.label}</text>`; });
@@ -4878,6 +5078,8 @@ function form(kind, presetParams){
     <div class="pvlegend">
       <button type="button" class="lgc" aria-pressed="false" data-ly="cut"><i style="border-color:var(--ly-object)"></i>CUT</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="fold"><i style="border-color:var(--ly-fold);border-top-style:dashed"></i>FOLD</button>
+      <button type="button" class="lgc" aria-pressed="false" data-ly="flange"><i style="border-color:var(--ly-flange);border-top-style:dashed"></i>FLANGE</button>
+      <button type="button" class="lgc" aria-pressed="false" data-ly="swage"><i style="border-color:var(--ly-swage);border-top-style:dashed"></i>SWAGE</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="ord"><i style="border-color:var(--ly-centre);border-top-style:dashed"></i>SEAM/ORD</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="hole"><i style="border-color:var(--ly-dim)"></i>HOLES</button></div>
     <div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
@@ -5311,7 +5513,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.26.2</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.27.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
       <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
@@ -5355,7 +5557,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.26.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.27.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
