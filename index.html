@@ -947,7 +947,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.28.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.29.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -999,7 +999,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     { inch: '24',  dn: 600, od: 610,   lr: 914,  sr: 610 }
   ];
 
-  const PAGES = { a3: [297, 420], a4: [210, 297] };
+  /* Page sizes in mm, portrait [W, H]. The US three are the exact metric
+     conversions (215.9, not a rounded 216) because the tiling maths and the
+     printable-area margins run straight off these numbers. */
+  const PAGES = { a3: [297, 420], a4: [210, 297],
+                  letter: [215.9, 279.4], legal: [215.9, 355.6], tabloid: [279.4, 431.8] };
+  const INCH_PAGE = p => p === 'letter' || p === 'legal' || p === 'tabloid';
 
   // ---- input guards -------------------------------------------------------
   // Hole pitch and division count are user-editable. A blank or zero pitch
@@ -3124,7 +3129,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     cands.forEach(c => { const n = count(c[0], c[1]).n; if (n < bestN) { bestN = n; best = c; } });
     const [W, H] = best, r = count(W, H);
     return { W, H, PM, OV, uw: r.uw, uh: r.uh, sx: r.sx, sy: r.sy,
-             nCols: Math.ceil(pw / r.sx), nRows: Math.ceil(ph / r.sy), pw, ph, bb };
+             nCols: Math.ceil(pw / r.sx), nRows: Math.ceil(ph / r.sy), pw, ph, bb,
+             inches: INCH_PAGE(String(opts.page || 'a3')) };
   }
 
   /* ---- WHERE DOES THE INFO PANEL GO? -------------------------------------
@@ -3224,13 +3230,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const nx = x => x - bb.x0, ny = y => y - bb.y0;
     const orient = W > H ? 'landscape' : 'portrait';
     if (!first) doc.addPage([W, H], orient);
-    drawCover(doc, pattern, { W, H, nCols, nRows, pw, ph, nx, ny, brand: opts.brand });
+    drawCover(doc, pattern, { W, H, nCols, nRows, pw, ph, nx, ny, brand: opts.brand, inches: plan.inches });
     // worked out once for the whole set, not once per sheet - the panel prints
     // on exactly one tile and the others need to know to leave it alone
     const infoAt = _placeInfo(doc, pattern, plan);
     for (let row = 0; row < nRows; row++) for (let col = 0; col < nCols; col++) {
       doc.addPage([W, H], orient);
-      drawTile(doc, pattern, { W, H, uw, uh, sx, sy, col, row, nCols, nRows, PM, OV, nx, ny, infoAt });
+      drawTile(doc, pattern, { W, H, uw, uh, sx, sy, col, row, nCols, nRows, PM, OV, nx, ny, infoAt, inches: plan.inches });
     }
     return infoAt;
   }
@@ -3267,9 +3273,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let i = 0; i <= 10; i++) { const x = 14 + i * 10; doc.line(x, ry + 2, x, ry + 2 - (i % 5 === 0 ? 3 : 2)); }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     doc.text("mm   (print at 'Actual size / 100%, no scaling')", 118, ry + 2);
+    /* On Letter / Legal / Tabloid the tape in the user's pocket is in inches,
+       and a calibration bar they cannot read is no calibration at all - so
+       those pages get a second bar, exactly 4 inches, ticked in quarters.
+       Both bars must agree with the tape or the print is scaled and the
+       template is scrap. */
+    if (o.inches) {
+      const iy = ry + 12;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      doc.text("AND this bar must measure exactly 4 inches:", 14, iy - 2);
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(14, iy + 2, 115.6, iy + 2);
+      for (let i = 0; i <= 16; i++) { const x = 14 + i * 6.35; doc.line(x, iy + 2, x, iy + 2 - (i % 4 === 0 ? 3 : 2)); }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      doc.text("inches   (your tape must agree with BOTH bars)", 119.6, iy + 2);
+    }
 
     // sheet map with outline
-    const mapTop = ry + 14; let mw = o.W - 28, mh = mw * o.ph / o.pw;
+    const mapTop = ry + (o.inches ? 26 : 14); let mw = o.W - 28, mh = mw * o.ph / o.pw;
     const maxH = o.H - mapTop - 12; if (mh > maxH) { mh = maxH; mw = mh * o.pw / o.ph; }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('SHEET MAP', 14, mapTop - 2);
     const mx = 14, my = mapTop;
@@ -3446,11 +3466,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (o.col < o.nCols - 1) hint.push('tape right -> C' + (o.col+2) + '-R' + (o.row+1));
     if (o.row < o.nRows - 1) hint.push('tape up -> C' + (o.col+1) + '-R' + (o.row+2));
     if (hint.length) doc.text(hint.join('   |   '), o.PM + 2, clipY + 11);
-    // 50mm scale check
+    // per-sheet scale check - 50 mm, or 2 inches (50.8) when the paper is US
     doc.setDrawColor(0); doc.setLineWidth(0.3);
+    const ckL = o.inches ? 50.8 : 50, ckT = o.inches ? '2 in check' : '50 mm check';
     const sy2 = o.H - o.PM - 5;
-    doc.line(o.PM + 3, sy2, o.PM + 53, sy2); doc.line(o.PM + 3, sy2 - 2, o.PM + 3, sy2 + 2); doc.line(o.PM + 53, sy2 - 2, o.PM + 53, sy2 + 2);
-    doc.setTextColor(0); doc.setFontSize(7); doc.text('50 mm check', o.PM + 55, sy2 + 1);
+    doc.line(o.PM + 3, sy2, o.PM + 3 + ckL, sy2); doc.line(o.PM + 3, sy2 - 2, o.PM + 3, sy2 + 2); doc.line(o.PM + 3 + ckL, sy2 - 2, o.PM + 3 + ckL, sy2 + 2);
+    doc.setTextColor(0); doc.setFontSize(7); doc.text(ckT, o.PM + 5 + ckL, sy2 + 1);
 
     /* The info panel prints ONCE across the whole set, on the sheet and at
        the spot _placeInfo found in the clear. It is NOT dropped on the middle
@@ -3540,7 +3561,13 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
-let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:'a3', swage:3, flange:15, nDiv:12, detail:false,
+/* Fresh installs pick their paper from the device, not from a questionnaire:
+   a phone set for the US, Canada, Mexico or the Philippines prints on Letter,
+   everyone else gets A3. One tap in Settings changes it, and anyone who has
+   ever saved settings keeps exactly what they chose. */
+const LOCALE_PAGE=(()=>{ try{ return /-(US|CA|MX|PH)\b/i.test(navigator.language||'') ? 'letter' : 'a3'; }catch(e){ return 'a3'; } })();
+const INCH_PAGE=p=>p==='letter'||p==='legal'||p==='tabloid';
+let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:LOCALE_PAGE, swage:3, flange:15, nDiv:12, detail:false,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model', sizeMode:'pipeins',
   lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10 }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
@@ -5244,7 +5271,7 @@ function form(kind, presetParams){
   if(fit.note) html+=`<div class="note">${fit.note}</div>`;
   html+=`<div class="hint" style="margin-top:4px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">You can size it up and check the preview for free. Pro unlocks the printable PDF, DXF and Jobs.</div>`;
-  else html+=`<div class="printwarn"><b>PRINT AT 100% — ACTUAL SIZE</b><span>Never "Fit to page" or "Shrink to fit". Tape the sheets together on the red crosshairs, then measure the 100&nbsp;mm bar with your tape before you mark any metal.</span></div>
+  else html+=`<div class="printwarn"><b>PRINT AT 100% — ACTUAL SIZE</b><span>Never "Fit to page" or "Shrink to fit". Tape the sheets together on the red crosshairs, then measure the ${INCH_PAGE(SET.page)?'4&nbsp;inch':'100&nbsp;mm'} calibration bar with your tape before you mark any metal.</span></div>
     <div class="genwrap"><div class="prob" id="probbox" hidden></div>
       <button class="btn primary" id="genBtn">Generate printable PDF</button>
       <div class="btnrow" style="grid-template-columns:1fr 1fr 1fr"><button class="btn ghost" id="shareBtn">Share</button><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>+ Job${PRO?'':' (Pro)'}</button></div></div>`;
@@ -5619,7 +5646,7 @@ function settingsPage(){
     <div class="row"><div><label>Insulation (mm)</label><input type="number" id="sIns" value="${SET.insulation}" ${SET.sizeMode==='diameter'?'disabled':''}></div>
     <div><label>Seam lap total (mm)</label><input type="number" id="sLap" value="${SET.lapTotal}"></div></div>
     <div class="row"><div><label>Hole pitch (mm)</label><input type="number" id="sHole" value="${SET.holePitch}"></div>
-    <div><label>Paper</label><div class="seg" id="sPage"><button data-v="a3" ${SET.page==='a3'?'class="on"':''}>A3</button><button data-v="a4" ${SET.page==='a4'?'class="on"':''}>A4</button></div></div></div>
+    <div><label>Paper</label><div class="seg" id="sPage">${['a3','a4','letter','legal','tabloid'].map(p=>`<button data-v="${p}" ${SET.page===p?'class="on"':''}>${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[p]}</button>`).join('')}</div></div></div>
     <div class="row"><div><label>Swage per joint (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
     <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
     <div class="hint" style="text-align:left">Swage is added at every bend and lobster joint. The tee flange is a flat lip rolled out on the branch saddle to rivet onto the main - used instead of a swage.</div>
@@ -5650,7 +5677,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.28.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.29.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -5693,7 +5720,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.28.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.29.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
@@ -5724,7 +5751,8 @@ applyCanvas(); renderPro(); route();
 if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
   const bg=modal(`<div class="tb"><span>CladMate · First run</span><span>SHT 1/1</span></div>
     <div class="bd"><h3>Before your first template</h3>
-    <ul class="prolist"><li>Sizes are BARE PIPE + insulation — patterns are worked to the outside of the lagging</li><li>Print at 100% ("Actual size"), never "Fit to page" — then measure the 100&nbsp;mm bar on the sheet</li><li>Offer the first template up to the metal before cutting a batch</li></ul>
+    <ul class="prolist"><li>Sizes are BARE PIPE + insulation — patterns are worked to the outside of the lagging</li><li>Print at 100% ("Actual size"), never "Fit to page" — then measure the calibration bar on the sheet</li><li>Offer the first template up to the metal before cutting a batch</li></ul>
+    <div class="hint" style="margin-top:10px">Set up for ${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[SET.page]||'A3'} paper, dimensions in mm — change any time in Settings</div>
     <button class="btn primary" id="introGo">Read &amp; understood</button></div>`);
   bg.querySelector('.modal').classList.add('sheet');
   bg.querySelector('#introGo').onclick=()=>bg.close(); }
