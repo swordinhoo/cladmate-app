@@ -947,7 +947,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.28.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.28.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -965,6 +965,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    ========================================================================== */
 (function (root) {
   "use strict";
+
+  /* ---- WHOSE NAME IS ON THE PAPER ----------------------------------------
+     Every printed sheet carries a small credit line in the bottom right, and
+     the About card and the licence prompt carry the same identity. It is all
+     driven from here and from BRAND in the UI, so when the product gets its
+     own domain and its own support address it changes in two places, not
+     seventeen. Deliberately no personal name and no personal email: this is
+     a product, and the paperwork it prints should say so. */
+  const CREDIT = 'CladMate  ·  1:1 flat pattern templates';
 
   // ---- standard pipe chart (DN, OD, long radius, short radius) mm ----------
   const PIPE_CHART = [
@@ -1834,7 +1843,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   // ================= BOXES (valve / flange boxes) ==========================
-  // Real shop construction (Craig, Jul 2026):
+  // Real shop construction (shop note, Jul 2026):
   //  - wrap-to-cheek joints are LOCKFORMED: the wrap edge carries the
   //    lockformer allowance (machines vary - adjustable), the cheek carries a
   //    small fold-out flange that slots into the lock before it's hammered
@@ -2283,7 +2292,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   // ---- Water-shed Box: the shop method, decoded from Pattern Maker --------
-  // Formulas proven against Craig's old VB6 shop program on three input sets
+  // Formulas proven against the old VB6 shop program on three input sets
   // (every displayed number matched to the mm / degree):
   //   slope = sqrt((W/2)^2 + D^2)   fold = 90 + atan(D/(W/2))
   //   wall = H - D    base return = W/2
@@ -2293,7 +2302,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // The wrap folds the slope IN (one piece, mirror pair) and the end edges
   // lockform segment by segment - every lockformed run is straight.
   // ---- Water-shed Box, HORIZONTAL band split ------------------------------
-  // Craig's arrangement: cut the box round the eaves instead of down the ridge.
+  // Shop arrangement: cut the box round the eaves instead of down the ridge.
   // The TOP HALF is a proper hood, built the way he builds every box - a wrap
   // carrying both roof slopes, the ridge and a skirt that drops over the wall,
   // with a LOCKFORM up both ends and two gable CHEEKS knocked into it. So the
@@ -2738,7 +2747,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const W = p.boxW, D = p.boxD, ws = p.wsHeight;
     // Pattern Maker is VB6 - its displayed integers use banker's rounding
     // (round half to even): 578.5->578, 333.5->334. Match it so the printed
-    // labels read identical to Craig's program (the drawn geometry is exact).
+    // labels read identical to the shop program (the drawn geometry is exact).
     const R = x => { const f = Math.floor(x); return Math.abs(x - f - 0.5) < 1e-9 ? (f % 2 === 0 ? f : f + 1) : Math.round(x); };
     const se = p.simpleEdge == null ? 4 : p.simpleEdge;
     const fe = p.foldedEdge == null ? 6 : p.foldedEdge;
@@ -3123,7 +3132,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      On a straight run of ducting that is blank paper; on anything with a bend
      in it that is precisely where the linework is. The panel is an opaque
      white knockout, so it was punching a hole through the very lines you are
-     meant to be cutting to. Craig, with the printout in his hand: "this is no
+     meant to be cutting to. From site, printout in hand: "this is no
      good. it blocks out the line. it should intellectually put it somewhere
      suitable on each drawing for all the fittings."
 
@@ -3245,7 +3254,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.setTextColor(0); doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
     doc.text(pat.title, 14, 16);
     if (o.brand) { doc.setFontSize(9); doc.setTextColor(90); doc.text(String(o.brand), o.W - 14, 12, { align: 'right' }); doc.setTextColor(0); }
-    doc.setFontSize(7); doc.setTextColor(150); doc.text('CladMate · developed by Craig Sword · Phat Stax', o.W - 14, o.H - 6, { align: 'right' }); doc.setTextColor(0);
+    doc.setFontSize(7); doc.setTextColor(150); doc.text(CREDIT, o.W - 14, o.H - 6, { align: 'right' }); doc.setTextColor(0);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     let y = 26; pat.meta.forEach(l => { doc.text(l, 14, y); y += 5.5; });
     if (pat.calc.o12) { doc.setFont('helvetica', 'bold'); doc.text('Ordinates 12-div (mm): ', 14, y + 2); doc.setFont('helvetica', 'normal'); doc.text(pat.calc.o12.map((v, i) => (i + 1) + ':' + v).join('  '), 14, y + 7); y += 12; }
@@ -3328,9 +3337,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
        hides linework - the one thing a template must never do. So the caller
        hands over the whole printable rectangle and a scorer, and the key goes
        in whichever corner of THIS tile has the least drawing under it.
-       4.28: it does not go on the tiles at ALL any more. Craig, on site with
-       the sheets in his hand: "this legend only needs to be on the front
-       preview page i think". He is right. No corner of a printed template is
+       4.28: it does not go on the tiles at ALL any more. From site, with
+       the sheets in hand: "this legend only needs to be on the front
+       preview page i think". That is right. No corner of a printed template is
        reliably empty - the corners are where the registration crosses and the
        tape hints live - and a white patch over a crosshair is worse than no
        legend at all. Cover page only, where the sheet is ours to fill. */
@@ -3517,6 +3526,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 </script>
 
 <script>
+/* ================= who the app belongs to =================
+   One object, and it is the ONLY place the product's identity lives. Leave
+   site and email empty and every place that would have shown them simply
+   does not render - no dead mailto, no domain that goes nowhere. Fill them
+   in the day the domain lands and the About card, the licence prompt and
+   the printed footer all pick it up at once. No personal name and no
+   personal address anywhere: this is a product, not a person. */
+const BRAND = { name:'CladMate', owner:'CladMate', site:'', email:'' };
+
 /* ================= persistence ================= */
 const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
@@ -3938,7 +3956,7 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // GROUPS = what the home screen shows. Trunnion parked until the geometry is
 // bench-verified; tee reducer folded into the tee (angle 90 + small branch).
 // ORDER keeps every fitting that has ever shipped (so saved jobs still reprint),
-// including the boxes/endcap that were pulled off the home grid (23 Jul: Craig
+// including the boxes/endcap that were pulled off the home grid (23 Jul: shop
 // wanted the boxes gone - "too confusing" - keeping only the two watershed TOPS,
 // the bits that actually take figuring out). GROUPS = what the home screen shows.
 const ORDER=['elbow','lobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
@@ -3967,7 +3985,7 @@ function showUnlock(){
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
     <input id="licIn" placeholder="Licence code  CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
-    <div class="hint">Codes come with the paid version. If you have bought it and lost your code, email swordy@phatstax.co.uk.</div>`);
+    <div class="hint">Codes come with the paid version.${BRAND.email?` If you have bought it and lost your code, email <a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>.`:' If you have bought it and lost your code, get in touch wherever you bought it.'}</div>`);
   bg.querySelector('#licGo').onclick=()=>{
     if(checkCode(bg.querySelector('#licIn').value)){ PRO=true; store.set('cm_pro',true); renderPro(); bg.remove(); toast('Pro unlocked — nice one!'); route(); }
     else { toast('That code isn’t right — check it and try again.'); } };
@@ -4124,7 +4142,7 @@ const _poly=(parts,all,pts,c)=>{ pts.forEach(p=>all.push(p));
   parts.push(`<polygon points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="${c.f}" stroke="${c.i}" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/>`); };
 function diagBend(va, k, seamDeg, hand, dims){
   const Rc=60, r=Math.max(8,Math.min(Rc*k,Rc*0.8)), Ri=Rc-r, Ro=Rc+r;
-  // trade convention (Craig, bench-checked): C = B rotated 180, D = A rotated 180
+  // trade convention (bench-checked on site): C = B rotated 180, D = A rotated 180
   const mir=(hand==='B'||hand==='C'), rot=(hand==='C'||hand==='D');
   const sgn=(mir?1:-1)*(rot?-1:1), ym=rot?-1:1, rad=a=>a*Math.PI/180;   // A=r  B=mirror  C=180  D=mirror+180
   const P=(R,t)=>[sgn*R*Math.cos(rad(t)),-ym*R*Math.sin(rad(t))];
@@ -4879,7 +4897,7 @@ function diagAngleCone(s){
   return _svgWrap(parts,all,170);
 }
 function diagTeeBend(s){
-  /* drawn the way the metal hangs (Craig, 26 Jul): riser UP, run away to the
+  /* drawn the way the metal hangs (site note, 26 Jul): riser UP, run away to the
      right, trunnion dropping straight down under the corner onto the bend's
      belly. Segments sketched like a lobster - that's what it lands on. */
   const cl=od=>od+2*(+s.insulation||0);
@@ -5129,7 +5147,7 @@ function fieldHTML(f,s){
   if(f.type==='seg') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
-    const hands = ['A','B'];   // C/D retired: flip the seam on A/B instead (Craig, 26 Jul)
+    const hands = ['A','B'];   // C/D retired: flip the seam on A/B instead (site note, 26 Jul)
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
       const x=80+55*Math.sin(phi), y=80+55*Math.cos(phi);
@@ -5434,7 +5452,7 @@ function form(kind, presetParams){
       if(pvE){ pvE.innerHTML='<div class="pverr"><b>CAN\u2019T DRAW THIS YET</b><span></span></div>';
         pvE.querySelector('span').textContent=err; }
       /* Nothing built, so every number still on the page belongs to the LAST
-         good build - and the page then argues with itself. Craig caught it on
+         good build - and the page then argues with itself. Caught on site on
          an equal tee: the chips read "Branch 166" (the old default) while the
          error underneath read "branch is 271". Wipe what came off the pattern.
          The little schematic is drawn from the BOXES, not from the pattern, so
@@ -5622,7 +5640,7 @@ function settingsPage(){
     <div class="row"><div><label>Thickness (mm)</label><input type="number" step="0.1" id="sThk" value="${SET.thickness}"></div>
     <div><label>Sheet size (mm)</label><div class="row" style="gap:6px"><input type="number" id="sSW" value="${SET.sheetW}"><input type="number" id="sSH" value="${SET.sheetH}"></div></div></div></div>
    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Branding ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</h3>
-    <label>Company name on PDF templates</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. C. Sword Insulations Ltd" ${PRO?'':'disabled'}></div>
+    <label>Company name on PDF templates</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></div>
    <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ CladMate Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
      :`<button class="btn gold" id="sUp">Unlock CladMate Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Backup</h3>
@@ -5632,13 +5650,12 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.28.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.28.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
-    <div style="font-size:13.5px;margin-top:12px;line-height:1.6">Designed &amp; developed by<br><b>Craig Sword</b> · Phat Stax<br>
-      <a href="mailto:swordy@phatstax.co.uk" style="color:var(--acc);font-weight:600;text-decoration:none">swordy@phatstax.co.uk</a></div>
+    ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
    </div>
-   <div class="hint">© Craig Sword · Phat Stax · all rights reserved</div>`;
+   <div class="hint">© ${BRAND.owner} · all rights reserved</div>`;
   // Settings feed EVERY fitting, so a daft value here poisons the whole app -
   // a 0 hole pitch used to hang it solid. Anything out of range is put back to
   // the nearest sane value and written into the box so you can see it happen.
@@ -5676,7 +5693,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.28.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.28.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
