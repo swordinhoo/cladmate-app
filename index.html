@@ -947,7 +947,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.29.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.30.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1594,6 +1594,177 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                      `Circ ${circ.toFixed(0)} + lap ${p.lapTotal} = ${(circ + p.lapTotal).toFixed(0)} mm`,
                      `Type ${p.bendHand||'A'}    CUT ${pieces} OFF` ] },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:`CUT ${pieces} OFF` };
+  }
+
+
+  // ---- flat-sided elbow: D-section 2-piece mitred elbow (parallel line) ----
+  // A round mitred elbow with one face pressed flat - a "recess" of depth RD.
+  // The section is a circle with a chord cut off it (a D), so the flat replaces
+  // a minor arc with a shorter straight chord and the developed girth comes out
+  // SHORTER than the round wrap. Each element's height to the mitre plane
+  // depends only on how far along the bend axis it sits, so the round arc keeps
+  // the elbow's wave while the flat panel develops to a straight, level top edge
+  // when the recess is on the back or the throat. Decodes the Pattern Maker
+  // "Flat-sided Elbow" screen: flat length 2*sqrt(RD*(D-RD)), girth = surviving
+  // arc + flat, round-wrap reference = pi*D - all reproduced to the mm (see
+  // verify/sanity-flatelbow.js).
+  function flatElbow(p) {
+    const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
+    const r = cladOD / 2, D = cladOD;
+    const RD = +p.recessDepth;
+    if (!isFinite(RD) || RD <= 0) throw new Error('Recess depth must be more than 0.');
+    if (RD >= D) throw new Error('Recess depth ' + RD + ' mm is deeper than the ' + D.toFixed(0) + ' mm section.');
+    const phi0     = Math.acos((r - RD) / r);           // half-angle the flat chord subtends
+    const flatLen  = 2 * r * Math.sin(phi0);            // = 2*sqrt(RD*(D-RD))
+    const majorArc = r * (2 * Math.PI - 2 * phi0);      // the round part that survives
+    const girth    = majorArc + flatLen;                // developed length of the D-section
+    const fullCirc = Math.PI * D;                        // plain round wrap, for reference
+    const lapEach  = p.lapTotal / 2;
+    const pieces   = p.pieces || 2;
+    const alpha    = (p.bendDeg * Math.PI / 180) / (2 * (pieces - 1));   // mitre half-angle
+    const Am       = r * Math.tan(alpha);               // mitre wave amplitude
+    const minLen   = p.minLen != null ? p.minLen : 25;
+    const swE      = p.swage || 0;
+    const ND       = _nd(p.nDiv, 12);
+    // Flat on the back (default), throat, or side; the seam sits opposite the
+    // flat, on the round part. psi is measured from the throat (0 throat, pi
+    // back). Back/throat flats develop level; a side flat develops sloped.
+    const orient   = p.recessAt || 'back';
+    const psiFlat  = orient === 'throat' ? 0 : orient === 'side' ? Math.PI / 2 : Math.PI;
+    const psiSeam  = psiFlat - Math.PI;
+    const hAt      = psi => minLen + Am * (1 - Math.cos(psi));
+
+    const xLo = -lapEach, xHi = girth + lapEach, dLap = lapEach / r;
+    const pts = []; let X = xLo;
+    const arc = (a0, a1) => { const st = Math.max(2, Math.round(Math.abs(a1 - a0) / (2 * Math.PI) * 400));
+      for (let i = 0; i <= st; i++) { const ps = a0 + (a1 - a0) * i / st; if (i > 0) X += r * Math.abs((a1 - a0) / st); pts.push([X, hAt(ps)]); } };
+    arc(psiSeam - dLap, psiFlat - phi0);
+    const foldA = X;                                    // near crease fold
+    X += flatLen; pts.push([X, hAt(psiFlat + phi0)]);   // flat top: level (back/throat) or sloped (side)
+    const foldB = X;                                    // far crease fold
+    arc(psiFlat + phi0, psiSeam + 2 * Math.PI + dLap);
+    const topAt = x => { if (x <= pts[0][0]) return pts[0][1];
+      for (let i = 1; i < pts.length; i++) if (pts[i][0] >= x) { const a = pts[i-1], b = pts[i]; return a[1] + (b[1]-a[1]) * (x-a[0]) / ((b[0]-a[0]) || 1); }
+      return pts[pts.length-1][1]; };
+
+    const prim = [], holes = [], ticks = [];
+    const top = pts.map(q => [q[0], q[1] + swE]);
+    prim.push({ style: 'cut', pts: [[xLo, -swE]].concat(top, [[xHi, -swE]], [[xLo, -swE]]) });
+    if (swE > 0) { prim.push({ style: 'swage', pts: pts.slice(), note: 'SWAGE ' + swE });
+                   prim.push({ style: 'swage', pts: [[xLo, 0], [xHi, 0]], note: 'SWAGE ' + swE }); }
+    prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
+    [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, -swE], [xs, topAt(xs) + swE]] }));   // seam edges
+    [foldA, foldB].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, topAt(xf)]] }));        // crease folds of the flat
+    [0, girth].forEach(xl => { const h = topAt(xl), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
+    for (let k = 0; k <= ND; k++) { const x = k * girth / ND, h = topAt(x); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
+
+    const rnd = v => Math.round(v), where = orient;
+    return { kind: 'flatelbow', title: `${p.bendDeg}° Flat-sided Elbow  -  1:1 Template`,
+      meta: [ (p.insulation || 0) === 0
+                ? `Cladding Ø ${cladOD.toFixed(0)} mm  with a ${rnd(RD)} mm flat (recess on the ${where})`
+                : `Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat on the ${where}`,
+              `Flat length ${rnd(flatLen)} mm  ·  developed girth ${rnd(girth)} mm  (a round wrap would be ${rnd(fullCirc)} mm)`,
+              `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha * 180 / Math.PI).toFixed(1)}°  ·  lap ${p.lapTotal} (${lapEach} each end)  swage ${swE} mm  min length ${minLen} mm`,
+              `Roll the two seam edges onto the round part; the two dashed folds are the edges of the flat.  CUT ${pieces} OFF` ],
+      calc: { cladOD, circ: fullCirc, alpha: alpha * 180 / Math.PI, Am, flatLen, girth, majorArc, fullCirc, recessDepth: RD, phi0: phi0 * 180 / Math.PI, pieces },
+      info: { name: `${p.bendDeg}° Flat-sided Elbow`,
+              lines: [ `Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat (${where})`,
+                       `Flat ${rnd(flatLen)}  ·  girth ${rnd(girth)}  ·  round ${rnd(fullCirc)} mm`,
+                       `CUT ${pieces} OFF` ] },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT ${pieces} OFF` };
+  }
+
+
+  // ---- flat-sided bend: D-section lobster-back gore (parallel line) --------
+  // The lobster back with one face pressed flat (recess depth RD). Same
+  // D-section as flatElbow, developed per GORE with the segment's mitre wave:
+  // the round arc keeps the wave, the flat is a level panel between two crease
+  // folds on the back. Decodes the Pattern Maker "Flat-sided Bend" screen -
+  // flat length 2*sqrt(RD*(D-RD)) and girth = surviving arc + flat reproduced to
+  // the mm; loss (arc minus chord) to +/-1 mm (the long-standing lobster
+  // rounding note). See verify/sanity-flatbend.js.
+  function _flatLobGore(p, kind) {
+    const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
+    const r = cladOD / 2, D = cladOD;
+    const RD = +p.recessDepth;
+    if (!isFinite(RD) || RD <= 0) throw new Error('Recess depth must be more than 0.');
+    if (RD >= D) throw new Error('Recess depth ' + RD + ' mm is deeper than the ' + D.toFixed(0) + ' mm section.');
+    const phi0      = Math.acos((r - RD) / r);
+    const flatLen   = 2 * r * Math.sin(phi0);
+    const majorArc  = r * (2 * Math.PI - 2 * phi0);
+    const girth     = majorArc + flatLen;
+    const fullCirc  = Math.PI * D;
+    const loss      = (fullCirc - majorArc) - flatLen;   // removed arc minus its chord
+    const N = Math.max(1, Math.round(p.segments));
+    const g = (p.bendDeg * Math.PI / 180) / (2 * N);     // mitre half-angle
+    const A = r * Math.tan(g);
+    const C = p.centreRadius * g + (p.jointAllow || 0);   // half-gore mean length
+    const lapEach = p.lapTotal / 2;
+    const ND = _nd(p.nDiv, 12);
+    const mid = (kind === 'mid');
+    // flat on the back (default), throat or side; seam opposite, on the round
+    // part. Back/throat flats develop level; a side flat develops sloped.
+    const orient  = p.recessAt || 'back';
+    const psiFlat = orient === 'throat' ? 0 : orient === 'side' ? Math.PI / 2 : Math.PI;
+    const psiSeam = psiFlat - Math.PI;
+    const hAt   = phi => C - A * Math.cos(phi);           // mitre edge height, phi from throat
+
+    const xLo = -lapEach, xHi = girth + lapEach, dLap = lapEach / r;
+    const pts = []; let X = xLo;
+    const arc = (a0, a1) => { const st = Math.max(2, Math.round(Math.abs(a1 - a0) / (2 * Math.PI) * 400));
+      for (let i = 0; i <= st; i++) { const ps = a0 + (a1 - a0) * i / st; if (i > 0) X += r * Math.abs((a1 - a0) / st); pts.push([X, hAt(ps)]); } };
+    arc(psiSeam - dLap, psiFlat - phi0);
+    const foldA = X;
+    X += flatLen; pts.push([X, hAt(psiFlat + phi0)]);
+    const foldB = X;
+    arc(psiFlat + phi0, psiSeam + 2 * Math.PI + dLap);
+    const topAt = x => { if (x <= pts[0][0]) return pts[0][1];
+      for (let i = 1; i < pts.length; i++) if (pts[i][0] >= x) { const a = pts[i-1], b = pts[i]; return a[1] + (b[1]-a[1]) * (x-a[0]) / ((b[0]-a[0]) || 1); }
+      return pts[pts.length-1][1]; };
+
+    const prim = [], holes = [], ticks = [];
+    if (mid) {
+      const bot = pts.map(q => [q[0], -q[1]]);
+      prim.push({ style: 'cut', pts: pts.concat([[xHi, -topAt(xHi)]], bot.slice().reverse(), [pts[0]]) });
+      prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
+      [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, -topAt(xs)], [xs, topAt(xs)]] }));    // seam edges
+      [foldA, foldB].forEach(xf => prim.push({ style: 'fold', pts: [[xf, -topAt(xf)], [xf, topAt(xf)]] })); // crease folds
+      [0, girth].forEach(xl => { const h = topAt(xl) - p.holeEndGap, span = 2 * h; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, -h + span * k / nH]); });
+      for (let k = 0; k <= ND; k++) { const x = k * girth / ND, h = topAt(x); prim.push({ style: 'ord', pts: [[x, -h], [x, h]] }); ticks.push({ x, y: h, label: (2 * h).toFixed(0) }); }
+    } else {
+      prim.push({ style: 'cut', pts: [[xLo, 0]].concat(pts, [[xHi, 0]], [[xLo, 0]]) });
+      prim.push({ style: 'fold', pts: [[xLo, 0], [xHi, 0]] });   // flat flange edge (butts the straight pipe)
+      [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, 0], [xs, topAt(xs)]] }));
+      [foldA, foldB].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, topAt(xf)]] }));
+      [0, girth].forEach(xl => { const h = topAt(xl), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
+      for (let k = 0; k <= ND; k++) { const x = k * girth / ND, h = topAt(x); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
+    }
+
+    const nMid = N - 1, rnd = v => Math.round(v), where = orient;
+    return { kind: 'flatlobster',
+      title: mid ? 'Flat-sided Bend  -  Middle Gore 1:1' : 'Flat-sided Bend  -  Starter / Finisher Gore 1:1',
+      meta: [
+        (p.insulation || 0) === 0 ? `Cladding Ø ${cladOD.toFixed(0)} mm  with a ${rnd(RD)} mm flat on the ${where}`
+                                  : `Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat on the ${where}`,
+        `Bend ${p.bendDeg}°  ${N} segments = 2 half-end gores + ${nMid} middle gore${nMid === 1 ? '' : 's'}   centre radius ${p.centreRadius} mm`,
+        `Flat length ${rnd(flatLen)} mm  ·  developed girth ${rnd(girth)} mm  (round wrap ${rnd(fullCirc)} mm)  ·  loss to the flat ${rnd(loss)} mm`,
+        mid ? `MIDDLE gore - wavy both edges, flat panel on the back, cut ${nMid} off.  Mitre half-angle ${(g * 180 / Math.PI).toFixed(2)}°  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.jointAllow || 0} mm`
+            : `STARTER / FINISHER gore - flat edge butts the straight pipe, cut 2 off.  Mitre half-angle ${(g * 180 / Math.PI).toFixed(2)}°  lap ${p.lapTotal} (${lapEach} each end)`
+      ],
+      calc: { cladOD, circ: fullCirc, g: g * 180 / Math.PI, A, C, flatLen, girth, majorArc, fullCirc, loss, recessDepth: RD, phi0: phi0 * 180 / Math.PI, segments: N, nMid },
+      info: { name: mid ? 'Flat-sided Bend - Middle Gore' : 'Flat-sided Bend - Starter/Finisher',
+              lines: [ `Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat (${where})`,
+                       `Flat ${rnd(flatLen)}  ·  girth ${rnd(girth)}  ·  loss ${rnd(loss)} mm`,
+                       mid ? `CUT ${nMid} OFF (middle)` : `CUT 2 OFF (ends)` ] },
+      prim, holes, ticks, bbox: bboxOf(prim),
+      cutNote: mid ? `CUT ${nMid} OFF (middle gores)` : `CUT 2 OFF (starter + finisher)` };
+  }
+  function flatLobster(p) { return _flatLobGore(p, p.gore || 'mid'); }
+  function flatLobsterKit(p) {
+    const N = Math.max(1, Math.round(p.segments));
+    const out = [ _flatLobGore(p, 'end') ];
+    if (N - 1 > 0) out.push(_flatLobGore(p, 'mid'));
+    return out;
   }
 
 
@@ -3539,7 +3710,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, teeBendStub, teeBendHole, teeOnCone, teeOnDome, yBranch, yBranchKit, squareToRound, elbow, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, teeBendStub, teeBendHole, teeOnCone, teeOnDome, yBranch, yBranchKit, squareToRound, elbow, flatElbow, flatLobster, flatLobsterKit, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3733,6 +3904,21 @@ const F={
   build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
+ flatelbow:{name:'Flat-sided Elbow',sub:'D-section · 2-piece',icon:I.elbow,free:true,
+  defaults:{pipeOD:168.3,insulation:25,recessDepth:40,recessAt:'back',bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,nDiv:12},
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),num('bendDeg','Bend angle (°)'),num('minLen','Min piece length (mm)')],
+  build:s=>FP.flatElbow({...s,pieces:2,swage:SET.swage}),
+  mini:c=>['Ø '+c.cladOD.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
+  stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Recess '+c.recessDepth.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
+  note:'A round elbow with one face pressed flat (recess on the back). Generate prints the full 1:1 D-section wrap - the round part keeps the mitre wave, the flat develops to a straight-topped panel between the two dashed crease folds. Roll the seam edges onto the round part. CUT 2 OFF.'},
+ flatlobster:{name:'Flat-sided Bend',sub:'D-section · segmented',icon:I.lob,
+  defaults:{pipeOD:168.3,insulation:25,recessDepth:40,recessAt:'back',centreRadius:229,bendDeg:90,segments:4,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:0,nDiv:12},
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)'),num('segments','Segments')],
+  build:s=>FP.flatLobster({...s,gore:'mid',jointAllow:SET.swage}),
+  kit:s=>FP.flatLobsterKit({...s,jointAllow:SET.swage}),
+  mini:c=>['Ø '+c.cladOD.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
+  stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Recess '+c.recessDepth.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
+  note:'A lobster-back bend with one face pressed flat on the back. Generate prints the full 1:1 D-section gores - the round part keeps the segment wave, the flat develops to a level panel between two crease folds. Middle gore is wavy both edges (cut N-1); the starter/finisher gore butts the straight pipe (cut 2). The flat runs along the back of the whole bend.'},
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
   defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
@@ -3986,8 +4172,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // including the boxes/endcap that were pulled off the home grid (23 Jul: shop
 // wanted the boxes gone - "too confusing" - keeping only the two watershed TOPS,
 // the bits that actually take figuring out). GROUPS = what the home screen shows.
-const ORDER=['elbow','lobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','valveend']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','flatelbow','lobster','flatlobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
+const GROUPS=[{t:'Bends',k:['elbow','flatelbow','lobster','flatlobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','valveend']},{t:'Vessel Ends',k:['dome']}];
 // tee still has a mode selector; the box variants are retired with the boxes.
 const VARIANTS=[
   {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]} ];
@@ -5677,7 +5863,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.29.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.30.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -5720,7 +5906,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.29.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.30.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
