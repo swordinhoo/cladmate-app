@@ -947,7 +947,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.30.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.30.2</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1521,6 +1521,48 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       calc: { bigOD, smallOD, H, X, angle: p.topAngle||0 },
       b2, t2, swage: p.swage, lapEach: p.lapTotal/2, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
     });
+  }
+
+  // ---- witches hat: a full right cone to a point (radial sector) -----------
+  // The simplest cone development: unroll the cone into one sector. Slant =
+  // sqrt((D/2)^2 + H^2), the base arc = pi*D, so the sector angle = arc/slant.
+  // Decodes the Pattern Maker "Witches Hat" screen (Radius = slant, Loss = the
+  // waste wedge = full circle arc - base arc) to the mm. See sanity-witcheshat.js.
+  function witchesHat(p) {
+    const D = _odOr(p.pipeOD, p.dia, p.insulation, p.cladGap, 'the base diameter');
+    const R = D/2, H = p.height;
+    if (!(H > 0)) throw new Error('Height must be more than 0.');
+    const slant = Math.hypot(R, H), circ = Math.PI*D, theta = circ/slant;
+    const lapEach = p.lapTotal/2, sw = p.swage||0, ND = _nd(p.nDiv, 12);
+    const half = theta/2, dlapC = lapEach/slant, halfL = half + dlapC, SRe = slant + sw;
+    const pol = (s, phi) => [s*Math.sin(phi), -s*Math.cos(phi)];
+    const prim = [], holes = [], ticks = [];
+    const N = 240, outer = [];
+    for (let i = 0; i <= N; i++) { const phi = -halfL + 2*halfL*i/N; outer.push(pol(SRe, phi)); }
+    prim.push({ style: 'cut', pts: [[0,0]].concat(outer, [[0,0]]) });          // apex -> base arc -> apex
+    if (sw > 0) { const fo = []; for (let i = 0; i <= 72; i++) { const phi = -halfL + 2*halfL*i/72; fo.push(pol(slant, phi)); }
+                  prim.push({ style: 'swage', pts: fo, note: 'SWAGE ' + sw }); }
+    prim.push({ style: 'centre', pts: [[0,0], pol(slant, 0)] });
+    [-1, 1].forEach(sgn => { const edge = sgn*half;
+      prim.push({ style: 'fold', pts: [[0,0], pol(slant, edge)] });            // radial seam edge
+      const start = p.holeEndGap, end = slant - p.holeEndGap, span = end - start, nH = _nH(span, p.holePitch);
+      for (let k = 0; k <= nH; k++) holes.push(pol(start + span*k/nH, edge));   // holes on the seam
+    });
+    for (let i = 0; i <= ND; i++) { const phi = -half + theta*i/ND;
+      prim.push({ style: 'centre', pts: [pol(slant - 6, phi), pol(slant + 6, phi)] });
+      const t = pol(SRe + 14, phi); ticks.push({ x: t[0], y: t[1], label: String(i + 1 > ND ? 1 : i + 1) });
+    }
+    const loss = 2*Math.PI*slant - circ, rnd = v => Math.round(v);
+    return { kind: 'witcheshat', title: 'Witches Hat  -  1:1 Template',
+      meta: [
+        (p.insulation||0) === 0 ? `Cone base Ø ${D.toFixed(0)} mm   height ${H} mm`
+                                : `Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  base Ø ${D.toFixed(0)} mm   height ${H} mm`,
+        `Slant (sector radius) ${rnd(slant)} mm   base arc ${rnd(circ)} mm   sector angle ${(theta*180/Math.PI).toFixed(1)}°`,
+        `Lap ${p.lapTotal} mm (${lapEach} each edge)   swage ${sw} mm   waste wedge (loss) ${rnd(loss)} mm arc`
+      ],
+      calc: { cladOD: D, slant, circ, theta: theta*180/Math.PI, loss, H },
+      info: { name: 'Witches Hat', lines: [ `Base Ø ${D.toFixed(0)} mm  ·  H ${H} mm`, `Slant ${rnd(slant)}  ·  sector ${(theta*180/Math.PI).toFixed(0)}°`, `CUT 1 OFF` ] },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 1 OFF' };
   }
 
   // ---- square / rectangle to round (concentric or offset) ----
@@ -3723,7 +3765,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, teeBendStub, teeBendHole, teeOnCone, teeOnDome, yBranch, yBranchKit, squareToRound, elbow, flatElbow, flatLobster, flatLobsterKit, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, witchesHat, teeBendStub, teeBendHole, teeOnCone, teeOnDome, yBranch, yBranchKit, squareToRound, elbow, flatElbow, flatLobster, flatLobsterKit, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3998,6 +4040,13 @@ const F={
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Tilt '+c.angle+'°'],
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Tilt '+c.angle+'°','H '+c.H+' · throw '+c.X],
   note:'Taper onto a pipe that leaves at an angle: the small end sits in a plane tilted by the angle you set, its centre at the height and throw you give (throw is toward the throat — the short side). Seam defaults to the throat. Geometry verified against published trade tables to 0.05 mm.'},
+ witcheshat:{name:'Witches Hat',sub:'Cone to a point',icon:I.cone,free:true,
+  defaults:{pipeOD:400,insulation:25,height:400,swage:3,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
+  fields:[pipe('pipeOD','Base diameter'),num('insulation','Insulation (mm)'),num('height','Height (mm)')],
+  build:s=>FP.witchesHat(Object.assign({},s,{swage:SET.swage})),
+  mini:c=>['Base Ø '+c.cladOD.toFixed(0),'Slant '+c.slant.toFixed(0),'Sector '+c.theta.toFixed(0)+'°'],
+  stats:c=>['Base Ø'+c.cladOD.toFixed(0),'Slant '+c.slant.toFixed(0),'Sector '+c.theta.toFixed(0)+'°','Loss '+c.loss.toFixed(0)],
+  note:'A full cone to a point - the classic witches hat. Generate prints the single sector: roll it and seam the two straight edges. Slant is the sector radius; loss is the waste wedge cut from a full circle.'},
  inctee:{name:'Tee',sub:'Any angle · any branch',icon:I.inctee,
   defaults:{seamFromThroat:90,mainPipeOD:219.1,branchPipeOD:114.3,insulation:25,angle:60,minLen:30,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('mainPipeOD','Main pipe'),pipe('branchPipeOD','Branch pipe'),num('insulation','Insulation (mm)'),num('angle','Branch angle (°)'),num('minLen','Branch min length (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -4185,8 +4234,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // including the boxes/endcap that were pulled off the home grid (23 Jul: shop
 // wanted the boxes gone - "too confusing" - keeping only the two watershed TOPS,
 // the bits that actually take figuring out). GROUPS = what the home screen shows.
-const ORDER=['elbow','flatelbow','lobster','flatlobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','flatelbow','lobster','flatlobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','valveend']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','flatelbow','lobster','flatlobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','witcheshat','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
+const GROUPS=[{t:'Bends',k:['elbow','flatelbow','lobster','flatlobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone','witcheshat']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','valveend']},{t:'Vessel Ends',k:['dome']}];
 // tee still has a mode selector; the box variants are retired with the boxes.
 const VARIANTS=[
   {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]} ];
@@ -5876,7 +5925,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.30.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.30.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -5919,7 +5968,7 @@ function settingsPage(){
   document.getElementById('sSplitStyle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSplitStyle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.splitStyle=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.30.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.30.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
