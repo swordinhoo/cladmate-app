@@ -415,8 +415,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --good:#1c7a43; --warn:#7a5200; --danger:#b3261e; --danger-bg:#fdecea;
     --note-bg:#fbf6e6; --note-line:#e3d4a4; --lock-bg:#e3edf7;
     --zebra:#f5f7f9; --overlay:rgba(16,22,28,.48);
-    --shadow:0 1px 2px rgba(16,22,28,.10);
-    --shadow-lg:0 12px 32px rgba(16,22,28,.24);
+    --shadow:0 1px 2px rgba(16,22,28,.05),0 5px 16px -6px rgba(16,22,28,.12);
+    --shadow-lg:0 12px 44px -10px rgba(16,22,28,.30);
     --brand-dk:var(--titlebar);
 
     /* ---- model space: the drawing canvas + CAD layer colours ---- */
@@ -485,13 +485,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   header .ver{font-family:var(--fm);font-size:9px;font-weight:600;color:var(--titlebar-sub);
          letter-spacing:.08em;margin-left:auto}
   .back{background:#2a3138;border:1px solid #3a434c;color:#dbe2e8;font-size:12.5px;
-        font-family:var(--fd);font-stretch:87.5%;padding:7px 12px;border-radius:4px;font-weight:600;flex:none}
+        font-family:var(--fd);font-stretch:87.5%;padding:7px 13px;border-radius:9px;font-weight:600;flex:none}
   .back:hover{border-color:var(--ly-object);color:var(--ly-object)}
   .probadge{margin-left:8px;font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:.12em;
         padding:4px 8px;border-radius:3px;border:1px solid #3a434c;color:#8b96a0;background:#171b1f}
   .probadge.pro{border-color:#21dede;color:#21dede;background:rgba(33,222,222,.08)}
 
-  main{flex:1;overflow-y:auto;padding:14px;max-width:680px;margin:0 auto;width:100%;
+  main{flex:1;overflow-y:auto;padding:17px 16px;max-width:680px;margin:0 auto;width:100%;
        padding-bottom:calc(84px + env(safe-area-inset-bottom))}
   .page{animation:slidein .22s cubic-bezier(.2,.7,.25,1)}
   @keyframes slidein{from{opacity:0;transform:translate(var(--px,0px),var(--py,6px))}to{opacity:1;transform:none}}
@@ -532,10 +532,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      box-shadow:0 0 0 3px color-mix(in srgb,var(--cat,var(--acc)) 18%,transparent);flex:none}
   h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--cat,var(--acc)) 42%,transparent),transparent)}
   .grp:first-child h2,#app>h2:first-child{margin-top:2px}
-  .grid{display:grid;grid-template-columns:1fr;gap:7px}
+  .grid{display:grid;grid-template-columns:1fr;gap:10px}
   .tile{position:relative;display:flex;align-items:center;background:var(--panel);
-        border:1px solid var(--line);border-radius:11px;
-        padding:0;box-shadow:0 1px 2px rgba(16,22,28,.06),0 6px 16px -8px rgba(16,22,28,.14);
+        border:1px solid var(--line);border-radius:15px;
+        padding:0;box-shadow:0 1px 2px rgba(16,22,28,.05),0 8px 22px -12px rgba(16,22,28,.20);
         text-align:left;cursor:pointer;overflow:hidden;isolation:isolate;
         transition:border-color .15s,transform .18s cubic-bezier(.2,1.3,.4,1),box-shadow .18s}
   /* colour spine down the left edge marks the family */
@@ -556,7 +556,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         --ic-fill2:color-mix(in srgb,var(--cat,var(--acc)) 22%,#ffffff);
         --ic-gold:#d08a12}
   .tile svg{width:100%;height:42px;display:block}
-  .tmeta{flex:1;min-width:0;padding:10px 12px}
+  .tmeta{flex:1;min-width:0;padding:12px 14px}
   .tile .t{font-family:var(--fd);font-stretch:87.5%;font-weight:800;font-size:16.5px;
         letter-spacing:.01em;color:var(--ink)}
   .tile .d{font-family:var(--fs);font-size:12.5px;font-weight:500;color:var(--sub);margin-top:3px;line-height:1.35}
@@ -614,20 +614,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   /* ---- panels + controls ---- */
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:15px;
         box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);
         padding:14px;margin-bottom:12px}
   label{display:block;font-family:var(--fm);font-size:11.5px;font-weight:800;text-transform:uppercase;
         letter-spacing:.06em;color:#232b33;margin:14px 0 6px}
   .card>label:first-child{margin-top:0}
   input,select{width:100%;font-size:18px;font-weight:700;font-family:var(--fm);padding:12px 12px;
-        border:1px solid var(--line2);border-radius:6px;background:var(--field);color:var(--ink);
+        border:1px solid var(--line2);border-radius:10px;background:var(--field);color:var(--ink);
         font-variant-numeric:tabular-nums slashed-zero}
   input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(10,90,168,.22)}
   button:focus-visible,.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 
-  .seg{display:flex;gap:0;background:var(--panel);padding:0;border-radius:4px;
+  .seg{display:flex;gap:0;background:var(--panel);padding:0;border-radius:10px;
         border:1px solid var(--line2);overflow:hidden}
   .seg button{flex:1;border:none;border-right:1px solid var(--line);background:var(--panel);
         padding:9px 4px;font-family:var(--fd);font-stretch:87.5%;font-weight:600;font-size:12.5px;
@@ -639,7 +639,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .seg button.on{background:var(--acc);color:var(--acc-ink)}
 
   /* ---- viewports: the drawing canvas as a real CAD instrument ---- */
-  .preview{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  .preview{background:var(--panel);border:1px solid var(--line);border-radius:15px;
         margin-bottom:12px;box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);overflow:hidden}
   .pvhead{display:flex;justify-content:space-between;align-items:center;gap:8px;
         background:var(--panel2);border-bottom:1px solid var(--line);padding:6px 9px}
@@ -953,7 +953,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.31.2</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.32.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4337,8 +4337,7 @@ function home(){
     }).join('');
   app.innerHTML=`${strip}${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
-    ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}
-    <div class="hint" style="margin-top:14px">Add to Home Screen from your browser menu to use CladMate offline, like a real app.</div>`;
+    ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}`;
   /* cold boot: once per launch the tiles plot themselves in */
   if(!window._booted){ window._booted=true; document.body.classList.add('boot');
     setTimeout(()=>document.body.classList.remove('boot'),1000); }
@@ -5955,7 +5954,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.31.2</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.32.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -5993,7 +5992,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.31.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.32.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
