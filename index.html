@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#20262c">
+<meta name="theme-color" content="#070a0e">
 <meta name="description" content="True 1:1 printable flat patterns for industrial insulation cladding — lobster backs, elbows, tees, reducers and more, worked to the outside of the lagging.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="CladMate">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a1e22'/%3E%3Cpath d='M16 5v22M5 16h22' stroke='%2321dede' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='none' stroke='%23ff6f61' stroke-width='1.6'/%3E%3C/svg%3E">
 <title>CladMate — Insulation Cladding Patterns</title>
+<!-- set the theme before first paint so there is no light flash -->
+<script>try{var s=JSON.parse(localStorage.getItem('cm_settings')||'{}');document.documentElement.setAttribute('data-theme',(s.appearance?s.appearance!=='light':s.canvas!=='paper')?'dark':'light');}catch(e){}</script>
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
 <script>
 /** @license
@@ -436,6 +438,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --ic-ink:var(--ly-object); --ic-fill:var(--ly-fill); --ic-fill2:var(--ly-fill2);
     --ic-paper:var(--canvas); --ic-gold:var(--ly-dim);
 
+    /* family palette — home-screen category colours (light: muted for white paper) */
+    --fam-1:#2f7bd6; --fam-2:#129aa6; --fam-3:#d08a12; --fam-4:#7b5be0; --fam-5:#1f9b57; --fam-6:#d1495b; --fam-ref:#5b6b7a;
+
     /* legacy names still referenced in markup */
     --card:var(--panel); --field:#ffffff; --seg-bg:#e2e8ed; --seg-on:#ffffff;
     --chip-ink:#39424b; --chip-line:#cdd4da; --icfill:#eef2f6;
@@ -449,6 +454,74 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --ly-flange:#a35c00; --ly-swage:#00736b;
     --ly-fill:rgba(15,18,22,.05); --ly-fill2:rgba(15,18,22,.10);
   }
+
+  /* ================================================================
+     DARK — the HUD workshop theme, and the default. Near-black
+     blue-graphite ground, glassy panels, glowing cyan. Light stays the
+     flat "paper" theme for bright sunlight. Theme drives the drawing
+     canvas too (see applyTheme): dark => model space, light => paper.
+     ================================================================ */
+  :root[data-theme="dark"]{
+    --titlebar:#070a0e; --titlebar-ink:#f2f8fb; --titlebar-sub:#8598a9; --titlebar-line:#04070a;
+    --bg:#070a0e; --panel:#131b25; --panel2:#0e151d; --rail:#0b1016;
+    --line:#243444; --line2:#33495d;
+    --ink:#e3edf5; --sub:#8598a9;
+
+    /* accent ramp → HUD cyan */
+    --acc-deep:#0c8f8f; --acc:#26e0e0; --acc-hi:#5cf0f0; --acc-ink:#04191a; --acc-soft:rgba(38,224,224,.12);
+    --focus:#26e0e0;
+
+    --good:#2fd07a; --warn:#ffb020; --danger:#ff5d6c; --danger-bg:rgba(255,93,108,.13);
+    --note-bg:rgba(255,176,32,.09); --note-line:rgba(255,176,32,.30); --lock-bg:rgba(38,224,224,.10);
+    --zebra:rgba(255,255,255,.022); --overlay:rgba(3,6,10,.66);
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.7);
+    --shadow-lg:0 18px 50px -12px rgba(0,0,0,.8);
+
+    /* family palette — vivid HUD layer colours off the drawing canvas */
+    --fam-1:#26e0e0; --fam-2:#3aa5ff; --fam-3:#ffb020; --fam-4:#b98bff; --fam-5:#2fd07a; --fam-6:#ff5d6c; --fam-ref:#8aa0b2;
+
+    /* legacy aliases */
+    --card:var(--panel); --field:#0e151d; --seg-bg:#0b1016; --seg-on:#18232f;
+    --chip-ink:#c7d6e2; --chip-line:#243444; --icfill:#0e151d;
+    --gold:var(--acc); --gold-dk:var(--acc-hi); --accent:var(--acc); --paper:var(--canvas);
+  }
+
+  /* ---- dark-only flourishes: glass + glow, so the light theme stays flat ---- */
+  :root[data-theme="dark"] body{
+    background:
+      radial-gradient(90% 60% at 82% -6%,rgba(38,224,224,.10),transparent 60%),
+      radial-gradient(80% 55% at 6% 104%,rgba(58,165,255,.08),transparent 60%),
+      linear-gradient(180deg,#080c11,#05080c);}
+  :root[data-theme="dark"] body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+    background-image:linear-gradient(rgba(70,110,140,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(70,110,140,.06) 1px,transparent 1px);
+    background-size:34px 34px;
+    -webkit-mask-image:radial-gradient(120% 90% at 50% 8%,#000,transparent 78%);mask-image:radial-gradient(120% 90% at 50% 8%,#000,transparent 78%)}
+  :root[data-theme="dark"] header{background:linear-gradient(180deg,rgba(7,10,14,.94),rgba(7,10,14,.60) 78%,rgba(7,10,14,.28));
+    border-bottom-color:transparent;box-shadow:inset 0 -1px 0 rgba(38,224,224,.20);backdrop-filter:blur(6px)}
+  :root[data-theme="dark"] nav{border-top-color:var(--line2);box-shadow:0 -2px 30px -12px #000}
+  :root[data-theme="dark"] .tile{background:linear-gradient(180deg,rgba(28,39,51,.5),rgba(16,23,31,.55))}
+  :root[data-theme="dark"] .tile::before{box-shadow:0 0 12px var(--cat,var(--acc));opacity:.85}
+  :root[data-theme="dark"] .ticon{
+    background:radial-gradient(120% 120% at 30% 20%,color-mix(in srgb,var(--cat,var(--acc)) 14%,transparent),transparent 70%),linear-gradient(160deg,rgba(8,13,18,.92),rgba(12,18,25,.62));
+    border-right:1px solid color-mix(in srgb,var(--cat,var(--acc)) 22%,var(--line));
+    --ic-ink:var(--cat,var(--acc)); --ic-paper:#0a1016;
+    --ic-fill:color-mix(in srgb,var(--cat,var(--acc)) 16%,transparent);
+    --ic-fill2:color-mix(in srgb,var(--cat,var(--acc)) 26%,transparent);
+    --ic-gold:var(--cat,var(--acc));
+    filter:drop-shadow(0 0 4px color-mix(in srgb,var(--cat,var(--acc)) 40%,transparent))}
+  :root[data-theme="dark"] .cats button.on{color:#eafdfd;
+    background:color-mix(in srgb,var(--cc,var(--acc)) 22%,transparent);
+    border-color:color-mix(in srgb,var(--cc,var(--acc)) 55%,transparent);
+    box-shadow:0 0 16px -4px color-mix(in srgb,var(--cc,var(--acc)) 60%,transparent)}
+  :root[data-theme="dark"] .cats button.on::before{background:var(--cc,var(--acc))}
+  :root[data-theme="dark"] .vpills button{
+    color:color-mix(in srgb,var(--cat,var(--acc)) 82%,#ffffff);
+    background:color-mix(in srgb,var(--cat,var(--acc)) 12%,transparent);
+    border-color:color-mix(in srgb,var(--cat,var(--acc)) 35%,var(--line))}
+  :root[data-theme="dark"] .vpills button:hover{color:#ffffff}
+  :root[data-theme="dark"] input:focus,:root[data-theme="dark"] select:focus{box-shadow:0 0 0 3px rgba(38,224,224,.25)}
+  :root[data-theme="dark"] .prob{color:#ffd9dc}
+  :root[data-theme="dark"] .printwarn{color:#ffe0a3}
 
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%}
@@ -520,14 +593,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   /* ---- section headings: category-coded rule bars ---- */
   .grp{margin:0 0 4px}
-  details.grp>summary.grpsum{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:#3a444e;margin:16px 1px 10px;display:flex;align-items:center;gap:9px;font-weight:700;cursor:pointer;list-style:none}
+  details.grp>summary.grpsum{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--sub);margin:16px 1px 10px;display:flex;align-items:center;gap:9px;font-weight:700;cursor:pointer;list-style:none}
   details.grp>summary.grpsum::-webkit-details-marker{display:none}
   details.grp>summary.grpsum::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--cat,var(--acc));box-shadow:0 0 0 3px color-mix(in srgb,var(--cat,var(--acc)) 18%,transparent);flex:none}
   details.grp>summary.grpsum::after{content:"\25B8";margin-left:auto;font-size:13px;line-height:1;color:var(--cat,var(--acc));transition:transform .15s}
   details.grp[open]>summary.grpsum::after{transform:rotate(90deg)}
   details.grp:first-child>summary.grpsum{margin-top:2px}
   h2{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;
-     color:#3a444e;margin:22px 1px 11px;display:flex;align-items:center;gap:9px;font-weight:700}
+     color:var(--sub);margin:22px 1px 11px;display:flex;align-items:center;gap:9px;font-weight:700}
   h2::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--cat,var(--acc));
      box-shadow:0 0 0 3px color-mix(in srgb,var(--cat,var(--acc)) 18%,transparent);flex:none}
   h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--cat,var(--acc)) 42%,transparent),transparent)}
@@ -572,7 +645,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .cats{display:flex;flex-wrap:wrap;gap:7px;padding:2px 1px 11px}
   .catwrap{position:relative}
   .cats button{flex:0 0 auto;font-family:var(--fm);font-size:11.5px;text-transform:uppercase;
-        letter-spacing:.06em;font-weight:700;color:#54606b;background:var(--panel);
+        letter-spacing:.06em;font-weight:700;color:var(--sub);background:var(--panel);
         border:1px solid var(--line);border-radius:999px;padding:7px 11px;cursor:pointer;
         display:flex;align-items:center;gap:5px;white-space:nowrap;
         transition:background .15s,color .15s,border-color .15s,transform .1s}
@@ -618,7 +691,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);
         padding:14px;margin-bottom:12px}
   label{display:block;font-family:var(--fm);font-size:11.5px;font-weight:800;text-transform:uppercase;
-        letter-spacing:.06em;color:#232b33;margin:14px 0 6px}
+        letter-spacing:.06em;color:var(--ink);margin:14px 0 6px}
   .card>label:first-child{margin-top:0}
   input,select{width:100%;font-size:18px;font-weight:700;font-family:var(--fm);padding:12px 12px;
         border:1px solid var(--line2);border-radius:10px;background:var(--field);color:var(--ink);
@@ -953,7 +1026,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.32.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.33.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3822,8 +3895,20 @@ function saveSet(){ store.set('cm_settings',SET); }
 function applyCanvas(){ const r=document.documentElement;
   if(SET.canvas==='paper') r.setAttribute('data-canvas','paper'); else r.removeAttribute('data-canvas');
   applyLayers(); }
+/* Appearance = the whole-app theme. Dark HUD is the default; Light is the
+   flat "paper" mode for bright sunlight (and matches how templates print).
+   The theme drives the drawing canvas too: dark => model space, light => paper. */
+function applyTheme(){ const r=document.documentElement;
+  const dark = SET.appearance!=='light';
+  r.setAttribute('data-theme', dark?'dark':'light');
+  SET.canvas = dark?'model':'paper';
+  const mt=document.querySelector('meta[name="theme-color"]'); if(mt) mt.setAttribute('content', dark?'#070a0e':'#20262c');
+  applyCanvas(); }
 /* v3 migration: the old light/dark/auto app theme is gone */
 if(!SET._v3){ SET._v3=1; SET.canvas='model'; delete SET.theme; saveSet(); }
+/* v4: seed the new Appearance pref. Existing paper users (sunlight) keep the
+   light look; everyone else gets the new dark HUD default. */
+if(!SET._v4){ SET._v4=1; if(SET.appearance===undefined) SET.appearance=(SET.canvas==='paper')?'light':'dark'; saveSet(); }
 const OWNER = false;   // build flag: owner edition has Pro permanently on
 let PRO = OWNER || store.get('cm_pro',false);
 let JOBS = store.get('cm_jobs',[]);
@@ -4320,9 +4405,9 @@ function home(){
     const o=g.opts.filter(x=>x.k!==k); if(!o.length) return '';
     return `<div class="vpills">${o.map(x=>`<button data-go="${x.k}">${x.label}</button>`).join('')}</div>`; };
   const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}<div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div>${pills(k)}</div></div>`;
-  const CATCOL=['#2f7bd6','#129aa6','#d08a12','#7b5be0','#1f9b57','#d1495b'];
+  const CATCOL=['var(--fam-1)','var(--fam-2)','var(--fam-3)','var(--fam-4)','var(--fam-5)','var(--fam-6)'];
   const SECS=GROUPS.map((g,gi)=>({t:g.t,c:CATCOL[gi%CATCOL.length],body:()=>`<div class="grid">${g.k.map(tile).join('')}</div>`}));
-  SECS.push({t:'Reference',c:'#5b6b7a',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; long &amp; short radius</div></div></div></div>`});
+  SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; long &amp; short radius</div></div></div></div>`});
   if(HOMECAT>SECS.length) HOMECAT=0;
   const solo=HOMECAT>0;
   /* the chips wrap, so they have to be short - the section heading below still
@@ -5917,7 +6002,10 @@ function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
 function settingsPage(){
   setView('Settings','Defaults & preferences',false);
   app.innerHTML=`
-   <details class="card" open><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Cladding &amp; sizing</summary>
+   <details class="card" open><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Appearance</summary>
+    <label>Theme</label><div class="seg" id="sAppear"><button data-v="dark" ${SET.appearance!=='light'?'class="on"':''}>Dark</button><button data-v="light" ${SET.appearance==='light'?'class="on"':''}>Light</button></div>
+    <div class="hint" style="text-align:left">Dark is the workshop HUD look. Light turns the whole app — and the drawing canvas — white, easier to read in bright sun on site. Templates always print black on white either way.</div></details>
+   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Cladding &amp; sizing</summary>
     <label>Sizing method</label><div class="seg" id="sSizeMode"><button data-v="pipeins" ${SET.sizeMode!=='diameter'?'class="on"':''}>Pipe + insulation</button><button data-v="diameter" ${SET.sizeMode==='diameter'?'class="on"':''}>Finished Ø</button></div>
     <div class="hint" style="text-align:left;margin-bottom:6px">Pipe + insulation works the cladding size out for you (pipe OD + 2 × insulation). Finished Ø lets you type the actual outside diameter straight in — for when the lagging isn't a standard build.</div>
     <label>Insulation (mm)</label><input type="number" id="sIns" value="${SET.insulation}" ${SET.sizeMode==='diameter'?'disabled':''}></details>
@@ -5937,8 +6025,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Basic shows diameter and circumference. Detailed adds mitre angles, ordinates, area, weight and sheet counts.</div></details>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Printing</summary>
     <label>Paper</label><div class="seg" id="sPage">${['a3','a4','letter','legal','tabloid'].map(p=>`<button data-v="${p}" ${SET.page===p?'class="on"':''}>${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[p]}</button>`).join('')}</div>
-    <label>Canvas</label><div class="seg" id="sCanvas"><button data-v="model" ${SET.canvas!=='paper'?'class="on"':''}>Model space</button><button data-v="paper" ${SET.canvas==='paper'?'class="on"':''}>Paper space</button></div>
-    <div class="hint" style="text-align:left">Model space is the dark drawing screen. Paper space turns it white, easier to read in bright sun on site.</div></details>
+    <div class="hint" style="text-align:left">Templates always print black on white. The screen colour follows Appearance at the top of Settings.</div></details>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Material &amp; sheet</summary>
     <label>Material</label><select id="sMat"><option value="aluminium" ${SET.material==='aluminium'?'selected':''}>Aluminium (2.70)</option><option value="galv" ${SET.material==='galv'?'selected':''}>Galv / mild steel (7.85)</option><option value="stainless" ${SET.material==='stainless'?'selected':''}>Stainless (7.90)</option></select>
     <div class="row"><div><label>Thickness (mm)</label><input type="number" step="0.1" id="sThk" value="${SET.thickness}"></div>
@@ -5954,7 +6041,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.32.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.33.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -5988,11 +6075,11 @@ function settingsPage(){
   document.getElementById('sPage').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sPage').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.page=b.dataset.v; saveSet(); });
   document.getElementById('sDetail').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDetail').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.detail=b.dataset.v==='1'; saveSet(); });
   document.getElementById('sDiv').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDiv').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.nDiv=+b.dataset.v; saveSet(); });
-  document.getElementById('sCanvas').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sCanvas').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.canvas=b.dataset.v; saveSet(); applyCanvas(); route(); });
+  document.getElementById('sAppear').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sAppear').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.appearance=b.dataset.v; applyTheme(); saveSet(); route(); });
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.32.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.33.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
@@ -6018,7 +6105,7 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ navig
 if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); window._installEvt=e; if(TAB==='fit'&&!CUR) route(); });
 window.addEventListener('appinstalled',()=>toast('CladMate installed'));
-applyCanvas(); renderPro(); route();
+applyTheme(); renderPro(); route();
 /* first run: the three rules that make templates come out right */
 if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
   const bg=modal(`<div class="tb"><span>CladMate · First run</span><span>SHT 1/1</span></div>
