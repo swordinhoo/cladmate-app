@@ -520,6 +520,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   /* ---- section headings: category-coded rule bars ---- */
   .grp{margin:0 0 4px}
+  details.grp>summary.grpsum{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:#3a444e;margin:16px 1px 10px;display:flex;align-items:center;gap:9px;font-weight:700;cursor:pointer;list-style:none}
+  details.grp>summary.grpsum::-webkit-details-marker{display:none}
+  details.grp>summary.grpsum::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--cat,var(--acc));box-shadow:0 0 0 3px color-mix(in srgb,var(--cat,var(--acc)) 18%,transparent);flex:none}
+  details.grp>summary.grpsum::after{content:"\25B8";margin-left:auto;font-size:13px;line-height:1;color:var(--cat,var(--acc));transition:transform .15s}
+  details.grp[open]>summary.grpsum::after{transform:rotate(90deg)}
+  details.grp:first-child>summary.grpsum{margin-top:2px}
   h2{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;
      color:#3a444e;margin:22px 1px 11px;display:flex;align-items:center;gap:9px;font-weight:700}
   h2::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--cat,var(--acc));
@@ -947,7 +953,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.31.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.31.2</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4325,8 +4331,10 @@ function home(){
                'Watershed Tops':'Watershed','Vessel Ends':'Vessels','Reference':'Chart'};
   const strip=`<div class="catwrap"><div class="cats">`+['All'].concat(SECS.map(x=>SHORT[x.t]||x.t)).map((t,i)=>
       `<button data-cat="${i}"${i?` style="--cc:${SECS[i-1].c}"`:''}${i===HOMECAT?' class="on"':''}>${t}</button>`).join('')+`</div></div>`;
-  const tiles=SECS.map((x,i)=>(solo&&HOMECAT!==i+1)?'':
-      `<section class="grp${solo?' solo':''}" style="--cat:${x.c}">${solo?'':`<h2>${x.t}</h2>`}${x.body()}</section>`).join('');
+  const tiles=SECS.map((x,i)=>{
+      if(solo) return HOMECAT!==i+1 ? '' : `<section class="grp solo" style="--cat:${x.c}">${x.body()}</section>`;
+      return `<details class="grp" style="--cat:${x.c}"${i===0?' open':''}><summary class="grpsum">${x.t}</summary>${x.body()}</details>`;
+    }).join('');
   app.innerHTML=`${strip}${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}
@@ -5947,7 +5955,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.31.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.31.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -5985,7 +5993,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.31.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.31.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
