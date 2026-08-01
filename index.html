@@ -1026,7 +1026,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.33.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.33.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5895,7 +5895,7 @@ function form(kind, presetParams){
     const basic=!SET.detail && fit.mini;
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
-      +(basic?'':`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.kg.toFixed(2)} kg · ${ms.perSheet}/sheet</span>`);
+      +(basic?'':`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.perSheet}/sheet</span>`);
     renderKit();
   }
   function kitCaption(p){ const t=(p.title||'').replace(/\s*1:1\s*$/,'');
@@ -6022,14 +6022,13 @@ function settingsPage(){
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Ordinates &amp; preview</summary>
     <label>Ordinate divisions</label><div class="seg" id="sDiv"><button data-v="12" ${(SET.nDiv||12)==12?'class="on"':''}>12</button><button data-v="24" ${SET.nDiv==24?'class="on"':''}>24</button></div>
     <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
-    <div class="hint" style="text-align:left">Basic shows diameter and circumference. Detailed adds mitre angles, ordinates, area, weight and sheet counts.</div></details>
+    <div class="hint" style="text-align:left">Basic shows diameter and circumference. Detailed adds mitre angles, ordinates, area and sheet counts.</div></details>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Printing</summary>
     <label>Paper</label><div class="seg" id="sPage">${['a3','a4','letter','legal','tabloid'].map(p=>`<button data-v="${p}" ${SET.page===p?'class="on"':''}>${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[p]}</button>`).join('')}</div>
     <div class="hint" style="text-align:left">Templates always print black on white. The screen colour follows Appearance at the top of Settings.</div></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Material &amp; sheet</summary>
-    <label>Material</label><select id="sMat"><option value="aluminium" ${SET.material==='aluminium'?'selected':''}>Aluminium (2.70)</option><option value="galv" ${SET.material==='galv'?'selected':''}>Galv / mild steel (7.85)</option><option value="stainless" ${SET.material==='stainless'?'selected':''}>Stainless (7.90)</option></select>
-    <div class="row"><div><label>Thickness (mm)</label><input type="number" step="0.1" id="sThk" value="${SET.thickness}"></div>
-    <div><label>Sheet size (mm)</label><div class="row" style="gap:6px"><input type="number" id="sSW" value="${SET.sheetW}"><input type="number" id="sSH" value="${SET.sheetH}"></div></div></div></details>
+   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Sheet size</summary>
+    <label>Sheet size (mm)</label><div class="row" style="gap:6px"><input type="number" id="sSW" value="${SET.sheetW}"><input type="number" id="sSH" value="${SET.sheetH}"></div>
+    <div class="hint" style="text-align:left">Feeds the per-sheet count in the Detailed preview info — how many of a pattern nest on one sheet.</div></details>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Branding ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</summary>
     <label>Company name on PDF templates</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></details>
    <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ CladMate Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
@@ -6041,7 +6040,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.33.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.33.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6065,10 +6064,8 @@ function settingsPage(){
     SET.holePitch  = rd('sHole',       5,   500, SET.holePitch);
     SET.swage      = rd('sSwage',      0,    50, SET.swage);
     SET.flange     = rd('sFlange',     0,   100, SET.flange);
-    SET.thickness  = rd('sThk',      0.2,     6, SET.thickness);
     SET.sheetW     = rd('sSW',       200,  5000, SET.sheetW);
     SET.sheetH     = rd('sSH',       200,  5000, SET.sheetH);
-    SET.material=document.getElementById('sMat').value;
     const b=document.getElementById('sBrand'); if(b&&!b.disabled) SET.brand=b.value;
     saveSet(); ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); }); };
   app.querySelectorAll('input,select').forEach(e=>e.onchange=save);
@@ -6079,7 +6076,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.33.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.33.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
