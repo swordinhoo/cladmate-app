@@ -509,11 +509,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --ic-fill2:color-mix(in srgb,var(--cat,var(--acc)) 26%,transparent);
     --ic-gold:var(--cat,var(--acc));
     filter:drop-shadow(0 0 4px color-mix(in srgb,var(--cat,var(--acc)) 40%,transparent))}
-  :root[data-theme="dark"] .cats button.on{color:#eafdfd;
-    background:color-mix(in srgb,var(--cc,var(--acc)) 22%,transparent);
-    border-color:color-mix(in srgb,var(--cc,var(--acc)) 55%,transparent);
-    box-shadow:0 0 16px -4px color-mix(in srgb,var(--cc,var(--acc)) 60%,transparent)}
-  :root[data-theme="dark"] .cats button.on::before{background:var(--cc,var(--acc))}
   :root[data-theme="dark"] .vpills button{
     color:color-mix(in srgb,var(--cat,var(--acc)) 82%,#ffffff);
     background:color-mix(in srgb,var(--cat,var(--acc)) 12%,transparent);
@@ -639,22 +634,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         display:grid;place-items:center;font-size:11px}
   .full{grid-column:1/-1}
 
-  /* ---- category strip: one family on screen at a time ---- */
-  /* these used to scroll sideways, which hid half the families off the right
-     edge with nothing to say so. Wrapping costs one row and hides nothing. */
-  .cats{display:flex;flex-wrap:wrap;gap:7px;padding:2px 1px 11px}
-  .catwrap{position:relative}
-  .cats button{flex:0 0 auto;font-family:var(--fm);font-size:11.5px;text-transform:uppercase;
-        letter-spacing:.06em;font-weight:700;color:var(--sub);background:var(--panel);
-        border:1px solid var(--line);border-radius:999px;padding:7px 11px;cursor:pointer;
-        display:flex;align-items:center;gap:5px;white-space:nowrap;
-        transition:background .15s,color .15s,border-color .15s,transform .1s}
-  .cats button::before{content:"";width:7px;height:7px;border-radius:2px;flex:none;
-        background:var(--cc,#8b949c)}
-  .cats button.on{background:var(--cc,#3a444e);border-color:var(--cc,#3a444e);color:#fff}
-  .cats button.on::before{background:rgba(255,255,255,.9)}
-  .cats button:active{transform:scale(.95)}
-  .grp.solo{margin-top:2px}
+  /* (the category chip strip is gone - the collapsible family dropdowns
+     below carry the same names, so it only said everything twice) */
   /* ---- mode pills: a variant is never invisible from the home screen ---- */
   .negrow{display:flex;gap:6px;align-items:stretch}
   .negrow input{flex:1;min-width:0}
@@ -1026,7 +1007,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.34.2</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.34.3</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4594,9 +4575,10 @@ backBtn.onclick=()=>{ CUR=null; repage(route); };
 function route(){ if(CUR){ CUR(); return; } TAB==='fit'?home():TAB==='jobs'?jobsPage():settingsPage(); }
 
 /* ================= home ================= */
-/* HOMECAT: 0 = show everything, n = show section n only. Module-level so the
-   chosen family survives opening a fitting and coming back. */
-let HOMECAT=0;
+/* HOMEOPEN: which family dropdowns are open. Module-level so they survive
+   opening a fitting and coming back; a fresh launch starts all closed.
+   (The old category chip strip is gone - it just repeated the group names.) */
+const HOMEOPEN=new Set();
 function home(){
   setView('CladMate','Insulation cladding patterns',false);
   let ti=0;
@@ -4609,29 +4591,16 @@ function home(){
   const CATCOL=['var(--fam-1)','var(--fam-2)','var(--fam-3)','var(--fam-4)','var(--fam-5)','var(--fam-6)'];
   const SECS=GROUPS.map((g,gi)=>({t:g.t,c:CATCOL[gi%CATCOL.length],body:()=>`<div class="grid">${g.k.map(tile).join('')}</div>`}));
   SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; long &amp; short radius</div></div></div></div>`});
-  if(HOMECAT>SECS.length) HOMECAT=0;
-  const solo=HOMECAT>0;
-  /* the chips wrap, so they have to be short - the section heading below still
-     spells the family out in full. */
-  const SHORT={'Tees & Branches':'Tees','Reducers & Cones':'Reducers',
-               'Watershed Tops':'Watershed','Vessel Ends':'Vessels','Reference':'Chart'};
-  const strip=`<div class="catwrap"><div class="cats">`+['All'].concat(SECS.map(x=>SHORT[x.t]||x.t)).map((t,i)=>
-      `<button data-cat="${i}"${i?` style="--cc:${SECS[i-1].c}"`:''}${i===HOMECAT?' class="on"':''}>${t}</button>`).join('')+`</div></div>`;
-  const tiles=SECS.map((x,i)=>{
-      if(solo) return HOMECAT!==i+1 ? '' : `<section class="grp solo" style="--cat:${x.c}">${x.body()}</section>`;
-      return `<details class="grp" style="--cat:${x.c}"${i===0?' open':''}><summary class="grpsum">${x.t}</summary>${x.body()}</details>`;
-    }).join('');
-  app.innerHTML=`${strip}${tiles}
+  const tiles=SECS.map((x,i)=>
+      `<details class="grp" data-gi="${i}" style="--cat:${x.c}"${HOMEOPEN.has(i)?' open':''}><summary class="grpsum">${x.t}</summary>${x.body()}</details>`).join('');
+  app.innerHTML=`${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}`;
   /* cold boot: once per launch the tiles plot themselves in */
   if(!window._booted){ window._booted=true; document.body.classList.add('boot');
     setTimeout(()=>document.body.classList.remove('boot'),1000); }
-  app.querySelectorAll('.cats button').forEach(b=>b.onclick=()=>{ HOMECAT=+b.dataset.cat; home();
-    const m=document.querySelector('main'); if(m) m.scrollTo(0,0); });
-  /* centre the live pill: set scrollLeft by hand so the page never scrolls with it */
-  { const cs=app.querySelector('.cats'), on=cs&&cs.querySelector('button.on');
-    if(cs&&on) cs.scrollLeft=Math.max(0,on.offsetLeft-(cs.clientWidth-on.offsetWidth)/2); }
+  app.querySelectorAll('details.grp').forEach(d=>d.addEventListener('toggle',()=>{
+    const i=+d.dataset.gi; if(d.open) HOMEOPEN.add(i); else HOMEOPEN.delete(i); }));
   /* stopPropagation: a mode pill lives inside its tile, and only one should fire */
   app.querySelectorAll('[data-go]').forEach(e=>e.onclick=ev=>{ ev.stopPropagation();
     const g=e.dataset.go; repage(()=>{ g==='chart'?chart():form(g); }); });
@@ -6241,7 +6210,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.34.2</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.34.3</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6277,7 +6246,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.34.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.34.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
