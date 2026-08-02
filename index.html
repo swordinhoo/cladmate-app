@@ -1026,7 +1026,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.33.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.34.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1512,6 +1512,47 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF' };
   }
 
+  // ---- tee onto tank top: vertical branch through a segmented cone roof --
+  // The tank-top sibling of teeOnDome. Roof surface z(rho) = (R - rho)*tan(a),
+  // apex worked from base radius + height-to-apex. Branch plumb at teePos from
+  // the tank centre; ordinate = minLen + z(nearest) - z(rho(psi)), psi = pi
+  // toward the centre = the throat = shortest. Reproduces the shop program's
+  // 'Tee onto tank top' table exactly (all 7 ordinates, 2 Aug 26).
+  function teeOnTankTop(p) {
+    const D = p.dia, aH = p.apexH, X = p.teePos || 0;
+    const brOD = _od(p.branchPipeOD, p.insulation, p.cladGap, 'the tee pipe size');
+    const rb = brOD/2, L = p.minLen != null ? p.minLen : 100;
+    const R = D/2;
+    if (!(D > 0 && aH > 0)) throw new Error('Tank top diameter and height to apex must be positive.');
+    if (aH >= R) throw new Error('A tank top is a shallow roof - the base radius must be greater than the height to apex (shop rule).');
+    if (X + rb > R) throw new Error('The tee overhangs the rim - the roof ends ' + (R - X).toFixed(0) + ' mm out from the tee centre.');
+    if (X < rb) throw new Error('The tee sits over the apex - move it out past ' + rb.toFixed(0) + ' mm.');
+    const tanA = aH / R, slope = Math.atan(tanA);
+    const z = rho => (R - rho) * tanA;
+    const z0 = z(X - rb);                     // nearest generator = highest roof
+    const hAt = psi => { const rho = Math.hypot(X + rb*Math.cos(psi), rb*Math.sin(psi));
+      return L + z0 - z(rho); };              // psi=pi = toward the centre = throat
+    const circ = Math.PI*brOD, lapEach = p.lapTotal/2, ND = _nd(p.nDiv, 12);
+    const psi0 = Math.PI + ((p.seamFromThroat==null?90:p.seamFromThroat) * Math.PI/180);
+    const prim = [], holes = [], ticks = [];
+    const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [];
+    const phiAt = x => psi0 + (x/circ)*2*Math.PI;
+    for (let i = 0; i <= steps; i++) { const x = xLo + (xHi-xLo)*i/steps; top.push([x, hAt(phiAt(x))]); }
+    prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
+    prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
+    [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
+    [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
+      const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+    for (let k=0;k<=ND;k++){ const x=k*circ/ND, hh=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,hh]]}); ticks.push({x,y:hh,label:hh.toFixed(0)}); }
+    return { kind:'teetanktop', title:'Tee onto Tank Top  -  Branch Wrap 1:1',
+      meta:[ `Tee Ø ${brOD.toFixed(0)} plumb through a Ø${D} tank top, apex ${aH} high  -  slope ${(slope*180/Math.PI).toFixed(0)}°`,
+             `Tee centre ${X} mm out from the tank centre   length in throat ${L} mm`,
+             `Circumference ${circ.toFixed(1)} mm   with lap (${p.lapTotal} mm): ${(circ+p.lapTotal).toFixed(1)} mm` ],
+      calc:{ dia:D, apexH:aH, brOD, X, slope:slope*180/Math.PI, circ,
+             hMin:Math.min(...ticks.map(t=>t.y)), hMax:Math.max(...ticks.map(t=>t.y)) },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote:'CUT 1 OFF' };
+  }
+
   // ---- Y branch (breeches piece): two equal branches off one main -------
   // Pure geometry, no fitting - and it reproduces the SMW 'Y Branch' tables
   // EXACTLY at both 12 and 24 divisions (27 Jul 26): all 76 published
@@ -1665,6 +1706,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         B.push(cornOf(a + 1e-4)); T.push(top);
       } else { B.push(cornOf(a + (i === angs.length-1 ? -1e-4 : 1e-4))); T.push(top); }
     }
+    /* seam ON a corner angle: the pattern starts on one corner and ends on the
+       previous one, so the base triangle under the seam point fell out of the
+       development entirely - a corner-seam template printed short one triangle
+       of metal (the default seam, 90, is a corner angle). Close the fan with
+       that triangle so the base runs the full perimeter and both seam edges
+       come out the same length (they join like-to-like when rolled). */
+    if (Math.abs(seam % 90) < 1e-6) { B.push(cornOf(seam + 1e-4)); T.push(topAt(seam)); }
     const { b2, t2 } = developLoops(B, T);
     return packDeveloped({
       kind: (ox||oy) ? 'obliqueround' : 'sqround',
@@ -3167,24 +3215,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const D = p.dia, H = p.height, N = Math.max(3, Math.round(p.segments));
     const sw = p.swage || 0, lap = p.bodyLap == null ? 75 : p.bodyLap;
     const hp = p.holePitch || 60, eg = p.holeEndGap || 20;
-    if (!(H > 0 && H < D / 2)) throw new Error('Dome height must be more than 0 and less than the radius (D/2).');
+    if (!(H > 0 && H <= D / 2 + 1e-9)) throw new Error('Dome height must be more than 0 and at most the radius (D/2 = hemisphere).');
     const R = D / 2;
     const a = 2, b = -(D + 2 * H), c = 3 * D * D / 4 - (H - D) * (H - D);
-    const Rk = (-b - Math.sqrt(b * b - 4 * a * c)) / (2 * a), Rc = D - Rk;
+    const Rk = (-b - Math.sqrt(Math.max(0, b * b - 4 * a * c))) / (2 * a), Rc = D - Rk;
     const Cc = [0, H - Rc], Kc = [R - Rk, 0];
+    /* degenerate heads: a hemisphere (H = D/2) makes Rc = Rk so the two centres
+       coincide, and a dished cap (crown radius = D) drives Rk to 0. Either way
+       ONE arc carries the whole meridian, so spread all 12 gaps over it instead
+       of 6 + 6 about a tangent point that no longer exists. */
     const dl = Math.hypot(Kc[0] - Cc[0], Kc[1] - Cc[1]);
-    const T = [Cc[0] + Rc * (Kc[0] - Cc[0]) / dl, Cc[1] + Rc * (Kc[1] - Cc[1]) / dl];
+    const hemi = dl < 1e-6, noKn = !hemi && Rk < 0.5;
+    const T = hemi ? [R * Math.SQRT1_2, R * Math.SQRT1_2]
+                   : [Cc[0] + Rc * (Kc[0] - Cc[0]) / dl, Cc[1] + Rc * (Kc[1] - Cc[1]) / dl];
     const angApex = Math.atan2(H - Cc[1], 0), angTc = Math.atan2(T[1] - Cc[1], T[0] - Cc[0]);
-    const crownSpan = angApex - angTc;                    // 30deg
-    const angTk = Math.atan2(T[1] - Kc[1], T[0] - Kc[0]);
+    const crownSpan = angApex - angTc;                    // 30deg on a standard head
+    const angTk = hemi ? Math.PI / 4 : Math.atan2(T[1] - Kc[1], T[0] - Kc[0]);
     const knSpan = angTk;                                 // rim at angle 0 -> 60deg
     // 13 meridian stations A(rim)..G(tangent)..M(apex): 6 knuckle + 6 crown gaps
     const stn = [];
-    for (let i = 0; i <= 6; i++) { const an = knSpan * i / 6;
-      stn.push([Kc[0] + Rk * Math.cos(an), Kc[1] + Rk * Math.sin(an)]); }
-    for (let i = 1; i <= 6; i++) { const an = angTc + crownSpan * i / 6;
-      stn.push([Cc[0] + Rc * Math.cos(an), Cc[1] + Rc * Math.sin(an)]); }
-    const knSp = Rk * knSpan / 6, crSp = Rc * crownSpan / 6;
+    if (noKn) {                                           // single arc, 12 even gaps
+      for (let i = 0; i <= 12; i++) { const an = angTc + crownSpan * i / 12;
+        stn.push([Cc[0] + Rc * Math.cos(an), Cc[1] + Rc * Math.sin(an)]); }
+    } else {
+      for (let i = 0; i <= 6; i++) { const an = knSpan * i / 6;
+        stn.push([Kc[0] + Rk * Math.cos(an), Kc[1] + Rk * Math.sin(an)]); }
+      for (let i = 1; i <= 6; i++) { const an = angTc + crownSpan * i / 6;
+        stn.push([Cc[0] + Rc * Math.cos(an), Cc[1] + Rc * Math.sin(an)]); }
+    }
+    const knSp = noKn ? Rc * crownSpan / 12 : Rk * knSpan / 6,
+          crSp = noKn ? Rc * crownSpan / 12 : Rc * crownSpan / 6;
     const mer = [0]; for (let i = 1; i <= 6; i++) mer.push(mer[i - 1] + knSp);
     for (let i = 7; i <= 12; i++) mer.push(mer[i - 1] + crSp);
     const meridian = mer[12], plateLen = meridian + lap;
@@ -3211,11 +3271,78 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const R2 = Math.round;
     return [{ kind: 'dome', title: 'Dome / Dished End  -  Gore 1:1',
       meta: [`Dome Ø${D} × ${H} high  -  ${N} gores (cut ${N} off)`,
-             `Crown radius ${R2(Rc)}  ·  knuckle radius ${R2(Rk)}  (crown + knuckle = diameter)`,
+             hemi ? `Hemisphere  -  meridian is a single quarter circle, radius ${R2(R)}`
+                  : noKn ? `Dished cap  -  crown radius ${R2(Rc)} (= diameter), no knuckle`
+                  : `Crown radius ${R2(Rc)}  ·  knuckle radius ${R2(Rk)}  (crown + knuckle = diameter)`,
              `Gore ${R2(plateLen)} long × ${R2(2 * hw[0])} wide at the base; swage ${sw} on the edges, body lap ${lap}`,
              `Half-widths A→M: ${hw.map(x => R2(x)).join(', ')}`],
       calc: { Rc, Rk, meridian, plateLen, N, base: 2 * hw[0], knSp, crSp, ords: hw.map(x => R2(x)), dia: D, H },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT ${N} OFF (gores)` }];
+  }
+
+  // ---- tank top: truncated-cone roof in N radial segments -----------------
+  // The big-tank sibling of the round top: too big to come out of two halves,
+  // so it goes up as N wedge segments struck from the cone apex. Chord table
+  // matches the shop program: A = apex, B/E inner corners, C/D outer corners,
+  // radials A:C carry the simple edge, chords and arcs are bare.
+  function tankTopKit(p) {
+    const bD = p.baseDia, tD = p.topDia, H = p.height, N = Math.max(4, Math.round(p.segments));
+    const edge = p.edge || 0, lapEach = (p.lapTotal || 0) / 2;
+    const hp = p.holePitch || 60, eg = p.holeEndGap || 20;
+    if (!(bD > 0 && tD > 0 && H > 0)) throw new Error('Base, top and height must all be positive.');
+    if (tD >= bD) throw new Error('The top opening must be smaller than the base diameter.');
+    if (H >= bD / 2) throw new Error('A tank top is a shallow roof - the base radius must be greater than the height (shop rule).');
+    const slope = Math.atan2(H, (bD - tD) / 2);            // slope angle off the level
+    const Lb = (tD / 2) / Math.cos(slope);                  // apex -> top circle (A:B)
+    const Lc = (bD / 2) / Math.cos(slope);                  // apex -> base circle (A:C bare)
+    const dev = 2 * Math.PI * Math.cos(slope) / N;          // developed angle per segment
+    const segAng = 90 - (dev / 2) * 180 / Math.PI;          // corner mark-out angle
+    // the chord table, PM conventions
+    const chOut = 2 * Lc * Math.sin(dev / 2), chIn = 2 * Lb * Math.sin(dev / 2);
+    const sagOut = Lc * (1 - Math.cos(dev / 2)), sagIn = Lb * (1 - Math.cos(dev / 2));
+    const T2 = { AB: Lb, AC: Lc + edge, BC: Lc - Lb, CD: chOut, CG: chOut / 2, P: Lc * dev, Q: Lb * dev,
+                 FG: sagOut + edge, GH: (Lc - Lb) * Math.cos(dev / 2), HI: sagIn, IA: Lb * Math.cos(dev / 2),
+                 FI: sagOut + edge + (Lc - Lb) * Math.cos(dev / 2), BE: chIn };
+    // one segment 1:1, apex at [0,0], centreline up the page
+    const a0 = Math.PI / 2 - dev / 2, a1 = Math.PI / 2 + dev / 2, ST = 48;
+    const arc = (r, from, to) => { const pts = []; for (let i = 0; i <= ST; i++) { const a = from + (to - from) * i / ST; pts.push([r * Math.cos(a), r * Math.sin(a)]); } return pts; };
+    const outE = arc(Lc + edge, a0, a1), inn = arc(Lb, a1, a0);
+    const prim = [], holes = [], ticks = [];
+    // radial seam edges + lap tab on each (segments lap seam-on-seam when rolled)
+    const nrm = a => [Math.cos(a - Math.PI / 2), Math.sin(a - Math.PI / 2)];   // outward perp of the a0 radial
+    const tabPts = (a, sgn) => { const nv = nrm(a); const o = [nv[0] * sgn * lapEach, nv[1] * sgn * lapEach];
+      return [[Lb * Math.cos(a) + o[0], Lb * Math.sin(a) + o[1]], [(Lc + edge) * Math.cos(a) + o[0], (Lc + edge) * Math.sin(a) + o[1]]]; };
+    let outline;
+    if (lapEach > 0) {
+      const tR = tabPts(a0, 1), tL = tabPts(a1, -1);
+      outline = [[Lb * Math.cos(a0), Lb * Math.sin(a0)], tR[0], tR[1], [(Lc + edge) * Math.cos(a0), (Lc + edge) * Math.sin(a0)]]
+        .concat(outE, [tL[1], tL[0]], [[Lb * Math.cos(a1), Lb * Math.sin(a1)]], inn);
+    } else outline = [[Lb * Math.cos(a0), Lb * Math.sin(a0)], [(Lc + edge) * Math.cos(a0), (Lc + edge) * Math.sin(a0)]].concat(outE, [[Lb * Math.cos(a1), Lb * Math.sin(a1)]], inn);
+    outline.push(outline[0]);
+    prim.push({ style: 'cut', pts: outline });
+    // seam fold lines on both radials, edge fold on the true base arc
+    [a0, a1].forEach(a => prim.push({ style: 'fold', pts: [[Lb * Math.cos(a), Lb * Math.sin(a)], [(Lc + edge) * Math.cos(a), (Lc + edge) * Math.sin(a)]] }));
+    if (edge > 0) prim.push({ style: 'swage', pts: arc(Lc, a0, a1), note: 'EDGE ' + edge });
+    prim.push({ style: 'centre', pts: [[0, Lb], [0, Lc + edge]] });
+    // rivet holes down the lap radial(s)
+    [a0, a1].forEach(a => { const P = [Lb * Math.cos(a), Lb * Math.sin(a)], Q = [(Lc) * Math.cos(a), (Lc) * Math.sin(a)];
+      const L = Math.hypot(Q[0] - P[0], Q[1] - P[1]), span = L - 2 * eg, nH = _nH(span, hp);
+      for (let k = 0; k <= nH; k++) { const t = (eg + span * k / nH) / L; holes.push([P[0] + (Q[0] - P[0]) * t, P[1] + (Q[1] - P[1]) * t]); } });
+    const R2 = Math.round;
+    ticks.push({ x: 0, y: Lc + edge, label: 'F' });
+    ticks.push({ x: Lc * Math.cos(a0), y: Lc * Math.sin(a0), label: 'C ' + R2(chOut) });
+    ticks.push({ x: Lb * Math.cos(a0), y: Lb * Math.sin(a0), label: 'B ' + R2(chIn) });
+    return [{ kind: 'tanktop', title: 'Tank Top  -  Segment 1:1',
+      meta: [`Tank top Ø${bD} -> Ø${tD} opening, ${H} high  -  ${N} segments (cut ${N} off)`,
+             `Slope ${(slope * 180 / Math.PI).toFixed(0)}°  ·  seg corner angle ${segAng.toFixed(0)}°  ·  strike from apex A`,
+             `A:B ${R2(T2.AB)}   A:C ${R2(T2.AC)} (with edge ${edge})   B:C ${R2(T2.BC)}`,
+             `Chords: outer C:D ${R2(T2.CD)} (half C:G ${R2(T2.CG)})  inner B:E ${R2(T2.BE)}  ·  arcs P ${R2(T2.P)}  Q ${R2(T2.Q)}`,
+             `Rises: F:G ${R2(T2.FG)}  G:H ${R2(T2.GH)}  H:I ${R2(T2.HI)}  I:A ${R2(T2.IA)}  F:I ${R2(T2.FI)}`],
+      calc: { slope: slope * 180 / Math.PI, segAng, Lb, Lc, dev, N, edge, tab: T2,
+              ords: [R2(T2.AB), R2(T2.AC), R2(T2.BC), R2(T2.CD), R2(T2.BE), R2(T2.P), R2(T2.Q)] },
+      info: { name: 'Tank Top', lines: [`Ø${bD} -> Ø${tD} × ${H}  ·  slope ${(slope * 180 / Math.PI).toFixed(0)}°`,
+              `A:B ${R2(T2.AB)}  A:C ${R2(T2.AC)}  B:C ${R2(T2.BC)}`, `CUT ${N} OFF`] },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT ${N} OFF (segments)` }];
   }
 
   // ---- the kit ------------------------------------------------------------
@@ -3856,7 +3983,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, witchesHat, teeBendStub, teeBendHole, teeOnCone, teeOnDome, yBranch, yBranchKit, squareToRound, elbow, flatElbow, flatLobster, flatLobsterKit, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, witchesHat, teeBendStub, teeBendHole, teeOnCone, teeOnDome, teeOnTankTop, yBranch, yBranchKit, squareToRound, elbow, flatElbow, flatLobster, flatLobsterKit, branchOnCylinder, branchHole, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, tankTopKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -4024,6 +4151,8 @@ const I={
  ecap:`<svg viewBox="0 0 100 80"><path d="M16 40 L16 50 A34 13 0 0 0 84 50 L84 40" fill="var(--ic-fill2)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="50" cy="40" rx="34" ry="13" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3"/><ellipse cx="50" cy="40" rx="12" ry="4.5" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="2.4"/><line x1="16" y1="40" x2="84" y2="40" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  wshed:`<svg viewBox="0 0 100 80"><path d="M22 34 L50 22 L78 34 L78 64 L22 64 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="22" x2="50" y2="64" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/><line x1="27" y1="38" x2="27" y2="60" stroke="var(--ic-ink)" stroke-width="2"/><line x1="73" y1="38" x2="73" y2="60" stroke="var(--ic-ink)" stroke-width="2"/></svg>`,
  dome:`<svg viewBox="0 0 100 80"><path d="M14 58 A36 40 0 0 1 86 58 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M50 20 L50 58 M32 22 L32 58 M68 22 L68 58 M20 34 L20 58 M80 34 L80 58" fill="none" stroke="var(--ic-ink)" stroke-width="1.8"/><line x1="14" y1="58" x2="86" y2="58" stroke="var(--ic-ink)" stroke-width="3"/></svg>`,
+ ttop:`<svg viewBox="0 0 100 80"><path d="M8 58 L38 27 L62 27 L92 58 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M50 27 L50 58 M31 32.5 L25 58 M69 32.5 L75 58" fill="none" stroke="var(--ic-ink)" stroke-width="1.8"/><path d="M38 27 L38 21 M62 27 L62 21" fill="none" stroke="var(--ic-ink)" stroke-width="2"/><line x1="8" y1="58" x2="92" y2="58" stroke="var(--ic-ink)" stroke-width="3"/></svg>`,
+ ttee:`<svg viewBox="0 0 100 80"><path d="M6 62 L50 18 L94 62 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><path d="M60 14 L60 34 A9 3.5 0 0 0 78 34 L78 32 L60 14 M60 14 A9 3.5 0 0 1 78 14 L78 32" fill="var(--ic-paper)" stroke="var(--ic-ink)" stroke-width="2.6" stroke-linejoin="round"/><line x1="6" y1="62" x2="94" y2="62" stroke="var(--ic-ink)" stroke-width="3"/></svg>`,
  vbox:`<svg viewBox="0 0 100 80"><path d="M24 20 L76 20 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="20" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  wvbox:`<svg viewBox="0 0 100 80"><path d="M24 30 L50 18 L76 30 L76 46 A26 26 0 0 1 24 46 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><line x1="50" y1="18" x2="50" y2="70" stroke="var(--ic-ink)" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg>`,
  velid:`<svg viewBox="0 0 100 80"><path d="M40 16 L74 16 L74 64 L40 64 A24 24 0 0 1 40 16 Z" fill="var(--ic-fill)" stroke="var(--ic-ink)" stroke-width="3" stroke-linejoin="round"/><g stroke="var(--ic-ink)" stroke-width="1.8" stroke-dasharray="3 3"><line x1="48" y1="40" x2="74" y2="16"/><line x1="48" y1="40" x2="74" y2="40"/><line x1="48" y1="40" x2="74" y2="64"/><line x1="48" y1="40" x2="16" y2="40"/></g><circle cx="48" cy="40" r="3.2" fill="var(--ic-gold)"/></svg>`,
@@ -4118,12 +4247,12 @@ const F={
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
   note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
-  defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,offsetY:0,lapTotal:40,holePitch:60,holeEndGap:20},
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset width (mm)'),{neg:1}),Object.assign(num('offsetY','Top offset depth (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
   build:s=>FP.squareToRound(s),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
-  stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox],
-  note:'Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
+  stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox+(c.oy?' / '+c.oy:'')],
+  note:'Round end anywhere over the base: width offset slides it along the base, depth offset across it — both take minus. Push it to (base − Ø)/2 and that side comes out plumb (the right-angle transformer). Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  flatback:{name:'Flat Back Cone',sub:'Eccentric reducer',icon:I.econe,
   defaults:{swage:3,seamFromThroat:90,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -4204,6 +4333,13 @@ const F={
   mini:c=>['Branch Ø '+c.brOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 1 off'],
   stats:c=>['Branch Ø'+c.brOD.toFixed(0),'Dome Ø'+c.dia+' · crown R '+c.Rc.toFixed(0),'Ordinates '+c.hMin.toFixed(0)+'–'+c.hMax.toFixed(0)],
   note:'Branch standing on the crown of a dished end. Same head rule as the Dome tile — crown + knuckle radius = diameter, worked from the dome height — so the two fittings always agree. Shortest generator faces the dome centre and IS your min length. Keeps you off the knuckle and says so if the branch strays onto it. Verified against published trade tables to 0.7 mm.'},
+ teetanktop:{name:'Tee on Tank Top',sub:'Branch through a cone roof',icon:I.ttee,
+  defaults:{seamFromThroat:90,dia:2300,apexH:1080,branchPipeOD:323.9,insulation:25,teePos:750,minLen:100,lapTotal:26,holePitch:60,holeEndGap:20,nDiv:12},
+  fields:[num('dia','Tank top base Ø (mm)'),num('apexH','Height to apex (mm)'),pipe('branchPipeOD','Tee pipe'),num('insulation','Insulation (mm)'),num('teePos','Tee centre from tank centre (mm)'),num('minLen','Length in throat (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  build:s=>FP.teeOnTankTop(s),
+  mini:c=>['Tee Ø '+c.brOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 1 off'],
+  stats:c=>['Tee Ø'+c.brOD.toFixed(0),'Roof Ø'+c.dia+' · slope '+c.slope.toFixed(0)+'°','Ordinates '+c.hMin.toFixed(0)+'–'+c.hMax.toFixed(0)],
+  note:'Plumb branch through a segmented tank roof — pairs with the Tank Top tile (same slope rule, worked from base Ø + height to apex). Shortest generator faces the tank centre and IS your length in the throat. Says so if the tee overhangs the rim or strays over the apex. Matches the old shop program\'s ordinate table exactly.'},
  ybranch:{name:'Y Branch',sub:'Breeches piece · two legs off one',icon:I.ybr,
   defaults:{seamFromThroat:90,pipeOD:219.1,insulation:25,branchAngle:45,mainLen:250,branchLen:250,mainAllow:10,branchAllow:10,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('pipeOD','Pipe size (all three legs)'),num('insulation','Insulation (mm)'),
@@ -4300,14 +4436,28 @@ F.wsbox={name:'Watershed Box',sub:'Shop method · ridged top',icon:I.wshed,
       ?['Wrap sheet '+Math.round(c.width)+'×'+Math.round(c.cutLap),'Girth '+Math.round(c.girth),'Ridge '+Math.round(c.ridgeFold)+'° · eaves '+Math.round(c.ang)+'°','Slope '+Math.round(c.slope)+' · skirt '+Math.round(c.drop),'Lockform '+c.LF+' · 2 cheeks','Band '+c.nBand+' off, wall '+Math.round(c.wall)]
       :['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.ang)+'°','Base/wall/slope '+Math.round(c.base)+'/'+Math.round(c.wall)+'/'+Math.round(c.slope)],
   note:'Mirror halves = the shop program: the wrap folds the slope in — base, 90° fold, wall, fold angle, slope — cut 2 and flip one, plus a lap half and a plain half per end. Horizontal band = cut it round the eaves instead: the whole rise comes as ONE wrap carrying both slopes, the ridge and a skirt, with a lockform up both ends and two gable cheeks knocked into it — same as you build every box. The wall band underneath comes as 2 halves or 4 quarters, joints landing mid-face. Fit the band first, then drop the hood on so it laps over.'};
+F.tanktop={name:'Tank Top',sub:'Segmented cone roof',icon:I.ttop,
+  defaults:{baseDia:2500,topDia:500,height:450,segments:12,edge:5,lapTotal:50,holePitch:60,holeEndGap:20},
+  fields:[num('baseDia','Base diameter (mm)'),num('topDia','Top opening Ø (mm)'),num('height','Height (mm)'),num('segments','Segments'),num('edge','Simple edge (mm)')],
+  build:s=>FP.tankTopKit(s)[0],
+  kit:s=>FP.tankTopKit(s),
+  mini:c=>['Slope '+c.slope.toFixed(0)+'°',c.N+' segments · strike A:C '+Math.round(c.tab.AC)],
+  stats:c=>['Strike A:B '+Math.round(c.tab.AB)+' · A:C '+Math.round(c.tab.AC),'Corner angle '+c.segAng.toFixed(0)+'°','Outer chord '+Math.round(c.tab.CD)+' · arc P '+Math.round(c.tab.P),c.N+' off'],
+  note:'Big-tank roof struck as wedge segments from the cone apex — too big for the two-half Round Top. Trammel from A: inner arc A:B, outer arc A:C (the simple edge is already in it). No trammel? Set a bevel to the corner angle and work the chord table in Detailed info. Segments lap on the radial seams; the top opening takes a collar or the Round Top.'};
+/* head presets work the height from the diameter: dished cap = Ø·(1−√3/2)
+   (crown radius = Ø, no knuckle), hemisphere = Ø/2. Two radii uses the box. */
+const DOMEH=s=>s.headType==='hemi'  ?Object.assign({},s,{height:s.dia/2})
+             :s.headType==='dished'?Object.assign({},s,{height:s.dia*(1-Math.sqrt(3)/2)})
+             :s;
 F.dome={name:'Dome',sub:'Dished vessel end · gores',icon:I.dome,
-  defaults:{dia:2500,height:500,segments:26,swage:10,bodyLap:75,holePitch:60,holeEndGap:20},
-  fields:[num('dia','Diameter (mm)'),num('height','Height (mm)'),num('segments','Segments'),num('swage','Swage allowance (mm)'),num('bodyLap','Body lap (mm)')],
-  build:s=>FP.domeKit(s)[0],
-  kit:s=>FP.domeKit(s),
+  defaults:{headType:'two',dia:2500,height:500,segments:26,swage:10,bodyLap:75,holePitch:60,holeEndGap:20},
+  fields:[sego('headType','Head',[{v:'two',label:'Two radii'},{v:'dished',label:'Dished R=Ø'},{v:'hemi',label:'Hemisphere'}]),
+    num('dia','Diameter (mm)'),num('height','Height (mm)'),num('segments','Segments'),num('swage','Swage allowance (mm)'),num('bodyLap','Body lap (mm)')],
+  build:s=>FP.domeKit(DOMEH(s))[0],
+  kit:s=>FP.domeKit(DOMEH(s)),
   mini:c=>['Ø '+fmtDim(c.dia)+' × '+fmtDim(c.H),c.N+' gores · '+fmtDim(c.plateLen)+' long'],
   stats:c=>['Gore '+fmtDim(c.plateLen)+' × '+fmtDim(c.base),'Crown R '+fmtDim(c.Rc),'Knuckle R '+fmtDim(c.Rk),c.N+' off'],
-  note:'Torispherical dished end developed as segment gores — cut the count shown and lap them at the base. Crown + knuckle radius = diameter (the trade rule); the app prints the true 1:1 gore, not just the ordinate table. Body lap sits at the base (tan line marked).'};
+  note:'Torispherical dished end developed as segment gores — cut the count shown and lap them at the base. Crown + knuckle radius = diameter (the trade rule); the app prints the true 1:1 gore, not just the ordinate table. Body lap sits at the base (tan line marked). Dished R=Ø and Hemisphere work the height from the diameter — the Height box only counts on Two radii.'};
 /* Hybrid lap: every fitting that uses a seam lap gets an editable "Lap" field,
    pre-filled from Settings (freshState) and then overridable right on the
    fitting - refresh()'s own() check stops Settings clobbering it. Fittings that
@@ -4347,8 +4497,8 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // including the boxes/endcap that were pulled off the home grid (23 Jul: shop
 // wanted the boxes gone - "too confusing" - keeping only the two watershed TOPS,
 // the bits that actually take figuring out). GROUPS = what the home screen shows.
-const ORDER=['elbow','flatelbow','lobster','flatlobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','witcheshat','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome'];
-const GROUPS=[{t:'Bends',k:['elbow','flatelbow','lobster','flatlobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone','witcheshat']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','valveend']},{t:'Vessel Ends',k:['dome']}];
+const ORDER=['elbow','flatelbow','lobster','flatlobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','witcheshat','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome','tanktop','teetanktop'];
+const GROUPS=[{t:'Bends',k:['elbow','flatelbow','lobster','flatlobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','teetanktop','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone','witcheshat']},{t:'Transitions',k:['sqround','obliqueround']},{t:'Watershed Tops',k:['roundtop','tanktop','valveend']},{t:'Vessel Ends',k:['dome']}];
 // tee still has a mode selector; the box variants are retired with the boxes.
 const VARIANTS=[
   {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]} ];
@@ -6040,7 +6190,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.33.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.34.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6076,7 +6226,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.33.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.34.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
