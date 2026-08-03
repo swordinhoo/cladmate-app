@@ -1007,7 +1007,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.35.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.36.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3091,8 +3091,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   //   A:C = hypot(run, r, ws)        peak to back corner (hypotenuse)
   //   girth step 1..4 = r*pi/6       30-deg divisions round the nose quarter
   // The right angle the program names is exact: A:1^2 + C:1^2 == A:C^2.
+  /* Watershed rise, given either way (Craig, 2 Aug): a height in mm, or a
+     FALL IN DEGREES. The angle is measured over the box's own half width /
+     nose radius - rise = halfW * tan(fall) - so the same number means the
+     same fall on a round top and on a D-box lid. Edge allowances are not in
+     it: it is the fall over the BOX itself. */
+  function _wsRise(p, halfW) {
+    if (p.wsMode !== 'deg') return p.wsHeight;
+    const deg = p.wsDeg == null ? 10 : p.wsDeg;
+    if (!(deg > 0 && deg < 80)) throw new Error('Watershed fall must be more than 0 and less than 80 degrees.');
+    return halfW * Math.tan(deg * Math.PI / 180);
+  }
   function pmValveEndKit(p) {
-    const W = p.boxW, D = p.boxD, ws = p.wsHeight;
+    const W = p.boxW, D = p.boxD, ws = _wsRise(p, p.boxW / 2);
     // Pattern Maker is VB6 - its displayed integers use banker's rounding
     // (round half to even): 578.5->578, 333.5->334. Match it so the printed
     // labels read identical to the shop program (the drawn geometry is exact).
@@ -3103,6 +3114,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (!(D > W / 2)) throw new Error('Depth must be more than half the width (the nose is a half-round, radius W/2).');
     const r = W / 2 + se, run = D - W / 2 + fe;
     const L = Math.hypot(r, ws), AB = Math.hypot(run, ws), AC = Math.hypot(run, r, ws);
+    /* two falls on a D lid: the cone nose (over the nose radius, what the
+       degrees box sets) and the flatter run back to the square end. */
+    const wsDeg = Math.atan2(ws, W / 2) * 180 / Math.PI;
+    const backDeg = Math.atan2(ws, D - W / 2) * 180 / Math.PI;
     const girth = r * Math.PI / 6, NDIV = 3;
     // develop the half lid, fanning from the apex A at the origin.
     // seed right triangle A-1-C (square at 1): C:1 horizontal, A:1 straight up.
@@ -3121,15 +3136,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const noseEdge = _arcPts(0, 0, L, Math.PI / 2, Math.PI / 2 - NDIV * d, 40);   // smooth 1..4 rim
     const lapTotal = p.lapTotal != null ? p.lapTotal : 50, lapEach = lapTotal / 2;
     const hp = _hp(p.holePitch), eg = p.holeEndGap != null ? p.holeEndGap : 20;
-    const prim = [], holes = [], ticks = [];
-    /* ridge lap: the two mirror halves join over the peak, so each half carries
-       half the specified lap past BOTH ridge edges (A-B and 4-A) - assembled,
-       the two half-laps make the full lap centred on the ridge, and the rivet
-       rows (on the seam lines) land on each other. */
-    const nrm = (P, Q, away) => { let nx = -(Q[1] - P[1]), ny = Q[0] - P[0]; const l2 = Math.hypot(nx, ny) || 1; nx /= l2; ny /= l2;
+    /* Ridge lap, Craig's standard - the same rule as the round top: the kit is
+       a LAP HALF carrying the FULL specified lap on BOTH its ridge edges (as
+       square straps, constant width) and a PLAIN HALF with none. The plain
+       edges sit on the lap half's seam lines. A 50 lap means 50, not 25 a side. */
+    const nrm = (P, Q, away, w) => { let nx = -(Q[1] - P[1]), ny = Q[0] - P[0]; const l2 = Math.hypot(nx, ny) || 1; nx /= l2; ny /= l2;
       const mx = (P[0] + Q[0]) / 2, my = (P[1] + Q[1]) / 2;
       if ((away[0] - mx) * nx + (away[1] - my) * ny > 0) { nx = -nx; ny = -ny; }
-      return [nx * lapEach, ny * lapEach]; };
+      return [nx * w, ny * w]; };
     /* fold scales: the fold endpoints all sit on the fan lines from A, so
        scaling a corner toward A lands exactly on its fold line. f = nose+side
        (simple edge), g = back (folded edge). */
@@ -3155,43 +3169,51 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const Fs = [C[0] + uSide[0] * ch, C[1] + uSide[1] * ch];   // foot on the side cut edge
     const Va = [one[0] - se, one[1]];                                        // V-notch shoulders at 1
     const noseV = _arcPts(0, 0, L, Math.PI / 2 - se / L, Math.PI / 2 - NDIV * d, 40);
-    if (lapEach > 0) {
-      const nAB = nrm(A, B, one), n4A = nrm(tip, A, nose[NDIV - 1]);
-      const off = (P, n) => [P[0] + n[0], P[1] + n[1]];
-      prim.push({ style: 'cut', pts: [off(A, nAB), off(Bg, nAB), Bg, B, Fb, Fs, Va, P1].concat(noseV,
+    const nAB = nrm(A, B, one, lapTotal), n4A = nrm(tip, A, nose[NDIV - 1], lapTotal);
+    const off = (P, n) => [P[0] + n[0], P[1] + n[1]];
+    const mk = which => {
+      const prim = [], holes = [], ticks = [];
+      if (which === 'lap') prim.push({ style: 'cut', pts: [off(A, nAB), off(Bg, nAB), Bg, B, Fb, Fs, Va, P1].concat(noseV,
         [T4, off(T4, n4A), off(A, n4A), A, off(A, nAB)]) });
-      [[A, B], [tip, A]].forEach(e => { prim.push({ style: 'fold', pts: [e[0], e[1]] });     // ridge seam lines
-        const len = Math.hypot(e[1][0] - e[0][0], e[1][1] - e[0][1]), span = len - 2 * eg, nH = _nH(span, hp);
+      else prim.push({ style: 'cut', pts: [A, B, Fb, Fs, Va, P1].concat(noseV, [A]) });
+      /* rivet rows: down the middle of each strap on the lap half, the same
+         distance inside the plain half's ridge edges, so they meet up. */
+      const rows = (P, Q, n, sgn) => { const len = Math.hypot(Q[0] - P[0], Q[1] - P[1]), span = len - 2 * eg, nH = _nH(span, hp);
         for (let k = 0; k <= nH; k++) { const t = (eg + span * k / nH) / len;
-          holes.push([e[0][0] + (e[1][0] - e[0][0]) * t, e[0][1] + (e[1][1] - e[0][1]) * t]); } });
-    } else prim.push({ style: 'cut', pts: [A, B, Fb, Fs, Va, P1].concat(noseV, [A]) });
-    /* fold-out for the lockformer, drawn all round the rim at the dialled
-       width: simple edge inside the nose arc + side, folded edge inside the
-       back - the flange between fold and cut is the allowance already in r/run. */
-    if (se > 0) {
-      prim.push({ style: 'fold', pts: _arcPts(0, 0, L - se, Math.PI / 2, Math.PI / 2 - NDIV * d, 40), note: 'EDGE ' + se });
-      prim.push({ style: 'fold', pts: [sc(C, f), P1], note: 'EDGE ' + se });   // side C-1 inset
-    }
-    if (fe > 0) prim.push({ style: 'fold', pts: [Bg, sc(C, g)], note: 'EDGE ' + fe });   // back B-C inset
-    // triangulation seams fanning from the apex (dashed reference lines)
-    [C, one, nose[1], nose[2]].forEach(pt => prim.push({ style: 'centre', pts: [A, pt] }));
-    const mid = (u, v) => [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2];
-    [['A', A], ['B', B], ['C', C], ['1', one], ['2', nose[1]], ['3', nose[2]], ['4', tip]]
-      .forEach(v => ticks.push({ x: v[1][0], y: v[1][1], label: v[0] }));
-    ticks.push({ x: mid(A, one)[0] - 22, y: mid(A, one)[1], label: 'A:1 ' + R(L) });
-    ticks.push({ x: mid(C, one)[0], y: mid(C, one)[1] + 5, label: 'C:1 ' + R(run) });
-    ticks.push({ x: mid(A, C)[0] - 6, y: mid(A, C)[1] - 4, label: 'A:C ' + R(AC) });
-    ticks.push({ x: mid(A, B)[0], y: mid(A, B)[1] - 5, label: 'A:B ' + R(AB) });
-    ticks.push({ x: mid(B, C)[0] - 16, y: mid(B, C)[1], label: 'C:B ' + R(r) });
-    ticks.push({ x: mid(nose[1], nose[2])[0] + 14, y: mid(nose[1], nose[2])[1] + 6, label: 'girth ' + R(girth) });
-    const lid = { kind: 'pmbox', title: 'Valve End (watershed)  -  Peaked Lid (half) 1:1',
-      meta: [`Peaked watershed lid for a ${W} × ${D} D-box, rise ${ws} - shop method, triangulated half (cut 2, mirror on the ridge)`,
-             `Start at the right-angle triangle A:1 ${R(L)} | C:1 ${R(run)} | A:C ${R(AC)} (square at 1), then swing B, then the nose ${NDIV} × ${R(girth)}`,
-             `Fold-out drawn all round the rim for the lockformer: simple edge ${se} on the nose + side, folded edge ${fe} on the back`,
-             `Ridge lap ${lapTotal} mm (${lapEach} past each ridge edge - the mirror halves make the full lap over the peak, rivet rows land on each other)`],
-      calc: { W, D, ws, r, run, L, AB, AC, CB: r, C1: run, girth, lapTotal, nWraps: 2, kitPieces: 1 },
-      prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (half lid - mirror pair)' };
-    return [lid];
+          holes.push([P[0] + (Q[0] - P[0]) * t + n[0] * sgn / 2, P[1] + (Q[1] - P[1]) * t + n[1] * sgn / 2]); } };
+      [[A, B, nAB], [tip, A, n4A]].forEach(([P, Q, n]) => {
+        if (which === 'lap') prim.push({ style: 'fold', pts: [P, Q] });      // ridge seam line at the root of each strap
+        rows(P, Q, n, which === 'lap' ? 1 : -1); });
+      /* fold-out for the lockformer, drawn all round the rim at the dialled
+         width: simple edge inside the nose arc + side, folded edge inside the
+         back - the flange between fold and cut is the allowance already in r/run. */
+      if (se > 0) {
+        prim.push({ style: 'fold', pts: _arcPts(0, 0, L - se, Math.PI / 2, Math.PI / 2 - NDIV * d, 40), note: 'EDGE ' + se });
+        prim.push({ style: 'fold', pts: [sc(C, f), P1], note: 'EDGE ' + se });   // side C-1 inset
+      }
+      if (fe > 0) prim.push({ style: 'fold', pts: [Bg, sc(C, g)], note: 'EDGE ' + fe });   // back B-C inset
+      // triangulation seams fanning from the apex (dashed reference lines)
+      [C, one, nose[1], nose[2]].forEach(pt => prim.push({ style: 'centre', pts: [A, pt] }));
+      const mid = (u, v) => [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2];
+      [['A', A], ['B', B], ['C', C], ['1', one], ['2', nose[1]], ['3', nose[2]], ['4', tip]]
+        .forEach(v => ticks.push({ x: v[1][0], y: v[1][1], label: v[0] }));
+      ticks.push({ x: mid(A, one)[0] - 22, y: mid(A, one)[1], label: 'A:1 ' + R(L) });
+      ticks.push({ x: mid(C, one)[0], y: mid(C, one)[1] + 5, label: 'C:1 ' + R(run) });
+      ticks.push({ x: mid(A, C)[0] - 6, y: mid(A, C)[1] - 4, label: 'A:C ' + R(AC) });
+      ticks.push({ x: mid(A, B)[0], y: mid(A, B)[1] - 5, label: 'A:B ' + R(AB) });
+      ticks.push({ x: mid(B, C)[0] - 16, y: mid(B, C)[1], label: 'C:B ' + R(r) });
+      ticks.push({ x: mid(nose[1], nose[2])[0] + 14, y: mid(nose[1], nose[2])[1] + 6, label: 'girth ' + R(girth) });
+      return { kind: 'pmbox', title: 'Valve End (watershed)  -  ' + (which === 'lap' ? 'Lap Half' : 'Plain Half') + ' 1:1',
+        meta: [`Peaked watershed lid for a ${W} × ${D} D-box, rise ${R(ws)} mm = ${wsDeg.toFixed(1)}deg fall over the nose (${backDeg.toFixed(1)}deg back to the square end) - shop method, triangulated`,
+               `Start at the right-angle triangle A:1 ${R(L)} | C:1 ${R(run)} | A:C ${R(AC)} (square at 1), then swing B, then the nose ${NDIV} × ${R(girth)}`,
+               `Fold-out drawn all round the rim for the lockformer: simple edge ${se} on the nose + side, folded edge ${fe} on the back`,
+               which === 'lap' ? `Both ridge laps live on THIS half: ${lapTotal} mm square strap off each ridge edge, V-cut apart at the peak, notched where they run into the fold-outs`
+                               : `Plain half, no laps - its ridge edges sit on the lap half's seam lines`],
+        calc: { W, D, ws, wsDeg, backDeg, r, run, L, AB, AC, CB: r, C1: run, girth, lapTotal, nWraps: 1, kitPieces: 2, which },
+        prim, holes, ticks, bbox: bboxOf(prim),
+        cutNote: which === 'lap' ? 'CUT 1 OFF (lap half - laps go under the plain half)' : 'CUT 1 OFF (plain half)' };
+    };
+    return [mk('lap'), mk('plain')];
   }
 
   // ---- Round watershed top - shallow cone lid (decoded from Pattern Maker) -
@@ -3206,11 +3228,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   //   C:D     = A:B / 2             the same over a QUARTER (90deg)
   // simpleEdge is a turned edge on the outer rim (laps not shown, added apart).
   function pmRoundTopKit(p) {
-    const D = p.dia, ws = p.wsHeight, se = p.simpleEdge == null ? 4 : p.simpleEdge;
+    const D = p.dia, ws = _wsRise(p, p.dia / 2), se = p.simpleEdge == null ? 4 : p.simpleEdge;
     const R = x => { const f = Math.floor(x); return Math.abs(x - f - 0.5) < 1e-9 ? (f % 2 === 0 ? f : f + 1) : Math.round(x); };
     if (!(D > 0 && ws > 0)) throw new Error('Diameter and watershed height must both be more than 0.');
     const r = D / 2, Ls = Math.hypot(r, ws), Phi = 2 * Math.PI * r / Ls;
     const AB = Math.PI * (Ls - r), CD = AB / 2;
+    const wsDeg = Math.atan2(ws, r) * 180 / Math.PI;
     // Same cone development as the Witches Hat. Craig's STANDARD for the
     // two-half lid (2 Aug 26, replaces the short-lived butt/lap option): the
     // kit is a LAP HALF and a PLAIN HALF. The lap half carries BOTH laps as
@@ -3256,13 +3279,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       if (ws > 0) ticks.push({ x: 0, y: -0.22 * Ls, label: 'watershed ' + R(ws) });
       return { kind: 'pmbox',
         title: 'Round Watershed Top  -  ' + (which === 'one' ? 'Cone Lid' : which === 'lap' ? 'Lap Half' : 'Plain Half') + ' 1:1',
-        meta: [`Round watershed top for a ${R(D)} dia box, rise ${R(ws)} - shallow cone` + (which === 'one' ? ', one piece' : ', two halves'),
+        meta: [`Round watershed top for a ${R(D)} dia box, rise ${R(ws)} mm = ${wsDeg.toFixed(1)}deg fall over the box radius - shallow cone` + (which === 'one' ? ', one piece' : ', two halves'),
                `Strike radius ${R(Ls)}, sweep the sector (girth = pi x dia = ${R(Math.PI * D)})`,
                `Closes ${R(AB)} over a half (A:B), ${R(CD)} over a quarter (C:D); simple edge ${se} turned on the rim`,
                which === 'one' ? `Lap ${lapTotal} mm (${lapEach} each end square off the seam)`
              : which === 'lap' ? `Both laps live on THIS half: ${lapTotal} mm SQUARE strap off each radial edge - same width top to bottom, squared at the rim fold (${se} fold-out cut out), V-cut apart at the apex`
              : `Plain half, no laps - its edges sit on the lap half's seam lines`],
-        calc: { D, ws, r, Ls, Phi, AB, CD, girth: Math.PI * D, nWraps: 1, kitPieces: halves, halves, which },
+        calc: { D, ws, wsDeg, r, Ls, Phi, AB, CD, girth: Math.PI * D, nWraps: 1, kitPieces: halves, halves, which },
         prim, holes, ticks, bbox: bboxOf(prim),
         cutNote: which === 'one' ? 'CUT 1 OFF (one seam)'
                : which === 'lap' ? 'CUT 1 OFF (lap half - laps go under the plain half)'
@@ -4489,21 +4512,29 @@ const F={
   stats:c=>['Cut '+Math.round(c.g)+'×'+Math.round(c.width),'Girth '+Math.round(c.girth),'Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): a round spool with a flat flange disc at each end. One seam only — a lap half and a plain half, half circumference each, lockformed cheeks. Flange discs split into halves (radius D/2 + simple edge), cut 4 off. Lockform from Settings → Boxes.'},
  valveend:{name:'Valve End',sub:'Watershed peaked D lid',icon:I.velid,
-  defaults:{boxW:775,boxD:960,wsHeight:70,simpleEdge:4,foldedEdge:6,lapTotal:50,holePitch:60,holeEndGap:20},
-  fields:[num('boxW','Width (mm)'),num('boxD','Depth (mm)'),num('wsHeight','Watershed height (mm)'),num('simpleEdge','Fold-out · nose &amp; side (mm)'),num('foldedEdge','Fold-out · back (mm)')],
+  defaults:{boxW:775,boxD:960,wsMode:'mm',wsHeight:70,wsDeg:10,simpleEdge:4,foldedEdge:6,lapTotal:50,holePitch:60,holeEndGap:20},
+  fields:[num('boxW','Width (mm)'),num('boxD','Depth (mm)'),
+    Object.assign(sego('wsMode','Watershed set by',[{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{reflow:1}),
+    Object.assign(num('wsHeight','Watershed height (mm)'),{when:s=>s.wsMode!=='deg'}),
+    Object.assign(num('wsDeg','Watershed fall (°)',0.5),{when:s=>s.wsMode==='deg'}),
+    num('simpleEdge','Fold-out · nose &amp; side (mm)'),num('foldedEdge','Fold-out · back (mm)')],
   build:s=>FP.pmValveEndKit(s)[0],
   kit:s=>FP.pmValveEndKit(s),
-  mini:c=>['Peak rise '+bankR(c.ws),'Triangulated half · cut 2'],
-  stats:c=>['A:1 '+bankR(c.L),'C:1 '+bankR(c.C1),'A:C '+bankR(c.AC),'Nose step '+bankR(c.girth)],
-  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Cut 2 and mirror on the ridge. The fold-out for the lockformer is drawn all round the rim at the widths you dial in (nose &amp; side, back). The ridge carries half the Lap past each edge, so the mirrored halves make the full specified lap over the peak with the rivet rows landing on each other.'},
+  mini:c=>['Peak rise '+bankR(c.ws)+' · '+c.wsDeg.toFixed(1)+'°','Lap half + plain half'],
+  stats:c=>['A:1 '+bankR(c.L),'Rise '+bankR(c.ws)+' · fall '+c.wsDeg.toFixed(1)+'°','C:1 '+bankR(c.C1),'A:C '+bankR(c.AC),'Nose step '+bankR(c.girth)],
+  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Same standard as the Round Top: a LAP HALF carrying the full Lap on both ridge edges as square straps (V-cut apart at the peak, notched where they run into the fold-outs) and a PLAIN half that sits on its seam lines — show all kit pieces for the pair. The fold-out for the lockformer is drawn all round the rim at the widths you dial in (nose &amp; side, back). Watershed can be set as a height or as a fall in degrees, measured over the nose radius.'},
  roundtop:{name:'Round Top',sub:'Watershed cone lid · round box',icon:I.rtop,
-  defaults:{dia:350,wsHeight:50,simpleEdge:4,pieces:2,lapTotal:50,holePitch:60,holeEndGap:20},
-  fields:[num('dia','Diameter (mm)'),num('wsHeight','Watershed height (mm)'),num('simpleEdge','Simple edge (mm)'),sego('pieces','Template',[{v:1,label:'One piece'},{v:2,label:'Two halves'}])],
+  defaults:{dia:350,wsMode:'mm',wsHeight:50,wsDeg:10,simpleEdge:4,pieces:2,lapTotal:50,holePitch:60,holeEndGap:20},
+  fields:[num('dia','Diameter (mm)'),
+    Object.assign(sego('wsMode','Watershed set by',[{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{reflow:1}),
+    Object.assign(num('wsHeight','Watershed height (mm)'),{when:s=>s.wsMode!=='deg'}),
+    Object.assign(num('wsDeg','Watershed fall (°)',0.5),{when:s=>s.wsMode==='deg'}),
+    num('simpleEdge','Simple edge (mm)'),sego('pieces','Template',[{v:1,label:'One piece'},{v:2,label:'Two halves'}])],
   build:s=>FP.pmRoundTopKit(s)[0],
   kit:s=>FP.pmRoundTopKit(s),
   mini:c=>['Strike R '+bankR(c.Ls),c.halves>1?'Lap half + plain half':'One piece · one seam'],
-  stats:c=>['Radius '+bankR(c.Ls),'A:B '+bankR(c.AB),'C:D '+bankR(c.CD),'Girth '+bankR(c.girth)],
-  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical ROUND box — a shallow cone, the same development as the Witches Hat. Two halves is the standard: a LAP HALF carrying both laps and a PLAIN half that sits on its seam lines. The laps are square straps — same width top to bottom, squared off at the rim fold with the fold-out cut out, V-parted at the apex. Show all kit pieces for the pair. One piece is the whole sector with a single lapped seam. Strike the radius shown, sweep the sector (the rim arc equals π × diameter so it rolls onto the box exactly). No drill holes marked — fix it however the job wants.'},
+  stats:c=>['Radius '+bankR(c.Ls),'Rise '+bankR(c.ws)+' · fall '+c.wsDeg.toFixed(1)+'°','A:B '+bankR(c.AB),'C:D '+bankR(c.CD),'Girth '+bankR(c.girth)],
+  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical ROUND box — a shallow cone, the same development as the Witches Hat. Two halves is the standard: a LAP HALF carrying both laps and a PLAIN half that sits on its seam lines. The laps are square straps — same width top to bottom, squared off at the rim fold with the fold-out cut out, V-parted at the apex. Show all kit pieces for the pair. One piece is the whole sector with a single lapped seam. Strike the radius shown, sweep the sector (the rim arc equals π × diameter so it rolls onto the box exactly). Watershed can be set as a height or as a fall in degrees, measured over the box radius. No drill holes marked — fix it however the job wants.'},
  endcap:{name:'End Cap',sub:'Flat or conical · rim',icon:I.ecap,
   defaults:{capPipe:168.3,insulation:25,capStyle:'flat',holeApipe:0,holeAx:0,holeAy:0,holePitch:60,holeEndGap:20},
   fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
@@ -6289,7 +6320,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.35.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.36.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6325,7 +6356,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.35.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.36.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
