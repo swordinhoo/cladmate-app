@@ -974,30 +974,51 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .seamlegend i{width:12px;height:12px;border-radius:3px;border:1.6px solid;display:inline-block}
   @media(min-width:520px){ .seamgrid{grid-template-columns:repeat(3,minmax(0,1fr))} }
 
-  /* ---- wide screens ---- */
+  /* ---- fitting workspace: controls left, drawing right ---- */
   .fld{min-width:0}
   @media(min-width:700px){ .grid{grid-template-columns:1fr 1fr;gap:9px} }
-  @media(min-width:760px){
-    main{max-width:1120px;padding:18px}
-    /* The drawing takes the full width up top - boxed into one column it could
-       never get taller than its own aspect ratio let it, which is what left half
-       a tablet sitting empty. */
-    .workspace{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
-          gap:0 18px;align-items:start}
-    .pane-top{grid-column:1 / -1}
-    .pane-left,.pane-right{min-width:0}
+  /* narrow screens stack the DRAWING first but capped, so the first input is
+     on screen without scrolling. The flip is CSS-only - the DOM keeps the
+     controls first for tab order and screen readers. */
+  .workspace{display:flex;flex-direction:column;gap:12px}
+  .pane-ctl,.pane-pv{min-width:0}
+  .pane-pv{order:-1}
+  #pv{max-height:44vh}
+  .printline{margin-top:9px;font-size:12px;line-height:1.45;color:#5c3d00;
+      background:var(--note-bg);border:1px solid var(--note-line);border-radius:8px;padding:8px 11px}
+  .printline b{font-family:var(--fd);font-stretch:87.5%;letter-spacing:.04em}
+  :root[data-theme="dark"] .printline{color:#ffe0a3}
+  .fitnote{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+  .fitnote summary{cursor:pointer;list-style:none;padding:10px 12px;font-family:var(--fm);font-size:10px;
+      font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);display:flex;align-items:center}
+  .fitnote summary::-webkit-details-marker{display:none}
+  .fitnote summary::after{content:"\25B8";margin-left:auto;color:var(--acc);transition:transform .15s}
+  .fitnote[open] summary::after{transform:rotate(90deg)}
+  .fitnote>div{padding:0 12px 11px;font-size:12.5px;color:var(--sub);line-height:1.55}
+  @media(min-width:880px){
+    main{max-width:1400px;padding:18px}
+    /* controls in a fixed narrow column; the drawing gets everything else and
+       stays pinned under the title bar while the column scrolls beside it */
+    .workspace{display:grid;grid-template-columns:minmax(330px,380px) minmax(0,1fr);
+          gap:0 16px;align-items:start}
+    .pane-pv{order:0}
+    #pv{max-height:none}
+    /* main is the scroller (the title bar sits outside it), so the sticky
+       offset is small; the card takes a real height so the canvas fills it */
+    .pane-pv.pv-stick{position:sticky;top:6px}
+    .pv-stick .preview{display:flex;flex-direction:column;height:calc(100vh - 146px)}
+    .pv-stick .pvwrap{flex:1 1 auto;min-height:300px;display:flex;flex-direction:column}
+    .pv-stick #pv{flex:1 1 auto;min-height:0}
     /* cap the container, not the svg - the diagram carries an inline
-       width:100%, so only the box it sits in can hold it back. Uncapped, a wide
-       laptop blew the little schematic up to half a metre tall. */
-    .seamvis .seamwheel{max-width:190px}
-    .seamvis #fitdiag{flex:0 1 340px;max-width:340px}
-    .diagcard>#fitdiag{max-width:360px}
+       width:100%, so only the box it sits in can hold it back. */
+    .seamvis .seamwheel{max-width:180px}
+    .seamvis #fitdiag{flex:0 1 100%;max-width:300px}
+    .diagcard>#fitdiag{max-width:300px}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
     .grid2 .full{grid-column:1 / -1}
     .genwrap{position:static;background:none;padding:0}
     .genwrap::before{display:none}
   }
-  @media(min-width:1120px){ main{max-width:1340px} .workspace{grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr)} }
   @media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
 
 </style>
@@ -1007,7 +1028,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.36.2</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.37.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4167,18 +4188,36 @@ const MAX_SHEETS=400;
    Pinch / wheel / drag / double-tap on #pv. State lives HERE, not in the
    DOM, so it survives the innerHTML swap refresh() does on every input -
    a MutationObserver re-stamps the transform onto each new svg. */
-const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=null,obs=null,tapT=0;
+const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=null,obs=null,tapT=0,touched=false;
   const clamp=n=>Math.max(0.4,Math.min(12,n));
   const svg=()=>box&&box.firstElementChild;
   function apply(){ const g=svg(); if(g&&g.tagName==='svg'){
       g.style.transform=`translate(${v.x}px,${v.y}px) scale(${v.s})`; }
-    /* fit-to-width (100%): one finger scrolls the PAGE, the +/- HUD is the
-       touch route into zoom. Once zoomed, the viewport owns every gesture. */
+    /* fitted view: one finger scrolls the PAGE, the +/- HUD is the touch
+       route into zoom. Once zoomed, the viewport owns every gesture. */
     if(box) box.style.touchAction = v.s>1.001 ? 'none' : 'pan-y';
     const hud=document.getElementById('pvzoom'); if(hud) hud.textContent=Math.round(v.s*100)+'%';
     pvScale(); }
-  function reset(){ v={s:1,x:0,y:0}; apply(); }
-  function zoomAt(cx,cy,f){ const r=box.getBoundingClientRect(),px=cx-r.left,py=cy-r.top,ns=clamp(v.s*f);
+  /* fit = CONTAIN in the viewport box, centred. The canvas has a real height
+     of its own now (it fills the window on wide screens, capped on phones),
+     so a tall pattern scales in instead of cropping, and a wide one sits
+     centred instead of hugging the top. */
+  function reset(){ touched=false; v={s:1,x:0,y:0};
+    const g=svg();
+    if(g&&g.tagName==='svg'&&box){
+      const bw=box.clientWidth-16, bh=box.clientHeight-16;   // 8px canvas padding
+      const w=g.clientWidth||bw, h=g.clientHeight||0;
+      if(w>0&&h>0&&bh>40){ const s=Math.min(1,bh/h);
+        v={s:s, x:(bw-w*s)/2, y:(bh-h*s)/2}; } }
+    apply(); }
+  /* every re-render lands here via the observer: keep the user's zoom if they
+     have taken over, otherwise refit the fresh drawing */
+  function rerender(){ if(touched) apply(); else reset(); }
+  /* rotate the phone / resize the window: refit unless the user owns the view */
+  let rzT=0; addEventListener('resize',()=>{ clearTimeout(rzT);
+    rzT=setTimeout(()=>{ if(box&&box.isConnected) rerender(); },150); });
+  function zoomAt(cx,cy,f){ touched=true;
+    const r=box.getBoundingClientRect(),px=cx-r.left,py=cy-r.top,ns=clamp(v.s*f);
     v.x=px-(px-v.x)*(ns/v.s); v.y=py-(py-v.y)*(ns/v.s); v.s=ns; apply(); }
   function down(e){ box.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e);
     const t=Date.now(); if(t-tapT<300&&ptrs.size===1) reset(); tapT=t;
@@ -4206,11 +4245,11 @@ const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=
     el.style.display='flex';
     el.querySelector('.bar').style.width=(mm*pxPerMm).toFixed(1)+'px';
     el.querySelector('.lab').textContent=mm+' mm'; }
-  return { attach(el){ if(!el)return; box=el; v={s:1,x:0,y:0}; ptrs.clear(); pinch=null; last=null;
+  return { attach(el){ if(!el)return; box=el; v={s:1,x:0,y:0}; ptrs.clear(); pinch=null; last=null; touched=false;
       el.addEventListener('pointerdown',down); el.addEventListener('pointermove',move);
       el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
       el.addEventListener('wheel',wheel,{passive:false}); el.addEventListener('dblclick',reset);
-      if(obs)obs.disconnect(); obs=new MutationObserver(apply); obs.observe(el,{childList:true}); apply(); },
+      if(obs)obs.disconnect(); obs=new MutationObserver(rerender); obs.observe(el,{childList:true}); rerender(); },
     reset, apply, get s(){return v.s;},
     nudge(f){ if(!box)return; const r=box.getBoundingClientRect();
       zoomAt(r.left+r.width/2,r.top+r.height/2,f); } };
@@ -5884,38 +5923,38 @@ function form(kind, presetParams){
       <button type="button" class="lgc" aria-pressed="false" data-ly="ord"><i style="border-color:var(--ly-centre);border-top-style:dashed"></i>SEAM/ORD</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="hole"><i style="border-color:var(--ly-dim)"></i>HOLES</button></div>
     <div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
-  /* The drawing lives in its own full-width band on a tablet. Boxed into one
-     column it could never get taller than its own aspect ratio allowed, which
-     is what left half the screen empty. Full width = a 70% bigger pattern. */
-  let html=`<div class="workspace"><div class="pane-top">`;
-  if(boxHero) html+=`<div class="card boxhero">
-    <div class="pvhead boxhead"><span class="k">Box view — all splits</span><span class="v" id="boxsplitlab"></span></div>
-    <div class="boxheromain"><div id="fitdiag"></div>${hasSplits?`<div class="boxwheel">${fieldHTML({type:'splitwheel',k:'splitRot',label:'Split position (clock)',compact:true},s)}</div>`:''}</div></div>`;
-  else html+=previewCard;
-  html+=`</div><div class="pane-left">`;
+  /* Controls own a fixed narrow column on the left; the drawing owns the rest
+     of the window and STAYS PUT while you scroll (layout pass, 2 Aug 26 - the
+     old full-width band pushed the first input 487px below the fold and gave a
+     340px schematic a 797px column). Phones stack the drawing first, capped,
+     so the first input is still on screen. */
+  let html=`<div class="workspace"><div class="pane-ctl">`;
   if(kind==='squarebox'&&s.seamMode==='plan') html+=`<div id="seamplan">${seamPlannerCard(s)}</div>`;
-  const hand2Html = kind!=='bendonbend' ? '' :
-    `<label>Second bend type</label><div class="seg" data-seg="bendHand2">${['A','B'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
-     <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
-  if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
-  else if(!boxHero) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
-  html+=`</div><div class="pane-right">`;
   const VARG=varGroupOf(kind);
   if(VARG) html+=`<div class="card varcard"><label>${VARG.label}</label><div class="seg" data-varsel="1">${VARG.opts.map(o=>`<button data-vk="${o.k}" ${o.k===kind?'class="on"':''}>${o.label}</button>`).join('')}</div></div>`;
   html+=`<div class="card"><div class="grid2">`;
   html+=fit.fields.filter(f=>f.type!=='seam').filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
     const full=(f.type!=='num'&&f.type!=='pipe');
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
-  html+=`</div>`;
-  if(fit.note) html+=`<div class="note">${fit.note}</div>`;
-  html+=`<div class="hint" style="margin-top:4px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
+  html+=`</div><div class="hint" style="margin-top:8px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
+  const hand2Html = kind!=='bendonbend' ? '' :
+    `<label>Second bend type</label><div class="seg" data-seg="bendHand2">${['A','B'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
+     <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
+  if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
+  else if(!boxHero) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">You can size it up and check the preview for free. Pro unlocks the printable PDF, DXF and Jobs.</div>`;
-  else html+=`<div class="printwarn"><b>PRINT AT 100% — ACTUAL SIZE</b><span>Never "Fit to page" or "Shrink to fit". Tape the sheets together on the red crosshairs, then measure the ${INCH_PAGE(SET.page)?'4&nbsp;inch':'100&nbsp;mm'} calibration bar with your tape before you mark any metal.</span></div>
-    <div class="genwrap"><div class="prob" id="probbox" hidden></div>
+  else html+=`<div class="genwrap"><div class="prob" id="probbox" hidden></div>
       <button class="btn primary" id="genBtn">Generate printable PDF</button>
-      <div class="btnrow" style="grid-template-columns:1fr 1fr 1fr"><button class="btn ghost" id="shareBtn">Share</button><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>+ Job${PRO?'':' (Pro)'}</button></div></div>`;
+      <div class="btnrow" style="grid-template-columns:1fr 1fr 1fr"><button class="btn ghost" id="shareBtn">Share</button><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>+ Job${PRO?'':' (Pro)'}</button></div>
+      <div class="printline"><b>PRINT AT 100% — ACTUAL SIZE.</b> Never "Fit to page" or "Shrink to fit". Tape the sheets on the red crosshairs, then measure the ${INCH_PAGE(SET.page)?'4&nbsp;inch':'100&nbsp;mm'} calibration bar before you mark any metal.</div></div>`;
+  if(fit.note) html+=`<details class="fitnote"><summary>How this fitting works</summary><div>${fit.note}</div></details>`;
+  html+=`</div><div class="pane-pv${boxHero?'':' pv-stick'}">`;
+  if(boxHero) html+=`<div class="card boxhero">
+    <div class="pvhead boxhead"><span class="k">Box view — all splits</span><span class="v" id="boxsplitlab"></span></div>
+    <div class="boxheromain"><div id="fitdiag"></div>${hasSplits?`<div class="boxwheel">${fieldHTML({type:'splitwheel',k:'splitRot',label:'Split position (clock)',compact:true},s)}</div>`:''}</div></div>
+    <div class="cutdemote">${previewCard}</div>`;
+  else html+=previewCard;
   html+=`</div></div>`;
-  if(boxHero) html+=`<div class="cutdemote">${previewCard}</div>`;
   app.innerHTML=html;
 
   /* --- the viewport instrument --- */
@@ -6317,7 +6356,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.36.2</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.37.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6353,7 +6392,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.36.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.37.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
