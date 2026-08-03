@@ -1007,7 +1007,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.34.9</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.35.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3213,30 +3213,47 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const AB = Math.PI * (Ls - r), CD = AB / 2;
     // Same cone development as the Witches Hat. Craig's STANDARD for the
     // two-half lid (2 Aug 26, replaces the short-lived butt/lap option): the
-    // kit is a LAP HALF and a PLAIN HALF. The lap half carries BOTH laps - a
-    // full-width tab past each radial edge, tucked under the plain half at
-    // each joint. Rivet rows: mid-lap on the lap half, lap/2 inside the plain
-    // half's edges, so the rows land on each other when the plain edges sit
-    // on the lap half's seam lines. A one-piece lid closes on itself: half
-    // the lap each end, holes on the coinciding seam lines.
+    // kit is a LAP HALF and a PLAIN HALF. The lap half carries BOTH laps as
+    // SQUARE STRAPS off its radial edges, tucked under the plain half at each
+    // joint. Rivet rows: down the middle of each strap on the lap half, lap/2
+    // inside the plain half's edges, so the rows land on each other when the
+    // plain edges sit on the lap half's seam lines. A one-piece lid closes on
+    // itself: half the lap each end, holes on the coinciding seam lines.
     const halves = (+p.pieces === 1) ? 1 : 2;
     const lapTotal = p.lapTotal != null ? p.lapTotal : 50, lapEach = lapTotal / 2;
     const hp = _hp(p.holePitch), eg = p.holeEndGap != null ? p.holeEndGap : 20;
     const segAng = Phi / halves, NDIV = halves > 1 ? 6 : 12;
     const pol = (s, a) => [s * Math.cos(a), s * Math.sin(a)];
     const a0 = -Math.PI / 2 - segAng / 2, Rcut = Ls + se;                  // apex at origin, opening downward
-    const dl = lapTotal / Ls, dh = lapEach / Ls;
+    const a1 = a0 + segAng;
     const mk = which => {
       const prim = [], holes = [], ticks = [];
-      const tab = which === 'lap' ? dl : which === 'one' ? dh : 0;         // tab width past each radial edge
-      prim.push({ style: 'cut', pts: [[0, 0]].concat(_arcPts(0, 0, Rcut, a0 - tab, a0 + segAng + tab, 96), [[0, 0]]) });
-      prim.push({ style: 'fold', pts: _arcPts(0, 0, Ls, a0, a0 + segAng, 96) });  // simple-edge turn at the true rim
-      const seamHoles = edge => { const start = eg, end = Ls - eg, span = end - start, nH = _nH(span, hp);
-        for (let k = 0; k <= nH; k++) holes.push(pol(start + span * k / nH, edge)); };
-      if (which === 'one') [a0, a0 + segAng].forEach(e => { prim.push({ style: 'fold', pts: [[0, 0], pol(Ls, e)] }); seamHoles(e); });
-      if (which === 'lap') { [a0, a0 + segAng].forEach(e => prim.push({ style: 'fold', pts: [[0, 0], pol(Ls, e)] }));
-        seamHoles(a0 - dh); seamHoles(a0 + segAng + dh); }                 // rivet rows mid-lap
-      if (which === 'plain') { seamHoles(a0 + dh); seamHoles(a0 + segAng - dh); } // matching rows inside the edges
+      /* Laps are SQUARE STRAPS (Craig, 2 Aug): constant width - set 15 and it
+         IS 15 mm all the way down - offset square off the seam edge, never a
+         swung wedge. The strap stops SQUARE at the rim fold line (the dashed
+         line): the fold-out width beyond it is cut out so the rim edge can
+         still turn. At the apex the two straps are parted by a V cut so each
+         folds on its own. */
+      const tabW = which === 'lap' ? lapTotal : which === 'one' ? lapEach : 0;
+      const e0 = [Math.cos(a0), Math.sin(a0)], e1 = [Math.cos(a1), Math.sin(a1)];
+      const midDir = [Math.cos(a0 + segAng / 2), Math.sin(a0 + segAng / 2)];
+      const away = e => { let n = [e[1], -e[0]];                          // square off the seam, out of the sector
+        if (n[0] * midDir[0] + n[1] * midDir[1] > 0) n = [-n[0], -n[1]]; return n; };
+      const n0 = away(e0), n1 = away(e1);
+      const at = (e, n, t, off) => [e[0] * t + n[0] * off, e[1] * t + n[1] * off];
+      if (tabW > 0) {
+        prim.push({ style: 'cut', pts: [[0, 0], at(e0, n0, 0, tabW), at(e0, n0, Ls, tabW), at(e0, n0, Ls, 0), pol(Rcut, a0)]
+          .concat(_arcPts(0, 0, Rcut, a0, a1, 96),
+                  [pol(Ls, a1), at(e1, n1, Ls, tabW), at(e1, n1, 0, tabW), [0, 0]]) });
+      } else prim.push({ style: 'cut', pts: [[0, 0]].concat(_arcPts(0, 0, Rcut, a0, a1, 96), [[0, 0]]) });
+      prim.push({ style: 'fold', pts: _arcPts(0, 0, Ls, a0, a1, 96) });   // simple-edge turn at the true rim
+      const rowAt = (e, n, off) => { const span = (Ls - eg) - eg, nH = _nH(span, hp);
+        for (let k = 0; k <= nH; k++) { const t = eg + span * k / nH; holes.push(at(e, n, t, off)); } };
+      if (which === 'one') [[e0, n0], [e1, n1]].forEach(([e, n]) => {
+        prim.push({ style: 'fold', pts: [[0, 0], at(e, n, Ls, 0)] }); rowAt(e, n, 0); });
+      if (which === 'lap') [[e0, n0], [e1, n1]].forEach(([e, n]) => {      // seam line + row down the middle of the strap
+        prim.push({ style: 'fold', pts: [[0, 0], at(e, n, Ls, 0)] }); rowAt(e, n, tabW / 2); });
+      if (which === 'plain') [[e0, n0], [e1, n1]].forEach(([e, n]) => rowAt(e, n, -lapEach));
       for (let k = 0; k <= NDIV; k++) { const a = a0 + segAng * k / NDIV;  // girth marks (roll guide)
         prim.push({ style: 'ord', pts: [[0, 0], pol(Ls, a)] }); }
       const mid = a0 + segAng / 2;
@@ -3247,8 +3264,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         meta: [`Round watershed top for a ${R(D)} dia box, rise ${R(ws)} - shallow cone` + (which === 'one' ? ', one piece' : ', two halves'),
                `Strike radius ${R(Ls)}, sweep the sector (girth = pi x dia = ${R(Math.PI * D)})`,
                `Closes ${R(AB)} over a half (A:B), ${R(CD)} over a quarter (C:D); simple edge ${se} turned on the rim`,
-               which === 'one' ? `Lap ${lapTotal} mm (${lapEach} each end), rivet line on both seam edges`
-             : which === 'lap' ? `Both laps live on THIS half: ${lapTotal} mm tab past each radial edge, tucked under the plain half - rivet rows mid-lap`
+               which === 'one' ? `Lap ${lapTotal} mm (${lapEach} each end square off the seam), rivet line on both seam edges`
+             : which === 'lap' ? `Both laps live on THIS half: ${lapTotal} mm SQUARE strap off each radial edge - same width top to bottom, squared at the rim fold (${se} fold-out cut out), V-cut apart at the apex; rivet rows down the middle of each strap`
              : `Plain half, no laps - rivet rows ${lapEach} in from each radial edge land on the lap half's rows`],
         calc: { D, ws, r, Ls, Phi, AB, CD, girth: Math.PI * D, nWraps: 1, kitPieces: halves, halves, which },
         prim, holes, ticks, bbox: bboxOf(prim),
@@ -6277,7 +6294,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.34.9</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.35.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6313,7 +6330,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.34.9',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.35.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
