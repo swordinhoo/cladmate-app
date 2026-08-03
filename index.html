@@ -1007,7 +1007,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.36.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.36.2</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3082,8 +3082,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // vs Pattern Maker on five datasets - W775/D960/ws70, W995/D1200/ws150,
   // W667/D458/ws45, W455/D555/ws66, W300/D350/ws45 - every displayed true
   // length to the mm (only the redundant 1:4 check rounds ~1mm).
-  //   r   = W/2 + simpleEdge         nose radius (simple edge on the curved rim)
-  //   run = Depth - W/2 + foldedEdge back-to-nose run (folded edge on the back)
+  //   r   = W/2 + foldOut           nose radius (one fold-out size all round)
+  //   run = Depth - W/2 + foldOut   back-to-nose run (same fold-out on the back)
   //   A:1 = A:4 = hypot(r, ws)       slant off the peak to the nose
   //   C:B = r                        half the back edge
   //   C:1 = run                      back corner to nose top
@@ -3108,8 +3108,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     // (round half to even): 578.5->578, 333.5->334. Match it so the printed
     // labels read identical to the shop program (the drawn geometry is exact).
     const R = x => { const f = Math.floor(x); return Math.abs(x - f - 0.5) < 1e-9 ? (f % 2 === 0 ? f : f + 1) : Math.round(x); };
+    /* ONE fold-out size per piece (Craig): the same turn-out all round the rim,
+       so the back takes the same as the nose and side. Pattern Maker modelled
+       them as two different treatments (a simple edge on the curve, a folded
+       edge on the back) - foldedEdge is still honoured if it is passed, which
+       is what the PM regression datasets use, but the app only offers one. */
     const se = p.simpleEdge == null ? 4 : p.simpleEdge;
-    const fe = p.foldedEdge == null ? 6 : p.foldedEdge;
+    const fe = p.foldedEdge == null ? se : p.foldedEdge;
     if (!(W > 0 && D > 0 && ws > 0)) throw new Error('Width, depth and watershed height must all be more than 0.');
     if (!(D > W / 2)) throw new Error('Depth must be more than half the width (the nose is a half-round, radius W/2).');
     const r = W / 2 + se, run = D - W / 2 + fe;
@@ -3198,7 +3203,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       return { kind: 'pmbox', title: 'Valve End (watershed)  -  ' + (which === 'lap' ? 'Lap Half' : 'Plain Half') + ' 1:1',
         meta: [`Peaked watershed lid for a ${W} × ${D} D-box, rise ${R(ws)} mm = ${wsDeg.toFixed(1)}deg fall over the nose (${backDeg.toFixed(1)}deg back to the square end) - shop method, triangulated`,
                `Start at the right-angle triangle A:1 ${R(L)} | C:1 ${R(run)} | A:C ${R(AC)} (square at 1), then swing B, then the nose ${NDIV} × ${R(girth)}`,
-               `Fold-out runs continuously round the rim for the lockformer: ${se} on the side + nose (they are tangent - no break at 1), ${fe} on the back`,
+               `Fold-out ${se} mm runs continuously round the whole rim for the lockformer - back, side and nose (side and nose are tangent, so no break at 1)`,
                which === 'lap' ? `Both ridge laps live on THIS half: ${lapTotal} mm square strap off each ridge edge, V-cut apart at the peak, notched where they run into the fold-outs`
                                : `Plain half, no laps - its ridge edges sit on the lap half's seam lines`],
         calc: { W, D, ws, wsDeg, backDeg, r, run, L, AB, AC, CB: r, C1: run, girth, lapTotal, nWraps: 1, kitPieces: 2, which },
@@ -4504,24 +4509,24 @@ const F={
   stats:c=>['Cut '+Math.round(c.g)+'×'+Math.round(c.width),'Girth '+Math.round(c.girth),'Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): a round spool with a flat flange disc at each end. One seam only — a lap half and a plain half, half circumference each, lockformed cheeks. Flange discs split into halves (radius D/2 + simple edge), cut 4 off. Lockform from Settings → Boxes.'},
  valveend:{name:'Valve End',sub:'Watershed peaked D lid',icon:I.velid,
-  defaults:{boxW:775,boxD:960,wsMode:'mm',wsHeight:70,wsDeg:10,simpleEdge:4,foldedEdge:6,lapTotal:50,holePitch:60,holeEndGap:20},
+  defaults:{boxW:775,boxD:960,wsMode:'mm',wsHeight:70,wsDeg:10,simpleEdge:5,lapTotal:50,holePitch:60,holeEndGap:20},
   fields:[num('boxW','Width (mm)'),num('boxD','Depth (mm)'),
     Object.assign(sego('wsMode','Watershed set by',[{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{reflow:1}),
     Object.assign(num('wsHeight','Watershed height (mm)'),{when:s=>s.wsMode!=='deg'}),
     Object.assign(num('wsDeg','Watershed fall (°)',0.5),{when:s=>s.wsMode==='deg'}),
-    num('simpleEdge','Fold-out · nose &amp; side (mm)'),num('foldedEdge','Fold-out · back (mm)')],
+    num('simpleEdge','Fold-out (mm)')],
   build:s=>FP.pmValveEndKit(s)[0],
   kit:s=>FP.pmValveEndKit(s),
   mini:c=>['Peak rise '+bankR(c.ws)+' · '+c.wsDeg.toFixed(1)+'°','Lap half + plain half'],
   stats:c=>['A:1 '+bankR(c.L),'Rise '+bankR(c.ws)+' · fall '+c.wsDeg.toFixed(1)+'°','C:1 '+bankR(c.C1),'A:C '+bankR(c.AC),'Nose step '+bankR(c.girth)],
-  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Same standard as the Round Top: a LAP HALF carrying the full Lap on both ridge edges as square straps (V-cut apart at the peak, notched where they run into the fold-outs) and a PLAIN half that sits on its seam lines — show all kit pieces for the pair. The fold-out for the lockformer is drawn all round the rim at the widths you dial in (nose &amp; side, back). Watershed can be set as a height or as a fall in degrees, measured over the nose radius.'},
+  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Same standard as the Round Top: a LAP HALF carrying the full Lap on both ridge edges as square straps (V-cut apart at the peak, notched where they run into the fold-outs) and a PLAIN half that sits on its seam lines — show all kit pieces for the pair. One fold-out size, drawn continuously round the whole rim for the lockformer — back, side and nose (the side is tangent to the nose, so there is no break where they meet). Watershed can be set as a height or as a fall in degrees, measured over the nose radius.'},
  roundtop:{name:'Round Top',sub:'Watershed cone lid · round box',icon:I.rtop,
   defaults:{dia:350,wsMode:'mm',wsHeight:50,wsDeg:10,simpleEdge:4,pieces:2,lapTotal:50,holePitch:60,holeEndGap:20},
   fields:[num('dia','Diameter (mm)'),
     Object.assign(sego('wsMode','Watershed set by',[{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{reflow:1}),
     Object.assign(num('wsHeight','Watershed height (mm)'),{when:s=>s.wsMode!=='deg'}),
     Object.assign(num('wsDeg','Watershed fall (°)',0.5),{when:s=>s.wsMode==='deg'}),
-    num('simpleEdge','Simple edge (mm)'),sego('pieces','Template',[{v:1,label:'One piece'},{v:2,label:'Two halves'}])],
+    num('simpleEdge','Fold-out (mm)'),sego('pieces','Template',[{v:1,label:'One piece'},{v:2,label:'Two halves'}])],
   build:s=>FP.pmRoundTopKit(s)[0],
   kit:s=>FP.pmRoundTopKit(s),
   mini:c=>['Strike R '+bankR(c.Ls),c.halves>1?'Lap half + plain half':'One piece · one seam'],
@@ -6312,7 +6317,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.36.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.36.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6348,7 +6353,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.36.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.36.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
