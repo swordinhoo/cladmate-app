@@ -1007,7 +1007,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.36.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.36.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3152,38 +3152,30 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const g = 1 - fe / hBC;
     const sc = (P, k) => [P[0] * k, P[1] * k];
     const Bg = sc(B, g), T4 = sc(tip, f), P1 = sc(one, f);
-    /* corner reliefs (Craig, 2 Aug): wherever two allowances meet, the
-       double-duty corner is CUT AWAY so each flange folds clean - square
-       notches where the ridge laps run into the fold-outs (B, 4), a V through
-       the peak between the two laps (A), a 45-degree CHAMFER across the C
-       corner (both fold-outs come up 90, so a square corner takes one straight
-       diagonal through both flanges, feet se+fe out from the corner, kissing
-       the fold-line crossing - the true-size corner), and a V-notch down to
-       the fold where the side fold-out runs onto the nose arc (1). NO reliefs
-       mid-arc (2, 3): the nose fold-out goes through the flanging machine,
-       which forms the round fold-out in one pass. */
+    /* The fold-out runs CONTINUOUSLY round the whole rim (Craig): back edge,
+       side, and straight on round the nose - the side is tangent to the nose
+       radius on a D, so 1 is a smooth join, NOT a corner, and takes no relief
+       at all. Nor does the arc itself (2, 3) - the flanging machine forms the
+       round fold-out in one pass. Relief goes only where two allowances really
+       collide: a 45-degree CHAMFER across the square C corner (both fold-outs
+       come up 90, so one straight diagonal through both flanges, feet se+fe
+       from the corner, kissing the fold-line crossing), square notches where
+       the ridge laps run into the fold-outs (B, 4), and a V through the peak
+       between the two laps (A). */
     const unit = v => { const l2 = Math.hypot(v[0], v[1]) || 1; return [v[0] / l2, v[1] / l2]; };
     const uSide = unit([one[0] - C[0], one[1] - C[1]]), uBack = unit([B[0] - C[0], B[1] - C[1]]);
     const ch = se + fe;                              // chamfer feet, equal distances from C
     const Fb = [C[0] + uBack[0] * ch, C[1] + uBack[1] * ch];   // foot on the back cut edge
     const Fs = [C[0] + uSide[0] * ch, C[1] + uSide[1] * ch];   // foot on the side cut edge
-    const Va = [one[0] - se, one[1]];                                        // V-notch shoulders at 1
-    const noseV = _arcPts(0, 0, L, Math.PI / 2 - se / L, Math.PI / 2 - NDIV * d, 40);
     const nAB = nrm(A, B, one, lapTotal), n4A = nrm(tip, A, nose[NDIV - 1], lapTotal);
     const off = (P, n) => [P[0] + n[0], P[1] + n[1]];
     const mk = which => {
-      const prim = [], holes = [], ticks = [];
-      if (which === 'lap') prim.push({ style: 'cut', pts: [off(A, nAB), off(Bg, nAB), Bg, B, Fb, Fs, Va, P1].concat(noseV,
+      const prim = [], holes = [], ticks = [];   // no drill holes on this one (Craig)
+      if (which === 'lap') prim.push({ style: 'cut', pts: [off(A, nAB), off(Bg, nAB), Bg, B, Fb, Fs].concat(noseEdge,
         [T4, off(T4, n4A), off(A, n4A), A, off(A, nAB)]) });
-      else prim.push({ style: 'cut', pts: [A, B, Fb, Fs, Va, P1].concat(noseV, [A]) });
-      /* rivet rows: down the middle of each strap on the lap half, the same
-         distance inside the plain half's ridge edges, so they meet up. */
-      const rows = (P, Q, n, sgn) => { const len = Math.hypot(Q[0] - P[0], Q[1] - P[1]), span = len - 2 * eg, nH = _nH(span, hp);
-        for (let k = 0; k <= nH; k++) { const t = (eg + span * k / nH) / len;
-          holes.push([P[0] + (Q[0] - P[0]) * t + n[0] * sgn / 2, P[1] + (Q[1] - P[1]) * t + n[1] * sgn / 2]); } };
-      [[A, B, nAB], [tip, A, n4A]].forEach(([P, Q, n]) => {
-        if (which === 'lap') prim.push({ style: 'fold', pts: [P, Q] });      // ridge seam line at the root of each strap
-        rows(P, Q, n, which === 'lap' ? 1 : -1); });
+      else prim.push({ style: 'cut', pts: [A, B, Fb, Fs].concat(noseEdge, [A]) });
+      if (which === 'lap') [[A, B], [tip, A]].forEach(e =>
+        prim.push({ style: 'fold', pts: e }));                               // ridge seam line at the root of each strap
       /* fold-out for the lockformer, drawn all round the rim at the dialled
          width: simple edge inside the nose arc + side, folded edge inside the
          back - the flange between fold and cut is the allowance already in r/run. */
@@ -3206,7 +3198,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       return { kind: 'pmbox', title: 'Valve End (watershed)  -  ' + (which === 'lap' ? 'Lap Half' : 'Plain Half') + ' 1:1',
         meta: [`Peaked watershed lid for a ${W} × ${D} D-box, rise ${R(ws)} mm = ${wsDeg.toFixed(1)}deg fall over the nose (${backDeg.toFixed(1)}deg back to the square end) - shop method, triangulated`,
                `Start at the right-angle triangle A:1 ${R(L)} | C:1 ${R(run)} | A:C ${R(AC)} (square at 1), then swing B, then the nose ${NDIV} × ${R(girth)}`,
-               `Fold-out drawn all round the rim for the lockformer: simple edge ${se} on the nose + side, folded edge ${fe} on the back`,
+               `Fold-out runs continuously round the rim for the lockformer: ${se} on the side + nose (they are tangent - no break at 1), ${fe} on the back`,
                which === 'lap' ? `Both ridge laps live on THIS half: ${lapTotal} mm square strap off each ridge edge, V-cut apart at the peak, notched where they run into the fold-outs`
                                : `Plain half, no laps - its ridge edges sit on the lap half's seam lines`],
         calc: { W, D, ws, wsDeg, backDeg, r, run, L, AB, AC, CB: r, C1: run, girth, lapTotal, nWraps: 1, kitPieces: 2, which },
@@ -6320,7 +6312,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.36.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.36.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6356,7 +6348,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.36.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.36.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
