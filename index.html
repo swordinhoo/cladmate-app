@@ -1007,7 +1007,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.34.4</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.34.5</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3119,9 +3119,39 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const s1 = sideOf(A, C, one);
     const B = (cand.length && sideOf(A, C, cand[0]) * s1 < 0) ? cand[0] : (cand[1] || [-AB, 0]);
     const noseEdge = _arcPts(0, 0, L, Math.PI / 2, Math.PI / 2 - NDIV * d, 40);   // smooth 1..4 rim
-    const prim = [], ticks = [];
-    // cut outline: A -> B (ridge) -> C (back) -> 1 (side) -> nose arc -> 4 -> A (ridge)
-    prim.push({ style: 'cut', pts: [A, B, C].concat(noseEdge, [A]) });
+    const lapTotal = p.lapTotal != null ? p.lapTotal : 50, lapEach = lapTotal / 2;
+    const hp = _hp(p.holePitch), eg = p.holeEndGap != null ? p.holeEndGap : 20;
+    const prim = [], holes = [], ticks = [];
+    /* ridge lap: the two mirror halves join over the peak, so each half carries
+       half the specified lap past BOTH ridge edges (A-B and 4-A) - assembled,
+       the two half-laps make the full lap centred on the ridge, and the rivet
+       rows (on the seam lines) land on each other. */
+    const nrm = (P, Q, away) => { let nx = -(Q[1] - P[1]), ny = Q[0] - P[0]; const l2 = Math.hypot(nx, ny) || 1; nx /= l2; ny /= l2;
+      const mx = (P[0] + Q[0]) / 2, my = (P[1] + Q[1]) / 2;
+      if ((away[0] - mx) * nx + (away[1] - my) * ny > 0) { nx = -nx; ny = -ny; }
+      return [nx * lapEach, ny * lapEach]; };
+    if (lapEach > 0) {
+      const nAB = nrm(A, B, one), n4A = nrm(tip, A, nose[NDIV - 1]);
+      const off = (P, n) => [P[0] + n[0], P[1] + n[1]];
+      prim.push({ style: 'cut', pts: [off(A, nAB), off(B, nAB), B, C].concat(noseEdge, [off(tip, n4A), off(A, n4A), off(A, nAB)]) });
+      [[A, B], [tip, A]].forEach(e => { prim.push({ style: 'fold', pts: [e[0], e[1]] });     // ridge seam lines
+        const len = Math.hypot(e[1][0] - e[0][0], e[1][1] - e[0][1]), span = len - 2 * eg, nH = _nH(span, hp);
+        for (let k = 0; k <= nH; k++) { const t = (eg + span * k / nH) / len;
+          holes.push([e[0][0] + (e[1][0] - e[0][0]) * t, e[0][1] + (e[1][1] - e[0][1]) * t]); } });
+    } else prim.push({ style: 'cut', pts: [A, B, C].concat(noseEdge, [A]) });
+    /* fold-out for the lockformer, drawn all round the rim at the dialled
+       width: simple edge inside the nose arc + side, folded edge inside the
+       back - the flange between fold and cut is the allowance already in r/run. */
+    if (se > 0) {
+      prim.push({ style: 'fold', pts: _arcPts(0, 0, L - se, Math.PI / 2, Math.PI / 2 - NDIV * d, 40), note: 'EDGE ' + se });
+      const f = 1 - se / L;                                    // side C-1: parallel inset inside the flat side panel
+      prim.push({ style: 'fold', pts: [[C[0] * f, C[1] * f], [one[0] * f, one[1] * f]], note: 'EDGE ' + se });
+    }
+    if (fe > 0) {                                              // back B-C: parallel inset inside the flat back panel
+      const hBC = Math.abs((B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0])) / Math.hypot(C[0] - B[0], C[1] - B[1]);
+      const g = 1 - fe / hBC;
+      prim.push({ style: 'fold', pts: [[B[0] * g, B[1] * g], [C[0] * g, C[1] * g]], note: 'EDGE ' + fe });
+    }
     // triangulation seams fanning from the apex (dashed reference lines)
     [C, one, nose[1], nose[2]].forEach(pt => prim.push({ style: 'centre', pts: [A, pt] }));
     const mid = (u, v) => [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2];
@@ -3136,9 +3166,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const lid = { kind: 'pmbox', title: 'Valve End (watershed)  -  Peaked Lid (half) 1:1',
       meta: [`Peaked watershed lid for a ${W} × ${D} D-box, rise ${ws} - shop method, triangulated half (cut 2, mirror on the ridge)`,
              `Start at the right-angle triangle A:1 ${R(L)} | C:1 ${R(run)} | A:C ${R(AC)} (square at 1), then swing B, then the nose ${NDIV} × ${R(girth)}`,
-             `Simple edge ${se} on the round rim, folded edge ${fe} on the back - laps/overlap added separately (not shown)`],
-      calc: { W, D, ws, r, run, L, AB, AC, CB: r, C1: run, girth, nWraps: 2, kitPieces: 1 },
-      prim, holes: [], ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (half lid - mirror pair)' };
+             `Fold-out drawn all round the rim for the lockformer: simple edge ${se} on the nose + side, folded edge ${fe} on the back`,
+             `Ridge lap ${lapTotal} mm (${lapEach} past each ridge edge - the mirror halves make the full lap over the peak, rivet rows land on each other)`],
+      calc: { W, D, ws, r, run, L, AB, AC, CB: r, C1: run, girth, lapTotal, nWraps: 2, kitPieces: 1 },
+      prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 2 OFF (half lid - mirror pair)' };
     return [lid];
   }
 
@@ -4432,13 +4463,13 @@ const F={
   stats:c=>['Cut '+Math.round(c.g)+'×'+Math.round(c.width),'Girth '+Math.round(c.girth),'Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): a round spool with a flat flange disc at each end. One seam only — a lap half and a plain half, half circumference each, lockformed cheeks. Flange discs split into halves (radius D/2 + simple edge), cut 4 off. Lockform from Settings → Boxes.'},
  valveend:{name:'Valve End',sub:'Watershed peaked D lid',icon:I.velid,
-  defaults:{boxW:775,boxD:960,wsHeight:70,simpleEdge:4,foldedEdge:6},
-  fields:[num('boxW','Width (mm)'),num('boxD','Depth (mm)'),num('wsHeight','Watershed height (mm)'),num('simpleEdge','Simple edge (mm)'),num('foldedEdge','Folded edge (mm)')],
+  defaults:{boxW:775,boxD:960,wsHeight:70,simpleEdge:4,foldedEdge:6,lapTotal:50,holePitch:60,holeEndGap:20},
+  fields:[num('boxW','Width (mm)'),num('boxD','Depth (mm)'),num('wsHeight','Watershed height (mm)'),num('simpleEdge','Fold-out · nose &amp; side (mm)'),num('foldedEdge','Fold-out · back (mm)')],
   build:s=>FP.pmValveEndKit(s)[0],
   kit:s=>FP.pmValveEndKit(s),
   mini:c=>['Peak rise '+bankR(c.ws),'Triangulated half · cut 2'],
   stats:c=>['A:1 '+bankR(c.L),'C:1 '+bankR(c.C1),'A:C '+bankR(c.AC),'Nose step '+bankR(c.girth)],
-  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Cut 2 and mirror on the ridge. Simple edge on the round rim, folded edge on the back; laps added separately.'},
+  note:'Shop method (Pattern Maker): the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Cut 2 and mirror on the ridge. The fold-out for the lockformer is drawn all round the rim at the widths you dial in (nose &amp; side, back). The ridge carries half the Lap past each edge, so the mirrored halves make the full specified lap over the peak with the rivet rows landing on each other.'},
  roundtop:{name:'Round Top',sub:'Watershed cone lid · round box',icon:I.rtop,
   defaults:{dia:350,wsHeight:50,simpleEdge:4,pieces:2,joint:'butt',lapTotal:50,holePitch:60,holeEndGap:20},
   fields:[num('dia','Diameter (mm)'),num('wsHeight','Watershed height (mm)'),num('simpleEdge','Simple edge (mm)'),sego('pieces','Template',[{v:1,label:'One piece'},{v:2,label:'Two halves'}]),sego('joint','Two-half seam',[{v:'butt',label:'Butt (on a box)'},{v:'lap',label:'Lap & rivet'}])],
@@ -6232,7 +6263,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.34.4</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.34.5</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6268,7 +6299,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.34.4',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.34.5',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
