@@ -834,11 +834,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .btn.ghost:hover{border-color:var(--acc);color:var(--acc)}
   .btn.ghost:disabled,.btn.primary:disabled{opacity:.42}
   .btn.primary:disabled{background:#9aa4ae;color:#f2f5f7;box-shadow:none;opacity:1;cursor:not-allowed}
-  .genwrap{position:sticky;bottom:-25px;z-index:5;background:var(--bg);
-        padding:10px 0 calc(31px + env(safe-area-inset-bottom,0px))}
-  .genwrap::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:22px;
-        background:linear-gradient(transparent,var(--bg));pointer-events:none}
-  .genwrap .btnrow{margin-top:8px}
+  /* generate block scrolls with the form (the old sticky bar ate a third of a
+     phone screen) and keeps itself compact */
+  .genwrap{margin-top:10px}
+  .genwrap .btnrow{margin-top:7px}
+  .genwrap .btn.primary{font-size:15px;padding:12px}
+  .genwrap .btn.ghost{font-size:12.5px;padding:9px 8px}
 
   /* ---- something is wrong: say so, in English, where the thumb already is ---- */
   .prob{display:flex;gap:10px;align-items:flex-start;background:var(--danger-bg);
@@ -984,8 +985,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .pane-ctl,.pane-pv{min-width:0}
   .pane-pv{order:-1}
   #pv{max-height:44vh}
-  .printline{margin-top:9px;font-size:12px;line-height:1.45;color:#5c3d00;
-      background:var(--note-bg);border:1px solid var(--note-line);border-radius:8px;padding:8px 11px}
+  .printline{margin-top:8px;font-size:11px;line-height:1.4;color:#5c3d00;
+      background:var(--note-bg);border:1px solid var(--note-line);border-radius:8px;padding:7px 10px}
   .printline b{font-family:var(--fd);font-stretch:87.5%;letter-spacing:.04em}
   :root[data-theme="dark"] .printline{color:#ffe0a3}
   .fitnote{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
@@ -1016,8 +1017,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     .diagcard>#fitdiag{max-width:300px}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
     .grid2 .full{grid-column:1 / -1}
-    .genwrap{position:static;background:none;padding:0}
-    .genwrap::before{display:none}
   }
   @media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
 
@@ -1028,7 +1027,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.37.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.37.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -6356,7 +6355,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.37.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.37.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6392,7 +6391,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.37.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.37.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
