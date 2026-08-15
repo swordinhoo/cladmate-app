@@ -886,6 +886,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   th:nth-child(3),td:nth-child(3){color:var(--acc);font-weight:700}
   tr:nth-child(even) td{background:var(--zebra)}
   @media(hover:hover){tbody tr:hover td{background:var(--acc-soft);box-shadow:inset 2px 0 0 var(--acc)}}
+  /* The pipe chart runs 8 columns — more than a phone can show — so the table
+     scrolls sideways inside its card and the size column stays pinned, or you
+     lose track of which row you are reading once you scroll to 5D. */
+  .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tscroll table{min-width:660px}
+  .tscroll th:first-child,.tscroll td:first-child{position:sticky;left:0}
+  .tscroll td:first-child{background:var(--card);z-index:2}
+  .tscroll th:first-child{background:var(--brand-dk);z-index:3}
   .note{font-size:12.5px;font-weight:600;color:var(--warn);background:var(--note-bg);border:1px solid var(--note-line);
         border-left:3px solid var(--warn);border-radius:4px;padding:8px 10px;margin-top:10px;line-height:1.45}
   .hide{display:none}
@@ -1027,7 +1035,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.37.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.38.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1055,28 +1063,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      a product, and the paperwork it prints should say so. */
   const CREDIT = 'CladMate  ·  1:1 flat pattern templates';
 
-  // ---- standard pipe chart (DN, OD, long radius, short radius) mm ----------
+  /* ---- standard pipe chart (DN, OD, long radius, short radius) mm ----------
+     `nom` is the nominal size in mm (the inch size x 25.4) and it is what the
+     xD bend radii scale off. It is NOT the DN number: DN100 pipe is 4", so its
+     nominal is 101.6, not 100. Checked against the two standard columns - nom
+     reproduces `sr` exactly on every size that has one, and 1.5 x nom
+     reproduces `lr` from 1" up. It exists because the three smallest sizes pin
+     `lr` to the ASME 38 mm MINIMUM rather than a true 1.5D, so anything scaled
+     off lr/1.5 there is wrong: it used to hand 1/2", 3/4" and 1" the same
+     2D/3D/5D radii, and a 1/2" 1D of 25 mm against a true 12.7. */
   const PIPE_CHART = [
-    { inch: '1/2', dn: 15,  od: 21.3,  lr: 38,   sr: null },
-    { inch: '3/4', dn: 20,  od: 26.7,  lr: 38,   sr: 19 },
-    { inch: '1',   dn: 25,  od: 33.4,  lr: 38,   sr: 25.4 },
-    { inch: '1 1/4', dn: 32, od: 42.2, lr: 47.5, sr: 32 },
-    { inch: '1 1/2', dn: 40, od: 48.3, lr: 57,   sr: 38 },
-    { inch: '2',   dn: 50,  od: 60.3,  lr: 76,   sr: 51 },
-    { inch: '2 1/2', dn: 65, od: 73,   lr: 95,   sr: 63.5 },
-    { inch: '3',   dn: 80,  od: 88.9,  lr: 114,  sr: 76 },
-    { inch: '3 1/2', dn: 90, od: 101.6, lr: 133, sr: 89 },
-    { inch: '4',   dn: 100, od: 114.3, lr: 152,  sr: 102 },
-    { inch: '5',   dn: 125, od: 141.3, lr: 190,  sr: 127 },
-    { inch: '6',   dn: 150, od: 168.3, lr: 229,  sr: 152 },
-    { inch: '8',   dn: 200, od: 219.1, lr: 305,  sr: 203 },
-    { inch: '10',  dn: 250, od: 273.1, lr: 381,  sr: 254 },
-    { inch: '12',  dn: 300, od: 323.9, lr: 457,  sr: 305 },
-    { inch: '14',  dn: 350, od: 355.6, lr: 533,  sr: 356 },
-    { inch: '16',  dn: 400, od: 406.6, lr: 610,  sr: 406 },
-    { inch: '18',  dn: 450, od: 457,   lr: 686,  sr: 457 },
-    { inch: '20',  dn: 500, od: 508,   lr: 762,  sr: 508 },
-    { inch: '24',  dn: 600, od: 610,   lr: 914,  sr: 610 }
+    { inch: '1/2', dn: 15,  od: 21.3,  nom: 12.7,  lr: 38,   sr: null },
+    { inch: '3/4', dn: 20,  od: 26.7,  nom: 19.05, lr: 38,   sr: 19 },
+    { inch: '1',   dn: 25,  od: 33.4,  nom: 25.4,  lr: 38,   sr: 25.4 },
+    { inch: '1 1/4', dn: 32, od: 42.2, nom: 31.75, lr: 47.5, sr: 32 },
+    { inch: '1 1/2', dn: 40, od: 48.3, nom: 38.1,  lr: 57,   sr: 38 },
+    { inch: '2',   dn: 50,  od: 60.3,  nom: 50.8,  lr: 76,   sr: 51 },
+    { inch: '2 1/2', dn: 65, od: 73,   nom: 63.5,  lr: 95,   sr: 63.5 },
+    { inch: '3',   dn: 80,  od: 88.9,  nom: 76.2,  lr: 114,  sr: 76 },
+    { inch: '3 1/2', dn: 90, od: 101.6, nom: 88.9, lr: 133,  sr: 89 },
+    { inch: '4',   dn: 100, od: 114.3, nom: 101.6, lr: 152,  sr: 102 },
+    { inch: '5',   dn: 125, od: 141.3, nom: 127,   lr: 190,  sr: 127 },
+    { inch: '6',   dn: 150, od: 168.3, nom: 152.4, lr: 229,  sr: 152 },
+    { inch: '8',   dn: 200, od: 219.1, nom: 203.2, lr: 305,  sr: 203 },
+    { inch: '10',  dn: 250, od: 273.1, nom: 254,   lr: 381,  sr: 254 },
+    { inch: '12',  dn: 300, od: 323.9, nom: 304.8, lr: 457,  sr: 305 },
+    { inch: '14',  dn: 350, od: 355.6, nom: 355.6, lr: 533,  sr: 356 },
+    { inch: '16',  dn: 400, od: 406.6, nom: 406.4, lr: 610,  sr: 406 },
+    { inch: '18',  dn: 450, od: 457,   nom: 457.2, lr: 686,  sr: 457 },
+    { inch: '20',  dn: 500, od: 508,   nom: 508,   lr: 762,  sr: 508 },
+    { inch: '24',  dn: 600, od: 610,   nom: 609.6, lr: 914,  sr: 610 }
   ];
 
   /* Page sizes in mm, portrait [W, H]. The US three are the exact metric
@@ -4735,7 +4751,7 @@ function home(){
   const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}<div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div>${pills(k)}</div></div>`;
   const CATCOL=['var(--fam-1)','var(--fam-2)','var(--fam-3)','var(--fam-4)','var(--fam-5)','var(--fam-6)'];
   const SECS=GROUPS.map((g,gi)=>({t:g.t,c:CATCOL[gi%CATCOL.length],body:()=>`<div class="grid">${g.k.map(tile).join('')}</div>`}));
-  SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; long &amp; short radius</div></div></div></div>`});
+  SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; 1D to 5D radii</div></div></div></div>`});
   const tiles=SECS.map((x,i)=>
       `<details class="grp" data-gi="${i}" style="--cat:${x.c}"${HOMEOPEN.has(i)?' open':''}><summary class="grpsum">${x.t}</summary>${x.body()}</details>`).join('');
   app.innerHTML=`${tiles}
@@ -4757,14 +4773,17 @@ function home(){
 /* ================= pipe chart ================= */
 function chart(){
   CUR=chart; setView('Pipe Chart','DN · OD · radii (mm)',true);
-  const rows=FP.PIPE_CHART.map(p=>`<tr><td>${p.inch}"</td><td>${p.dn}</td><td>${p.od}</td><td>${p.lr}</td><td>${p.sr??'–'}</td></tr>`).join('');
+  const rows=FP.PIPE_CHART.map(p=>`<tr><td>${p.inch}"</td><td>${p.dn}</td><td>${p.od}</td>`
+    +D_SERIES.map(m=>{ const v=crRadius(p,m); return `<td>${v==null?'–':v}</td>`; }).join('')
+    +`</tr>`).join('');
   app.innerHTML=`<div class="card"><label>Diameter ⇄ circumference</label>
     <div class="row"><div><label>Ø (mm)</label><input type="number" inputmode="decimal" id="dcD" placeholder="219.1"></div>
     <div><label>Circumference (mm)</label><input type="number" inputmode="decimal" id="dcC" placeholder="688.4"></div></div>
     <div class="hint" style="text-align:left">Type either one — the other follows. Girth with your seam lap (${SET.lapTotal} mm): <b id="dcL">–</b></div></div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="pvhead"><span class="k">ASME B36.10 · BS EN 10220</span><span class="v">ALL DIMS MM</span></div>
-    <table><thead><tr><th>Inch</th><th>DN</th><th>OD</th><th>Long R</th><th>Short R</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="tscroll"><table><thead><tr><th>Inch</th><th>DN</th><th>OD</th><th>1D · SR</th><th>1.5D · LR</th><th>2D</th><th>3D</th><th>5D</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="hint" style="text-align:left;padding:8px 10px">Centre-line radii. 1D is the ASME short-radius elbow, 1.5D the long radius — the two the fitting charts list; 2D · 3D · 5D are the pulled-bend multiples, scaled off the true 1.5D. A dash means the standard defines no elbow that tight. Swipe the table sideways for the bigger radii.</div></div>`;
   const dD=document.getElementById('dcD'), dC=document.getElementById('dcC'), dL=document.getElementById('dcL');
   const lap=()=>{ const c=parseFloat(dC.value); dL.textContent=isNaN(c)?'–':(c+SET.lapTotal).toFixed(1)+' mm'; };
   dD.oninput=()=>{ const v=parseFloat(dD.value); dC.value=isNaN(v)?'':(Math.PI*v).toFixed(1); lap(); };
@@ -5818,14 +5837,23 @@ function crBasePipe(s,f){
   let best=FP.PIPE_CHART[0];
   FP.PIPE_CHART.forEach(pp=>{ if(Math.abs(pp.od-D)<Math.abs(best.od-D)) best=pp; });
   return best; }
+/* One source of truth for the ×D centre radii, shared by the bend forms and the
+   pipe chart so the same radius can never read two different ways in the two
+   places. 1D and 1.5D are the TRADE chart columns (ASME), not DN multiples;
+   anything else scales off the true 1.5D radius. Where ASME defines no short
+   radius elbow at all (1/2"), 1D is genuinely undefined — return null rather
+   than falling through to lr/1.5, which handed back 25 mm against a true
+   12.7 because that size pins lr to the 38 mm standard minimum. */
+const D_SERIES=[1,1.5,2,3,5];
+function crRadius(e,m){
+  if(m===1.5&&e.lr) return e.lr;                       // trade long radius (ASME) - what the charts use
+  if(m===1) return e.sr??null;                         // trade short radius, or none defined
+  return e.nom?Math.round(m*e.nom)                     // pulled bends: true nominal x D
+       : e.lr?Math.round(m*e.lr/1.5):Math.round(m*e.dn); }
 function crOpts(s,f){ const e=crBasePipe(s,f);
-  return [1,1.5,2,3,5].map(m=>{ let mm;
-    if(m===1.5&&e.lr) mm=e.lr;                         // trade long radius (ASME) - what the charts use
-    else if(m===1&&e.sr) mm=e.sr;                      // trade short radius
-    else if(e.lr) mm=Math.round(m*e.lr/1.5);           // scale off the true 1.5D radius
-    else mm=Math.round(m*e.dn);
+  return D_SERIES.map(m=>{ const mm=crRadius(e,m); if(mm==null) return null;
     const name=(m===1?'1D · short radius':m===1.5?'1.5D · long radius':m+'D');
-    return {m,mm,label:name+' — '+mm+' mm'}; }); }
+    return {m,mm,label:name+' — '+mm+' mm'}; }).filter(Boolean); }
 
 /* ================= fitting form ================= */
 // the bend-type selector, drawn in the MIDDLE of the seam wheel (A|B, or 2x2 A/B/C/D)
@@ -6004,7 +6032,9 @@ function form(kind, presetParams){
     const ps=app.querySelector(`[data-crpipe="${f.k}"]`); if(ps) ps.value=String(crBasePipe(s,f).od);
     cs.innerHTML=opts.map(o=>`<option value="${o.mm}">${o.label}</option>`).join('')+'<option value="custom">Custom…</option>';
     if(wasCustom){ cs.value='custom'; return; }
-    const o=opts.find(x=>x.m===keep)||opts[1];
+    /* name the 1.5D fallback rather than trusting its slot — the 1D option
+       drops out on sizes with no ASME short radius, which shifts the indices */
+    const o=opts.find(x=>x.m===keep)||opts.find(x=>x.m===1.5)||opts[0];
     cs.value=String(o.mm); s[f.k]=o.mm;
     const inp=app.querySelector(`[data-crwrap="${f.k}"] input`); if(inp) inp.value=o.mm; }); }
   cradFields.forEach(f=>{
@@ -6355,7 +6385,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.37.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.38.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6391,7 +6421,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.37.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.38.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
