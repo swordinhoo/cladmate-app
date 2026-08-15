@@ -1035,7 +1035,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.38.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.39.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -3139,7 +3139,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return halfW * Math.tan(deg * Math.PI / 180);
   }
   function pmValveEndKit(p) {
-    const W = p.boxW, D = p.boxD, ws = _wsRise(p, p.boxW / 2);
+    const W = p.boxW, ws = _wsRise(p, p.boxW / 2);
     // Pattern Maker is VB6 - its displayed integers use banker's rounding
     // (round half to even): 578.5->578, 333.5->334. Match it so the printed
     // labels read identical to the shop program (the drawn geometry is exact).
@@ -3151,9 +3151,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
        is what the PM regression datasets use, but the app only offers one. */
     const se = p.simpleEdge == null ? 4 : p.simpleEdge;
     const fe = p.foldedEdge == null ? se : p.foldedEdge;
-    if (!(W > 0 && D > 0 && ws > 0)) throw new Error('Width, depth and watershed height must all be more than 0.');
-    if (!(D > W / 2)) throw new Error('Depth must be more than half the width (the nose is a half-round, radius W/2).');
-    const r = W / 2 + se, run = D - W / 2 + fe;
+    /* W is the DIAMETER of the round end - the nose is a half-round of W/2, so
+       the box width and that diameter are the same number, and the diameter is
+       what you read off the valve on the floor.
+       Depth is entered as the STRAIGHT RUN back from the centre of the round
+       end, again because that is what comes off the tape (Craig, 15 Aug 26).
+       Jobs saved before 4.39.0 and the Pattern Maker regression sets carry
+       boxD, the OVERALL front-to-back, so honour either and keep every old job
+       reprinting to the millimetre. D stays derived for the printed size note. */
+    const straight = p.boxRun != null ? +p.boxRun : (+p.boxD - W / 2);
+    const D = straight + W / 2;
+    if (!(W > 0 && ws > 0)) throw new Error('Round end diameter and watershed height must both be more than 0.');
+    if (!(straight > 0)) throw new Error('Straight run must be more than 0 - it is measured back from the CENTRE of the round end, not the overall depth.');
+    const r = W / 2 + se, run = straight + fe;
     const L = Math.hypot(r, ws), AB = Math.hypot(run, ws), AC = Math.hypot(run, r, ws);
     /* two falls on a D lid: the cone nose (over the nose radius, what the
        degrees box sets) and the flatter run back to the square end. */
@@ -4563,8 +4573,15 @@ const F={
   stats:c=>['Cut '+Math.round(c.g)+'×'+Math.round(c.width),'Girth '+Math.round(c.girth),'Lockform '+SET.lockform],
   note:'Shop method (Pattern Maker): a round spool with a flat flange disc at each end. One seam only — a lap half and a plain half, half circumference each, lockformed cheeks. Flange discs split into halves (radius D/2 + simple edge), cut 4 off. Lockform from Settings → Boxes.'},
  valveend:{name:'Valve End',sub:'Watershed peaked D lid',icon:I.velid,
-  defaults:{boxW:775,boxD:960,wsMode:'mm',wsHeight:70,wsDeg:10,simpleEdge:5,lapTotal:50,holePitch:60,holeEndGap:20},
-  fields:[num('boxW','Width (mm)'),num('boxD','Depth (mm)'),
+  /* Sized the way it is measured on the floor: the diameter of the round end
+     (the nose is a half-round of W/2, so this IS the old Width) and the
+     straight run back from that circle's centre. 572.5 is the old 960 overall
+     less the 387.5 nose radius, so the default lid is unchanged. */
+  defaults:{boxW:775,boxRun:572.5,wsMode:'mm',wsHeight:70,wsDeg:10,simpleEdge:5,lapTotal:50,holePitch:60,holeEndGap:20},
+  migrate:s=>{ if(s.boxRun==null&&s.boxD!=null&&s.boxW>0) s.boxRun=+(+s.boxD-s.boxW/2).toFixed(3);
+    if(s.boxRun!=null) delete s.boxD;   // drop the converted overall so it cannot be re-saved stale
+    return s; },
+  fields:[num('boxW','Round end Ø (mm)'),num('boxRun','Straight run (mm)'),
     Object.assign(sego('wsMode','Watershed set by',[{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{reflow:1}),
     Object.assign(num('wsHeight','Watershed height (mm)'),{when:s=>s.wsMode!=='deg'}),
     Object.assign(num('wsDeg','Watershed fall (°)',0.5),{when:s=>s.wsMode==='deg'}),
@@ -5569,7 +5586,11 @@ function diagValveEnd(s){
   // plan of the D lid + the triangulation fan from the peak (matches the
   // program's plan): half-round nose on the left, straight back on the right,
   // apex A over the nose centre, dashed seams fanning to the rim.
-  const W=Math.max(1,+s.boxW||775), D=Math.max(1,+s.boxD||960), ws=Math.max(0,+s.wsHeight||0);
+  // s.boxRun is the straight run back from the nose centre; D is the overall
+  // front-to-back the plan actually draws. Old saves may still carry boxD.
+  const W=Math.max(1,+s.boxW||775);
+  const run=s.boxRun!=null?+s.boxRun:((+s.boxD||960)-W/2);
+  const D=Math.max(1,run+W/2), ws=Math.max(0,+s.wsHeight||0);
   const sc=Math.min(64/W,64/Math.max(D,1)), w=W*sc, d=D*sc, rw=w/2, xL=rw-d/2, cen=[xL,0];
   const parts=[], all=[[-d/2,-w/2],[d/2,w/2]];
   const bTop=[d/2,-w/2], bBot=[d/2,w/2], nTop=[xL,-w/2], nBot=[xL,w/2];
@@ -5579,8 +5600,10 @@ function diagValveEnd(s){
   [bTop,bBot,[xL-rw,0]].forEach(p=>parts.push(_ln(cen,p,SEAMST)));
   [-30,-60].forEach(a=>{ const ph=(180+a)*Math.PI/180; parts.push(_ln(cen,[xL+rw*Math.cos(ph),rw*Math.sin(ph)],SEAMST)); });
   parts.push(`<circle cx="${xL.toFixed(1)}" cy="0" r="3.2" fill="${LY.dim}"/>`);   // the peak A
-  dimLin(parts,all,bTop,bBot,-16,'W '+fmtDim(W));
-  dimLin(parts,all,[-d/2,w/2],[d/2,w/2],14,'D '+fmtDim(D));
+  // across-flats IS the round end diameter on a D (nose radius = W/2), and the
+  // run is dimensioned from the nose CENTRE back, the way it is now entered
+  dimLin(parts,all,bTop,bBot,-16,'Ø '+fmtDim(W));
+  dimLin(parts,all,[xL,w/2],[d/2,w/2],14,'run '+fmtDim(run));
   if(ws>0) dimLead(parts,all,cen,-rw*0.55,-w/2-10,'peak '+fmtDim(ws));
   return _svgWrap(parts,all,190);
 }
@@ -5920,6 +5943,8 @@ function form(kind, presetParams){
   // C/D retired from the UI - same bend, seam mirrored. Old saves normalise.
   if(s.bendHand==='C') s.bendHand='B'; else if(s.bendHand==='D') s.bendHand='A';
   if(s.bendHand2==='C') s.bendHand2='B'; else if(s.bendHand2==='D') s.bendHand2='A';
+  // per-fitting old-save normalise (valve end: overall boxD -> straight boxRun)
+  if(fit.migrate) fit.migrate(s);
   const touch=()=>{ s.__touched=true; };
   // Finished-Ø sizing mode: the pipe fields hold the actual cladding OD, so
   // insulation is already baked in - build/diagram with insulation forced 0.
@@ -6334,7 +6359,8 @@ function jobDetail(id){
 function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
   if(p.dia) return q+'Ø'+p.dia+' × '+(p.height!=null?p.height:p.boxW);
   if(p.capPipe) return q+'Ø'+p.capPipe+' +'+(p.insulation||0)+'mm';
-  if(p.boxD&&!p.boxL) return q+p.boxW+'×'+p.boxD;
+  if(p.boxRun) return q+'Ø'+p.boxW+' × '+p.boxRun+' run';   // valve end: round end + straight run
+  if(p.boxD&&!p.boxL) return q+p.boxW+'×'+p.boxD;           // legacy valve-end saves and the other boxes
   if(p.boxLen) return q+p.boxW+'×'+p.boxH+'×'+p.boxLen;
   if(p.boxL) return q+p.boxL+'×'+p.boxW+'×'+p.boxH;
   if(p.pipeOD) return q+'Ø'+p.pipeOD+' +'+(p.insulation||0)+'mm';
@@ -6385,7 +6411,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.38.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.39.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6421,7 +6447,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.38.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.39.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
