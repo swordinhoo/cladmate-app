@@ -985,6 +985,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   /* ---- fitting workspace: controls left, drawing right ---- */
   .fld{min-width:0}
+  /* form section divider - the Double Bend was one flat soup of 11 fields and
+     Craig ruled it must read as Bend 1 / Bend 2 / the joining bits (28 Aug) */
+  .fhd{font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+       color:var(--acc);border-bottom:1px solid var(--line);padding:10px 0 4px;margin-top:2px}
+  .fld:first-child .fhd{margin-top:0;padding-top:0}
+  .fhd .n{color:var(--sub);font-weight:600;letter-spacing:.02em;text-transform:none;margin-left:7px}
   @media(min-width:700px){ .grid{grid-template-columns:1fr 1fr;gap:9px} }
   /* narrow screens stack the DRAWING first but capped, so the first input is
      on screen without scrolling. The flip is CSS-only - the DOM keeps the
@@ -1035,7 +1041,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.39.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.40.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4327,6 +4333,7 @@ const num=(k,l,step)=>({type:'num',k,label:l,step:step||1});
 const pipe=(k,l)=>({type:'pipe',k,label:l});
 const segd=(k,l,opts)=>({type:'seg',k,label:l,opts});
 const sego=(k,l,opts)=>({type:'segopt',k,label:l,opts});
+const hd=(l,sub)=>({type:'hd',label:l,sub});   // full-width section divider inside a form card
 const FAST={type:'seam',k:'seamFromThroat',label:'Fastener / seam position'};
 
 const F={
@@ -4367,12 +4374,15 @@ const F={
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
   defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
-    num('bendDeg1','Bend 1 angle (°)'),num('segments1','Bend 1 segments'),{type:'crad',k:'centreRadius1',label:'Bend 1 centre radius'},
-    num('bendDeg2','Bend 2 angle (°)'),num('segments2','Bend 2 segments'),{type:'crad',k:'centreRadius2',label:'Bend 2 centre radius'},
+    hd('Bend 1','fitted first — everything measures off this one'),
+    num('bendDeg1','Angle (°)'),num('segments1','Segments'),{type:'crad',k:'centreRadius1',label:'Centre radius'},
+    hd('Bend 2','the far end — the twist rolls this one'),
+    num('bendDeg2','Angle (°)'),num('segments2','Segments'),{type:'crad',k:'centreRadius2',label:'Centre radius'},
+    hd('Joining them up'),
     num('midLen','Straight between bends (mm)'),
     Object.assign(num('twist','Twist (°) · tap ± to flip'),{neg:1}),
     sego('orientation','How it hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),
-    {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'First bend type'}],
+    {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'Bend 1 type'}],
   build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
   kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage});
     // seams: bend-1 gores measure from bend 1's throat; end-bend gores must measure
@@ -5135,6 +5145,10 @@ function diagDouble(st){
   const label=(q,txt,sz,col)=>{ const p=proj(q).p; all.push([p[0],p[1]-7],[p[0]+20,p[1]],[p[0]-20,p[1]]);
     parts.push(`<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" font-size="${sz||9.5}" font-weight="800" fill="${col||LY.dim}" text-anchor="middle" paint-order="stroke" stroke="${LY.canvas}" stroke-width="3.4" stroke-linejoin="round" font-family="Consolas,'Roboto Mono',monospace">${txt}</text>`); };
   // one clear tag per section, each in its own colour so the three parts read apart
+  /* name the red dash-dot line - Craig: the seam reads as a mystery diagonal
+     if nothing says what it is. Tag it at the inlet, where it starts. */
+  { const q0=add(S[0].c,add(mul(S[0].e1,r*Math.cos(rad(seam))),mul(S[0].e2,r*Math.sin(rad(seam)))));
+    label(add(q0,mul(nrm(sub(q0,S[0].c)),12)),'seam',8,'#ff6f61'); }
   label(add(P1(90-phi1*0.6),mul(nrm(sub(P1(90-phi1*0.6),C1)),r+18)),'1st bend '+fmtDim(phi1)+'°',9,SEC.b1.ink);
   label(add((Ls>0.5?M2:M),mul(radialM,r+17)),'twister'+(tau?' · '+(tau>0?'+':'')+tau+'°':''),9,SEC.tw.ink);
   label(add(Q2(phi2*0.55),mul(nrm(sub(Q2(phi2*0.55),C2)),r+17)),'end bend '+fmtDim(phi2)+'°',9,SEC.b2.ink);
@@ -5896,6 +5910,7 @@ function handCentre(hands, cur, label){
   return `<g class="handsel">${cap(x0,y0,W)}<rect x="${x0}" y="${y0}" width="${W}" height="${H}" rx="5" fill="${LY.canvas}" stroke="${LY.faint}" stroke-width="1.5"/>${cell(hands[0],x0,y0,cw,ch)}${cell(hands[1],x0+cw,y0,cw,ch)}${cell(hands[2],x0,y0+ch,cw,ch)}${cell(hands[3],x0+cw,y0+ch,cw,ch)}<line x1="${x0+cw}" y1="${y0}" x2="${x0+cw}" y2="${y0+H}" stroke="${LY.faint}" stroke-width="1.2"/><line x1="${x0}" y1="${y0+ch}" x2="${x0+W}" y2="${y0+ch}" stroke="${LY.faint}" stroke-width="1.2"/></g>`;
 }
 function fieldHTML(f,s){
+  if(f.type==='hd') return `<div class="fhd">${f.label}${f.sub?`<span class="n">${f.sub}</span>`:''}</div>`;
   if(f.type==='num'){ const inp=`<input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
     if(f.neg) return `<label>${f.label}</label><div class="negrow">${inp}<button type="button" class="negbtn" data-negk="${f.k}" title="Flip direction">±</button></div>`;
     return `<label>${f.label}</label>`+inp; }
@@ -5996,7 +6011,7 @@ function form(kind, presetParams){
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
   html+=`</div><div class="hint" style="margin-top:8px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
   const hand2Html = kind!=='bendonbend' ? '' :
-    `<label>Second bend type</label><div class="seg" data-seg="bendHand2">${['A','B'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
+    `<label>Bend 2 type</label><div class="seg" data-seg="bendHand2">${['A','B'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
      <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
   if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else if(!boxHero) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
@@ -6417,7 +6432,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.39.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.40.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6453,7 +6468,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.39.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.40.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
