@@ -1041,7 +1041,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.40.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.41.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4718,7 +4718,10 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
 // wanted the boxes gone - "too confusing" - keeping only the two watershed TOPS,
 // the bits that actually take figuring out). GROUPS = what the home screen shows.
 const ORDER=['elbow','flatelbow','lobster','flatlobster','bendonbend','inctee','teebend','teeoncone','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','witcheshat','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','flangebox','wsbox','endcap','dome','tanktop','teetanktop','dishedend','hemidome','rectround','rasqround','oblxform'];
-const GROUPS=[{t:'Bends',k:['elbow','flatelbow','lobster','flatlobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','teetanktop','ybranch']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone','witcheshat']},{t:'Transitions',k:['sqround','rectround','obliqueround','rasqround','oblxform']},{t:'Watershed Tops',k:['roundtop','tanktop','valveend']},{t:'Vessel Ends',k:['dome','dishedend','hemidome']}];
+// 28 Aug 26 (Craig): flat-sided pair, Y branch and witches hat OFF the grid -
+// same retirement pattern as the boxes: ORDER/engine/tests keep them so old
+// saved jobs still reprint, they just stop being offered.
+const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','teetanktop']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone']},{t:'Transitions',k:['sqround','rectround','obliqueround','rasqround','oblxform']},{t:'Watershed Tops',k:['roundtop','tanktop','valveend']},{t:'Vessel Ends',k:['dome','dishedend','hemidome']}];
 // tee still has a mode selector; the box variants are retired with the boxes.
 const VARIANTS=[
   {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]} ];
@@ -5898,6 +5901,51 @@ function crOpts(s,f){ const e=crBasePipe(s,f);
     const name=(m===1?'1D · short radius':m===1.5?'1.5D · long radius':m+'D');
     return {m,mm,label:name+' — '+mm+' mm'}; }).filter(Boolean); }
 
+/* ---- mark out by hand (28 Aug, Craig + a mate's idea): the division and
+   ordinate table, so a piece can be set out with a rule and a scribe when
+   there is no printer. The figures are NOT read off the drawn ordinate lines,
+   because at least one fitting (the hole lens) draws them longer than true
+   for legibility. Every division line is intersected with the piece's actual
+   CUT polylines, so the numbers come from the same geometry the printed
+   template is drawn from. */
+function markoutData(p){
+  const P=(p&&p.prim)||[];
+  const ords=P.filter(q=>q.style==='ord'&&q.pts&&q.pts.length===2&&Math.abs(q.pts[0][0]-q.pts[1][0])<0.01);
+  if(ords.length<2) return null;
+  const cuts=P.filter(q=>q.style==='cut'&&q.pts&&q.pts.length>1);
+  if(!cuts.length) return null;
+  const cross=x=>{ const ys=[]; cuts.forEach(c=>{ const pt=c.pts;
+    for(let i=0;i<pt.length-1;i++){ const a=pt[i],b=pt[i+1];
+      if(Math.abs(b[0]-a[0])<1e-9) continue;
+      if((a[0]-x)*(b[0]-x)<=0) ys.push(a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0])); } });
+    return ys; };
+  const cen=P.find(q=>q.style==='centre'&&q.pts&&q.pts.length===2&&Math.abs(q.pts[0][1]-q.pts[1][1])<0.01);
+  const xs=[...new Set(ords.map(o=>+o.pts[0][0].toFixed(3)))].sort((a,b)=>a-b);
+  const x0=xs[0], rows=[];
+  xs.forEach((x,i)=>{ const xq=i===0?x+0.02:(i===xs.length-1?x-0.02:x);
+    const ys=cross(xq); if(ys.length<2) return;
+    rows.push({n:i+1,from:x-x0,lo:Math.min(...ys),hi:Math.max(...ys)}); });
+  if(rows.length<2) return null;
+  const baseline=rows.every(r=>Math.abs(r.lo)<0.6);
+  const steps=rows.slice(1).map((r,i)=>r.from-rows[i].from);
+  const uniform=steps.length&&steps.every(v=>Math.abs(v-steps[0])<0.3);
+  return {rows,baseline,yc:baseline?null:(cen?cen.pts[0][1]:null),
+          span:xs[xs.length-1]-x0,step:uniform?steps[0]:null};
+}
+function markoutHTML(p){
+  const d=markoutData(p); if(!d) return null;
+  const f=v=>{ const r=Math.round(v*10)/10; return r%1?r.toFixed(1):String(r); };
+  const mode=d.baseline?'base':(d.yc!=null?'centre':'full');
+  const head=mode==='base'?'<th>Height</th>':mode==='centre'?'<th>Up</th><th>Down</th>':'<th>Edge to edge</th>';
+  const rows=d.rows.map(r=>{ const cells=
+      mode==='base'?`<td>${f(r.hi)}</td>`
+     :mode==='centre'?`<td>${f(r.hi-d.yc)}</td><td>${f(d.yc-r.lo)}</td>`
+     :`<td>${f(r.hi-r.lo)}</td>`;
+    return `<tr><td>${r.n}</td><td>${f(r.from)}</td>${cells}</tr>`; }).join('');
+  return `<div class="hint" style="text-align:left;margin:2px 0 8px">${p.title?`<b>${p.title.replace(/ +1:1$/,'')}</b> — `:''}scribe a straight datum line, step the divisions off along it, then square each figure up${mode==='centre'?' and down from the datum':''}${mode==='full'?' (figures are cut edge to cut edge on the division line)':''}. All mm. ${d.step?`<b>${d.rows.length} divisions at ${f(d.step)}</b> · girth ${f(d.span)}.`:`Girth ${f(d.span)}.`} Same geometry the printed template comes from.</div>
+  <div class="tscroll"><table><thead><tr><th>Div</th><th>Along datum</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 /* ================= fitting form ================= */
 // the bend-type selector, drawn in the MIDDLE of the seam wheel (A|B, or 2x2 A/B/C/D)
 function handCentre(hands, cur, label){
@@ -5995,7 +6043,7 @@ function form(kind, presetParams){
       <button type="button" class="lgc" aria-pressed="false" data-ly="swage"><i style="border-color:var(--ly-swage);border-top-style:dashed"></i>SWAGE</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="ord"><i style="border-color:var(--ly-centre);border-top-style:dashed"></i>SEAM/ORD</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="hole"><i style="border-color:var(--ly-dim)"></i>HOLES</button></div>
-    <div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
+    <div class="stat" id="pvstat"></div><div id="kitwrap"></div><details class="fitnote" id="mkwrap" hidden><summary>📏 Mark out by hand — no printer</summary><div id="mkbody"></div></details></div>`;
   /* Controls own a fixed narrow column on the left; the drawing owns the rest
      of the window and STAYS PUT while you scroll (layout pass, 2 Aug 26 - the
      old full-width band pushed the first input 487px below the fold and gave a
@@ -6238,6 +6286,7 @@ function form(kind, presetParams){
          The little schematic is drawn from the BOXES, not from the pattern, so
          it can and must still redraw - two equal circles is half the answer. */
       const stE=document.getElementById('pvstat'); if(stE) stE.innerHTML='';
+      const mkE=document.getElementById('mkwrap'); if(mkE) mkE.hidden=true;
       const shE=document.getElementById('pvsheets'); if(shE) shE.textContent='\u2014';
       const fdE=document.getElementById('fitdiag');
       if(fdE){ try{ fdE.innerHTML=fittingDiagram(kind,eff()); }catch(e){ fdE.innerHTML=''; } }
@@ -6251,6 +6300,9 @@ function form(kind, presetParams){
     const shown=activePc==null?pat:form._kit[activePc];
     const pv=document.getElementById('pv');
     pv.innerHTML=FP.svgPreview(shown,600);
+    { const mkw=document.getElementById('mkwrap'), mkb=document.getElementById('mkbody');
+      if(mkw&&mkb){ let mk=null; try{ mk=markoutHTML(shown); }catch(e){}
+        mkw.hidden=!mk; mkb.innerHTML=mk||''; } }
     if(plotOnce){ plotOnce=false; pv.classList.add('plot');
       clearTimeout(form._plotT); form._plotT=setTimeout(()=>pv.classList.remove('plot'),1400); }
     else{ clearTimeout(form._plotT); pv.classList.remove('plot'); }
@@ -6432,7 +6484,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.40.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.41.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6468,7 +6520,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.40.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.41.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
