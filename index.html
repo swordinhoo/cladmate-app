@@ -1041,7 +1041,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.41.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.42.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4179,18 +4179,57 @@ if(!SET._v3){ SET._v3=1; SET.canvas='model'; delete SET.theme; saveSet(); }
 if(!SET._v4){ SET._v4=1; if(SET.appearance===undefined) SET.appearance=(SET.canvas==='paper')?'light':'dark'; saveSet(); }
 const OWNER = false;   // build flag: owner edition has Pro permanently on
 let PRO = OWNER || store.get('cm_pro',false);
+/* v2 codes expire (subscriptions). cm_pro_exp absent = perpetual - the owner
+   build and every v1 one-off code. Past expiry Pro keeps working for a 14-day
+   GRACE window - a lapsed card must never brick a lid half marked out on a
+   scaffold - then drops back to FREE. The stored code and expiry survive the
+   drop so the messaging can say "expired", never the insulting "invalid". */
+const PRO_GRACE_MS = 14*24*3600*1000;
+const _proExp = store.get('cm_pro_exp',null);
+if(PRO && !OWNER && _proExp && Date.now() > _proExp + PRO_GRACE_MS) PRO = false;
 let JOBS = store.get('cm_jobs',[]);
 function saveJobs(){ store.set('cm_jobs',JOBS); }
 
-/* licence code: CM-XXXX-XXXX, weighted base36 checksum */
-function checkCode(c){ c=(c||'').toUpperCase().replace(/[^A-Z0-9]/g,''); if(!c.startsWith('CM')||c.length!==10) return false;
-  const b=c.slice(2); let s=0; for(let i=0;i<8;i++){ const v=parseInt(b[i],36); if(isNaN(v))return false; s+=v*(i+3);} return s%36===7; }
+/* licence codes.
+   v1  CM-XXXX-XXXX          8 base36 chars, weighted checksum %36===7,
+       never expires - that is the one-off purchase promise.
+   v2  CM2-EEXX-XXXX-XXXX   12 base36 chars; the first two encode the expiry
+       month (months since Jan 2024, base36; the code is good through the END
+       of that month, UTC). The checksum runs over all 12 chars WITH residue 11
+       - the expiry included, so nudging the date breaks the code. Normalised
+       lengths keep the schemes apart: v1 is 10 chars, v2 is 15.
+   Issued by the STX site; verify/sanity-licence.js and the site's generator
+   share fixed test vectors so the two ends cannot drift. */
+function checkCode(c){ c=(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const wsum=(b,n)=>{ let s=0; for(let i=0;i<n;i++){ const v=parseInt(b[i],36); if(isNaN(v)) return -1; s+=v*(i+3); } return s; };
+  if(c.startsWith('CM2')&&c.length===15){ const b=c.slice(3);
+    if(wsum(b,12)%36!==11) return false;
+    const mi=parseInt(b.slice(0,2),36);
+    return { exp: Date.UTC(2024, mi+1, 1)-1 }; }
+  if(c.startsWith('CM')&&c.length===10){ const b=c.slice(2);
+    return wsum(b,8)%36===7 ? { exp:null } : false; }
+  return false; }
 
 /* ================= helpers ================= */
 const app=document.getElementById('app'), backBtn=document.getElementById('backBtn');
 const ttl=document.getElementById('ttl'), subttl=document.getElementById('subttl'), proBadge=document.getElementById('proBadge');
 const PM=10, OV=20;
 function renderPro(){ proBadge.textContent=PRO?'PRO':'FREE'; proBadge.classList.toggle('pro',!!PRO); }
+/* Renewal messaging, drawn fresh on every home render straight off the store -
+   no flags to go stale. Silent for owner builds and perpetual v1 codes. */
+function licBannerHTML(){
+  if(OWNER) return '';
+  const exp=store.get('cm_pro_exp',null);
+  if(!exp||!store.get('cm_pro',false)) return '';
+  const now=Date.now(), day=86400000;
+  const renew=BRAND.site?(' Renew at '+BRAND.site+'.'):'';
+  if(now>exp+PRO_GRACE_MS)
+    return `<div class="note">CladMate Pro has EXPIRED - enter your renewal code under Settings.${renew}</div>`;
+  if(now>exp){ const d=Math.max(1,Math.ceil((exp+PRO_GRACE_MS-now)/day));
+    return `<div class="note">Pro expired - still working for ${d} more day${d===1?'':'s'} while your renewal lands. Enter the new code under Settings.${renew}</div>`; }
+  if(exp-now<30*day){ const d=Math.max(1,Math.ceil((exp-now)/day));
+    return `<div class="note">Pro renews in ${d} day${d===1?'':'s'} - your new code arrives by email.</div>`; }
+  return ''; }
 function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m;
   document.body.appendChild(t);
   setTimeout(()=>t.classList.add('out'),2150);
@@ -4744,12 +4783,17 @@ function unlocked(k){ return PRO || isFree(k); }
 function showUnlock(){
   const bg=modal(`<h3>CladMate Pro</h3>
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
-    <input id="licIn" placeholder="Licence code  CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
+    <input id="licIn" placeholder="Licence code  CM-XXXX-XXXX or CM2-XXXX-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
     <div class="hint">Codes come with the paid version.${BRAND.email?` If you have bought it and lost your code, email <a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>.`:' If you have bought it and lost your code, get in touch wherever you bought it.'}</div>`);
   bg.querySelector('#licGo').onclick=()=>{
-    if(checkCode(bg.querySelector('#licIn').value)){ PRO=true; store.set('cm_pro',true); renderPro(); bg.remove(); toast('Pro unlocked — nice one!'); route(); }
-    else { toast('That code isn’t right — check it and try again.'); } };
+    const raw=bg.querySelector('#licIn').value, r=checkCode(raw);
+    if(!r){ toast('That code isn’t right — check it and try again.'); return; }
+    if(r.exp && Date.now()>r.exp){ toast('That code has expired'+(BRAND.site?' — renew at '+BRAND.site:'')+'.'); return; }
+    PRO=true; store.set('cm_pro',true);
+    store.set('cm_pro_exp',r.exp||null);   // a perpetual v1 code clears any old expiry (sub -> lifetime upgrade)
+    store.set('cm_pro_code',raw.trim().toUpperCase());
+    renderPro(); bg.remove(); toast('Pro unlocked — nice one!'); route(); };
 }
 
 /* ================= tabs / routing ================= */
@@ -4784,7 +4828,7 @@ function home(){
   SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; 1D to 5D radii</div></div></div></div>`});
   const tiles=SECS.map((x,i)=>
       `<details class="grp" data-gi="${i}" style="--cat:${x.c}"${HOMEOPEN.has(i)?' open':''}><summary class="grpsum">${x.t}</summary>${x.body()}</details>`).join('');
-  app.innerHTML=`${tiles}
+  app.innerHTML=`${licBannerHTML()}${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}`;
   /* cold boot: once per launch the tiles plot themselves in */
@@ -6484,7 +6528,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.41.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.42.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6520,7 +6564,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.41.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO};
+    const data={app:'CladMate',ver:'4.42.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
@@ -6533,7 +6577,7 @@ function settingsPage(){
         if(d.app!=='CladMate') throw new Error('not a CladMate backup');
         if(d.settings) { SET=Object.assign({},SET,d.settings); saveSet(); }
         if(Array.isArray(d.jobs)) { JOBS=d.jobs; saveJobs(); }
-        if(d.pro && !PRO){ PRO=true; store.set('cm_pro',true); renderPro(); }
+        if(d.pro && !PRO){ PRO=true; store.set('cm_pro',true); if(d.proExp!==undefined) store.set('cm_pro_exp',d.proExp); renderPro(); }
         ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); });
         toast('Backup restored'); repage(settingsPage);
       }catch(e){ toast('That file isn’t a CladMate backup'); } };
