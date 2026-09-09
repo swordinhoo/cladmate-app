@@ -787,10 +787,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   #fitdiag.t3{touch-action:none;cursor:grab}
   #fitdiag.t3:active{cursor:grabbing}
-  #t3uwrap{display:flex;align-items:center;gap:8px;margin-top:6px}
-  #t3uwrap .k{font-family:var(--fm);font-size:9.5px;font-weight:800;letter-spacing:.09em;color:var(--sub)}
-  #t3uwrap input{flex:1;accent-color:var(--acc);min-width:0}
-  #t3uwrap #t3uwv{min-width:30px;text-align:right;color:var(--acc)}
+  #t3uwrap{display:flex;margin-top:6px}
+  #t3uwrap button{flex:1;min-height:40px;font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:.09em;
+    color:var(--acc);background:var(--acc-soft);border:1px solid var(--acc);border-radius:8px;padding:9px 10px;cursor:pointer}
+  #t3uwrap button:active{filter:brightness(1.2)}
   #fitdiag{background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:5px;
         background-image:linear-gradient(var(--grid) 1px,transparent 1px),
                          linear-gradient(90deg,var(--grid) 1px,transparent 1px);
@@ -1047,7 +1047,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.43.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.43.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -6502,13 +6502,17 @@ function form(kind, presetParams){
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(pat,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,eff());
-    /* t3 fittings orbit with a drag and unwrap with the slider under the
-       drawing. Handlers live on the container, which innerHTML never
+    /* t3 fittings orbit with a drag; UNWRAP is ONE TAP - the fitting peels
+       itself open into the flat pattern over ~a second, tap again and it
+       rolls back up (Craig, 10 Sep 26: "it should simply unwrap", not a
+       slider). Handlers live on the container, which innerHTML never
        replaces, so the redraws stay cheap. */
     if(fd&&T3B[kind]){ fd.classList.add('t3');
       const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
-      const rd=()=>{ fd.innerHTML=fittingDiagram(kind,eff());
-        const lab=document.getElementById('t3uwv'); if(lab) lab.textContent=vw.un>0.98?'FLAT':(vw.un<0.02?'3D':Math.round(vw.un*100)+'%'); };
+      const label=()=>{ const b=document.getElementById('t3uw'); if(!b) return;
+        const tgt=vw._unTgt!=null?vw._unTgt:vw.un;
+        b.textContent=tgt>=0.5?'\u25C2 WRAP IT BACK UP':'UNWRAP THE PATTERN \u25B8'; };
+      const rd=()=>{ fd.innerHTML=fittingDiagram(kind,eff()); label(); };
       const kick=()=>{ if(!fd._raf) fd._raf=requestAnimationFrame(()=>{fd._raf=0;rd();}); };
       let dg=false,lx=0,ly=0;
       fd.onpointerdown=e=>{ dg=true; lx=e.clientX; ly=e.clientY; try{fd.setPointerCapture(e.pointerId);}catch(_){} };
@@ -6519,12 +6523,25 @@ function form(kind, presetParams){
       const host=fd.parentElement;
       if(host&&!host.querySelector('#t3uwrap')){
         const w=document.createElement('div'); w.id='t3uwrap';
-        w.innerHTML='<span class="k">UNWRAP</span><input id="t3uw" type="range" min="0" max="100" step="1"><span class="k" id="t3uwv">3D</span>';
+        w.innerHTML='<button type="button" id="t3uw"></button>';
         host.insertBefore(w,fd.nextSibling);
       }
       const uw=host?host.querySelector('#t3uw'):null;
-      if(uw){ uw.value=String(Math.round(vw.un*100));
-        uw.oninput=e=>{ vw.un=(+e.target.value)/100; kick(); }; }
+      if(uw) uw.onclick=()=>{
+        const target=(vw._unTgt!=null?vw._unTgt:vw.un)>=0.5?0:1;
+        vw._unTgt=target; label();
+        /* timer-driven, not rAF: a throttled or backgrounded view stalls
+           animation frames mid-morph, and a half-unwrapped fitting stuck on
+           screen is worse than a chunky tween. Timeouts always complete. */
+        clearTimeout(fd._uwto||0);
+        const from=vw.un, t0=performance.now(), D=900;
+        const ease=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;   // easeInOutQuad
+        const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
+          vw.un=from+(target-from)*ease(p); rd();
+          if(p<1) fd._uwto=setTimeout(step,16);
+          else { vw.un=target; vw._unTgt=null; rd(); } };
+        step(); };
+      label();
     }
     { const sp=document.getElementById('seamplan');
       if(sp&&!sp.dataset.busy){ sp.dataset.busy='1'; sp.innerHTML=seamPlannerCard(s); wireSeam(); delete sp.dataset.busy; } }
@@ -6694,7 +6711,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.43.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.43.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6730,7 +6747,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.43.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.43.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
