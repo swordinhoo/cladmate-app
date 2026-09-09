@@ -1051,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.49.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.50.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5642,11 +5642,59 @@ function t3trunnion(s){
   return t3parts([t3fade(t3stations(ts.map(ring))), br]);
 }
 
+/* ---- transformers: square / rectangle base to a round top --------------- */
+/* Straight port of the engine's squareToRound set-out, so the 3D is built
+   from the very same B/T loops the printed template is developed from: four
+   corner points, N steps round the circle from the seam with the exact corner
+   angles INSERTED, and at every corner angle the base jumps corner-to-corner
+   while the top point stays put. That jump is the flat triangular plate on
+   each side; the dwell on a corner while the arc sweeps is the cone sector
+   over each corner. Both are developable, so the whole transformer comes out
+   as ONE true sheet - and engine developLoops() is the same recurrence as
+   t3stations(), so the two agree by construction, not by luck. */
+function t3sqround(s){
+  const ins=+s.insulation||0, cg=+s.cladGap||0;
+  const rTop=((+s.pipeOD||168.3)+2*ins+cg)/2;
+  const side=s.side!=null?+s.side:null;
+  const w=Math.max(1, s.sqW!=null?+s.sqW:(side!=null?side:300));
+  const dpt=Math.max(1, s.sqD!=null?+s.sqD:(side!=null?side:w));
+  const H=Math.max(1,+s.height||200);
+  let ox=+s.offsetX||0, oy=+s.offsetY||0;
+  // the right-angle transformer: slide the round tight to one edge so that
+  // side rises plumb - the offset is worked, not typed
+  if(s.flush==='w'||s.flush==='d'){
+    const dim=s.flush==='w'?w:dpt;
+    if(2*rTop>=dim) return t3stations([[[0,0,0],[1,0,0]],[[0,0,H],[1,0,H]]]);
+    if(s.flush==='w'){ ox=w/2-rTop; oy=0; } else { ox=0; oy=dpt/2-rTop; }
+  }
+  const corners=[[w/2,dpt/2,0],[-w/2,dpt/2,0],[-w/2,-dpt/2,0],[w/2,-dpt/2,0]];
+  const seam=(((+s.seamFromThroat||0)%360)+360)%360, N=24;
+  const angs=[]; for(let k=0;k<=N;k++) angs.push(seam+360*k/N);
+  for(let c=Math.ceil(seam/90); c*90<seam+360; c++){ const a=c*90;
+    if(angs.every(x=>Math.abs(x-a)>1e-6)) angs.push(a); }
+  angs.sort((a,b)=>a-b);
+  const topAt=a=>{ const r2=a*Math.PI/180; return [ox+rTop*Math.cos(r2), oy+rTop*Math.sin(r2), H]; };
+  const cornOf=a=>corners[Math.floor((((a%360)+360)%360)/90)%4].slice();
+  const B=[],T=[];
+  for(let i=0;i<angs.length;i++){
+    const a=angs[i], top=topAt(a), onC=Math.abs(a%90)<1e-6;
+    if(onC&&i>0&&i<angs.length-1){
+      B.push(cornOf(a-1e-4)); T.push(top);          // the flat plate on this side:
+      B.push(cornOf(a+1e-4)); T.push(top.slice());  // base jumps, apex stays
+    } else B.push(cornOf(a+(i===angs.length-1?-1e-4:1e-4))), T.push(top);
+  }
+  // seam ON a corner angle: close the fan with the triangle under the seam
+  if(Math.abs(seam%90)<1e-6){ B.push(cornOf(seam+1e-4)); T.push(topAt(seam)); }
+  return t3stations([B,T]);
+}
+
 const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
   oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
   valveend:t3valveend,tanktop:t3tanktop,inctee:t3tee,teereducer:t3tee,
   teeoncone:t3teeoncone,teedome:t3teedome,teetanktop:t3teetanktop,
-  teebend:t3teebend,trunnion:t3trunnion};
+  teebend:t3teebend,trunnion:t3trunnion,
+  sqround:t3sqround,rectround:t3sqround,obliqueround:t3sqround,
+  rasqround:t3sqround,oblxform:t3sqround};
 
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
@@ -6409,8 +6457,11 @@ function fittingDiagram(kind,s){
       {d1:'Ø'+fmtDim(clad(s.bigPipeOD)),d2:'Ø'+fmtDim(clad(s.smallPipeOD)),L:fmtDim(s.height)});
     if(kind==='oblique') return diagCone(clad(s.bigPipeOD),clad(s.smallPipeOD),s.height,'oblique',s.offset,s.seamFromThroat,
       {d1:'Ø'+fmtDim(clad(s.bigPipeOD)),d2:'Ø'+fmtDim(clad(s.smallPipeOD)),L:fmtDim(s.height),v:'V '+fmtDim(s.offset||0)});
-    if(kind==='sqround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'sqround',0,null,
-      {d1:fmtDim(s.sqW)+'×'+fmtDim(s.sqD),d2:'Ø'+fmtDim(clad(s.pipeOD)),L:fmtDim(s.height)});
+    /* the Square to Round tile keeps its base in `side`, not sqW/sqD (build()
+       maps it) - reading sqW straight off left this schematic blank */
+    if(kind==='sqround'){ const sw=s.sqW!=null?s.sqW:s.side, sd=s.sqD!=null?s.sqD:(s.side!=null?s.side:sw);
+      return diagCone(sw,clad(s.pipeOD),s.height,'sqround',0,null,
+        {d1:fmtDim(sw)+'×'+fmtDim(sd),d2:'Ø'+fmtDim(clad(s.pipeOD)),L:fmtDim(s.height)}); }
     if(kind==='obliqueround') return diagCone(s.sqW,clad(s.pipeOD),s.height,'obliqueround',s.offsetX,null,
       {d1:fmtDim(s.sqW)+'×'+fmtDim(s.sqD),d2:'Ø'+fmtDim(clad(s.pipeOD)),L:fmtDim(s.height),v:'V '+fmtDim(s.offsetX||0)});
     if(kind==='trunnion'){ const n=Math.max(2,Math.min(DCAP,Math.round(s.segments||4)));
@@ -7132,7 +7183,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.49.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.50.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7168,7 +7219,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.49.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.50.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
