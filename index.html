@@ -1104,7 +1104,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.56.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.57.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4496,7 +4496,7 @@ const F={
     hd('Bend 2','the far end — the twist rolls this one'),
     num('bendDeg2','Angle (°)'),num('segments2','Segments'),{type:'crad',k:'centreRadius2',label:'Centre radius'},
     hd('Joining them up'),
-    num('midLen','Straight between bends (mm)'),
+    num('midLen','Weld to weld (mm)'),
     Object.assign(num('twist','Twist (°) · tap ± to flip'),{neg:1}),
     sego('orientation','How it hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),
     {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'Bend 1 type'}],
@@ -5276,6 +5276,39 @@ function diagDouble(st){
      if nothing says what it is. Tag it at the inlet, where it starts. */
   { const q0=add(S[0].c,add(mul(S[0].e1,r*Math.cos(rad(seam))),mul(S[0].e2,r*Math.sin(rad(seam)))));
     label(add(q0,mul(nrm(sub(q0,S[0].c)),12)),'seam',8,'#ff6f61'); }
+  /* WELD TO WELD (Craig, 10 Sep). The straight between the bends is the run a
+     fitter actually puts a tape on, so when there is one, DIMENSION it - and
+     dimension it properly: outside the pipe, on extension lines with ticks,
+     the way it would sit on a drawing. That also settles what he was really
+     objecting to. The dark line down the middle of the spool was never a
+     dimension at all - it is the SEAM, drawn faded where it runs round the
+     back - so putting the measurement on the metal was only ever going to
+     read as a second mystery line. Out here in the dim layer's own colour it
+     cannot be confused with it. NOTE the drawn spool is clamped (Ls) so a big
+     straight cannot blow the schematic up; the FIGURE is always the true mm.
+  */
+  if(Ls>0.5){
+    const pA=proj(M).p, pB=proj(M2).p;
+    let dx=pB[0]-pA[0], dy=pB[1]-pA[1];
+    const Lp=Math.hypot(dx,dy)||1; dx/=Lp; dy/=Lp;
+    let nx=-dy, ny=dx;
+    const cMid=proj(S[Math.floor(S.length/2)].c).p;
+    const mx=(pA[0]+pB[0])/2, my=(pA[1]+pB[1])/2;
+    if((mx-cMid[0])*nx+(my-cMid[1])*ny<0){ nx=-nx; ny=-ny; }
+    const off=r*1.7, tk=4.5;
+    const A2=[pA[0]+nx*off,pA[1]+ny*off], B2=[pB[0]+nx*off,pB[1]+ny*off];
+    const EXT='stroke="'+LY.dim+'" stroke-width="1" opacity="0.5"';
+    const DIM='stroke="'+LY.dim+'" stroke-width="1.5" stroke-linecap="round"';
+    parts.push(_ln([pA[0]+nx*r*0.95,pA[1]+ny*r*0.95],[A2[0]+nx*4,A2[1]+ny*4],EXT));
+    parts.push(_ln([pB[0]+nx*r*0.95,pB[1]+ny*r*0.95],[B2[0]+nx*4,B2[1]+ny*4],EXT));
+    parts.push(_ln(A2,B2,DIM));
+    parts.push(_ln([A2[0]-nx*tk+dx*tk,A2[1]-ny*tk+dy*tk],[A2[0]+nx*tk-dx*tk,A2[1]+ny*tk-dy*tk],DIM));
+    parts.push(_ln([B2[0]-nx*tk+dx*tk,B2[1]-ny*tk+dy*tk],[B2[0]+nx*tk-dx*tk,B2[1]+ny*tk-dy*tk],DIM));
+    all.push(A2,B2);
+    const lx=(A2[0]+B2[0])/2+nx*11, ly=(A2[1]+B2[1])/2+ny*11;
+    all.push([lx,ly-7],[lx+30,ly],[lx-30,ly]);
+    parts.push('<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" font-size="8.5" font-weight="800" fill="'+LY.dim+'" text-anchor="middle" paint-order="stroke" stroke="'+LY.canvas+'" stroke-width="3.4" stroke-linejoin="round" font-family="Consolas,monospace">weld to weld '+Math.round(+st.midLen||0)+'</text>');
+  }
   label(add(P1(90-phi1*0.6),mul(nrm(sub(P1(90-phi1*0.6),C1)),r+18)),'1st bend '+fmtDim(phi1)+'°',9,SEC.b1.ink);
   label(add((Ls>0.5?M2:M),mul(radialM,r+17)),'twister'+(tau?' · '+(tau>0?'+':'')+tau+'°':''),9,SEC.tw.ink);
   label(add(Q2(phi2*0.55),mul(nrm(sub(Q2(phi2*0.55),C2)),r+17)),'end bend '+fmtDim(phi2)+'°',9,SEC.b2.ink);
@@ -7425,7 +7458,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.56.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.57.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7461,7 +7494,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.56.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.57.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
