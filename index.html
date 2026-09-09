@@ -1051,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.45.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.46.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5239,34 +5239,37 @@ const T3N=28;                          // circumference facets per ring
    twister's rolled twist comes out in the sheet. Cylinder bands reproduce
    the old numbers to well under a millimetre. */
 function t3stations(rows3){
+  // Develop EACH BAND separately, triangle by triangle, every true length
+  // kept. A gore-jointed fitting is not developable in one attached sheet -
+  // unrolling across a mitre joint shears the bands - so do what the trade
+  // does: one strip per gore, stacked seam-edge left like the cut sheet.
   const rows=rows3.length, N=rows3[0].length-1;
   const d3=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
-  const third=(P,Q,dp,dq,ref)=>{      // dist dp from P, dq from Q; with ref,
-    const dx=Q[0]-P[0],dy=Q[1]-P[1];  // take the candidate FARTHER from ref
+  const third=(P,Q,dp,dq)=>{          // dist dp from P, dq from Q, on the
+    const dx=Q[0]-P[0],dy=Q[1]-P[1];  // right-hand side of P->Q
     const d=Math.hypot(dx,dy)||1e-9;
     if(dp<1e-9) return [P[0],P[1]];
     const a=(dp*dp-dq*dq+d*d)/(2*d), h=Math.sqrt(Math.max(0,dp*dp-a*a));
-    const mx=P[0]+a*dx/d, my=P[1]+a*dy/d;
-    const c1=[mx+h*dy/d,my-h*dx/d], c2=[mx-h*dy/d,my+h*dx/d];
-    if(!ref) return c1;
-    const q1=(c1[0]-ref[0])**2+(c1[1]-ref[1])**2, q2=(c2[0]-ref[0])**2+(c2[1]-ref[1])**2;
-    return q1>=q2?c1:c2; };
-  const flat=[];
-  const FA=new Array(N+1), FB=new Array(N+1);
-  FA[0]=[0,0]; FB[0]=[0,d3(rows3[0][0],rows3[1][0])];
-  for(let i=0;i<N;i++){
-    FA[i+1]=third(FA[i],FB[i], d3(rows3[0][i],rows3[0][i+1]), d3(rows3[1][i],rows3[0][i+1]));
-    FB[i+1]=third(FB[i],FA[i+1], d3(rows3[1][i],rows3[1][i+1]), d3(rows3[0][i+1],rows3[1][i+1]));
+    return [P[0]+a*dx/d+h*dy/d, P[1]+a*dy/d-h*dx/d]; };
+  const GAP=14, bands=[]; let cursor=0;
+  for(let j=0;j<rows-1;j++){
+    const R0=rows3[j], R1=rows3[j+1];
+    const FA=new Array(N+1), FB=new Array(N+1);
+    FA[0]=[0,0]; FB[0]=[0,d3(R0[0],R1[0])];
+    for(let i=0;i<N;i++){
+      FA[i+1]=third(FA[i],FB[i], d3(R0[i],R0[i+1]), d3(R1[i],R0[i+1]));
+      // seed from FA[i+1]: seeding from FB[i] mirrors every second triangle
+      // across the diagonal - lengths all stay true, strip crumples tight
+      FB[i+1]=third(FA[i+1],FB[i], d3(R0[i+1],R1[i+1]), d3(R1[i],R1[i+1]));
+    }
+    let y0=1e9,y1=-1e9;
+    for(let i=0;i<=N;i++){ y0=Math.min(y0,FA[i][1],FB[i][1]); y1=Math.max(y1,FA[i][1],FB[i][1]); }
+    const dy=cursor-y0;
+    for(let i=0;i<=N;i++){ FA[i][1]+=dy; FB[i][1]+=dy; }
+    cursor+=(y1-y0)+GAP;
+    bands.push([FA,FB]);
   }
-  flat.push(FA,FB);
-  for(let j=1;j<rows-1;j++){
-    const A=rows3[j], B=rows3[j+1], PF=flat[j], NB=new Array(N+1);
-    NB[0]=third(PF[0],PF[1], d3(A[0],B[0]), d3(A[1],B[0]), flat[j-1][0]);
-    for(let i=0;i<N;i++)
-      NB[i+1]=third(NB[i],PF[i+1], d3(B[i],B[i+1]), d3(A[i+1],B[i+1]), flat[j-1][Math.min(i+1,N)]);
-    flat.push(NB);
-  }
-  return {rows3, flat};
+  return {rows3, bands};
 }
 
 function t3elbow(s){
@@ -5401,17 +5404,17 @@ const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
   const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
-  const un=vw.un, R=geo.rows3, F=geo.flat, rows=R.length;
+  const un=vw.un, R=geo.rows3, BD=geo.bands;
   // centre the development on its own bounding box (fans sit off-centre)
   let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9;
-  F.forEach(row=>row.forEach(q=>{ if(q[0]<bx0)bx0=q[0]; if(q[0]>bx1)bx1=q[0]; if(q[1]<by0)by0=q[1]; if(q[1]>by1)by1=q[1]; }));
+  BD.forEach(b=>b.forEach(row=>row.forEach(q=>{ if(q[0]<bx0)bx0=q[0]; if(q[0]>bx1)bx1=q[0]; if(q[1]<by0)by0=q[1]; if(q[1]>by1)by1=q[1]; })));
   const fcx=(bx0+bx1)/2, fcy=(by0+by1)/2;
-  const P=[];                       // morphed world points per row
-  for(let j=0;j<rows;j++){ const row=[];
-    for(let i=0;i<=T3N;i++){ const p=R[j][i];
-      const fx=F[j][i][0]-fcx, fz=F[j][i][1]-fcy;
-      row.push([p[0]+(fx-p[0])*un, p[1]*(1-un), p[2]+(fz-p[2])*un]); }
-    P.push(row); }
+  // each band owns its vertices, so the unwrap visibly splits the fitting
+  // into its gores and lands them as the stacked cut sheet
+  const morph=(p,f)=>[p[0]+((f[0]-fcx)-p[0])*un, p[1]*(1-un), p[2]+((f[1]-fcy)-p[2])*un];
+  const BP=BD.map(([FA,FB],j)=>[
+    R[j].map((p,i)=>morph(p,FA[i])),
+    R[j+1].map((p,i)=>morph(p,FB[i])) ]);
   // orbit + project (z-up orthographic, painter's algorithm). As the unwrap
   // approaches flat the view eases to face-on, whatever the user had spun -
   // an edge-on sheet is a line, and a line is not a pattern.
@@ -5419,7 +5422,7 @@ function t3render(kind,s,w){
   const ca=Math.cos(azE),sa=Math.sin(azE),ce=Math.cos(elE),se=Math.sin(elE);
   const proj=p=>{ const x=p[0]*ca-p[1]*sa, y=p[0]*sa+p[1]*ca, z=p[2];
     return {x:x, y:-(z*ce-y*se), d:y*ce+z*se}; };
-  const V=P.map(row=>row.map(proj));
+  const BV=BP.map(pr=>pr.map(row=>row.map(proj)));
   // theme-aware steel ramp
   const hx=c=>{const m=c.match(/#([0-9a-f]{6})/i); if(!m) return [26,30,34];
     return [parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)];};
@@ -5427,8 +5430,8 @@ function t3render(kind,s,w){
   const lo=dark?40:120, hi=dark?185:225;
   const quads=[];
   const L=[0.42,-0.72,0.55];
-  for(let j=0;j<rows-1;j++) for(let i=0;i<T3N;i++){
-    const a=P[j][i],b=P[j][i+1],c=P[j+1][i+1],d=P[j+1][i];
+  for(let j=0;j<BD.length;j++) for(let i=0;i<T3N;i++){
+    const a=BP[j][0][i],b=BP[j][0][i+1],c=BP[j][1][i+1],d=BP[j][1][i];
     const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[d[0]-a[0],d[1]-a[1],d[2]-a[2]];
     let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
     const nl=Math.hypot(n[0],n[1],n[2])||1; n=[n[0]/nl,n[1]/nl,n[2]/nl];
@@ -5436,21 +5439,21 @@ function t3render(kind,s,w){
     let sh=Math.abs(n[0]*L[0]+n[1]*L[1]+n[2]*L[2]);
     sh=0.35+0.65*sh; if(j%2) sh*=0.93;     // subtle two-tone per piece
     const g=Math.round(lo+(hi-lo)*sh);
-    const q=[V[j][i],V[j][i+1],V[j+1][i+1],V[j+1][i]];
+    const q=[BV[j][0][i],BV[j][0][i+1],BV[j][1][i+1],BV[j][1][i]];
     quads.push({d:(q[0].d+q[1].d+q[2].d+q[3].d)/4,
       s:'<polygon points="'+q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')
       +'" fill="rgb('+g+','+Math.round(g*1.02)+','+Math.round(g*1.05)+')"/>'});
   }
   quads.sort((a,b)=>a.d-b.d);
   const parts=quads.map(q=>q.s), all=[];
-  V.forEach(row=>row.forEach(p=>all.push([p.x,p.y])));
-  // joint ink on every station ring, then the seam edges on top
+  BV.forEach(pr=>pr.forEach(row=>row.forEach(p=>all.push([p.x,p.y]))));
+  // joint ink on every band edge, then the seam edges on top
   const path=pts=>'<polyline points="'+pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')+'" fill="none" ';
-  for(let j=0;j<rows;j++) parts.push(path(V[j])+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>');
-  const seamPts=[],seamPts2=[];
-  for(let j=0;j<rows;j++){ seamPts.push(V[j][0]); seamPts2.push(V[j][T3N]); }
-  parts.push(path(seamPts)+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
-  if(un>0.02) parts.push(path(seamPts2)+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
+  BV.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>')));
+  BV.forEach(pr=>{
+    parts.push(path([pr[0][0],pr[1][0]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
+    if(un>0.02) parts.push(path([pr[0][T3N],pr[1][T3N]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
+  });
   return _svgWrap(parts,all,w||205);
 }
 
@@ -6835,7 +6838,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.45.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.46.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6871,7 +6874,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.45.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.46.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
