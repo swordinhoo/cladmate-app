@@ -740,6 +740,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .pvx{position:absolute;background:var(--ly-dim);opacity:.5;pointer-events:none;z-index:3;display:none}
   .pvx.h{left:0;right:0;height:1px}
   .pvx.v{top:0;bottom:0;width:1px}
+  /* Controls that change how the fitting SITS belong WITH the drawing, not in
+     a list underneath it - you want to be watching the thing move as you
+     change them (Craig: everything needs to be visually dynamic). Fields tag
+     themselves onpv:1 and land here instead of the fields card. Not a copy -
+     they are MOVED, so there is only ever one control for a value. */
+  .pvctls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:9px 16px;
+      padding:9px 11px;background:var(--panel2);border-top:1px solid var(--line)}
+  .pvctls label{display:block;font-family:var(--fm);font-size:9px;font-weight:700;
+      letter-spacing:.07em;text-transform:uppercase;color:var(--sub);margin:0 0 4px}
+  .pvctls .seg button{font-size:11.5px;padding:4px 12px}
+  .pvctls input{font-size:13px!important;padding:4px 8px;width:68px;text-align:center}
+  .pvctls .negbtn{padding:4px 9px;font-size:12px}
+  .pvctls .pvhint{flex:1 1 100%;font-family:var(--fm);font-size:10px;color:var(--sub);margin:0}
   /* layer legend: tap a chip to freeze that layer */
   .pvlegend[hidden]{display:none}   /* author display:flex would beat the bare attribute */
   .pvlegend{display:flex;gap:6px;flex-wrap:wrap;padding:7px 9px;background:var(--panel2);
@@ -1104,7 +1117,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.58.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.59.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4497,9 +4510,15 @@ const F={
     num('bendDeg2','Angle (°)'),num('segments2','Segments'),{type:'crad',k:'centreRadius2',label:'Centre radius'},
     hd('Joining them up'),
     num('midLen','Weld to weld (mm)'),
-    Object.assign(num('twist','Twist (°) · tap ± to flip'),{neg:1}),
-    sego('orientation','How it hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),
-    {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',handLabel:'Bend 1 type'}],
+    /* these four say how the fitting SITS rather than what size it is, so
+       they ride on the drawing (onpv) where you can watch it move. Bend 1's
+       hand comes OUT of the seam wheel centre (noHand) so both hands sit
+       together - they are the pair people mix up. */
+    Object.assign(sego('bendHand','Bend 1',[{v:'A',label:'A'},{v:'B',label:'B'}]),{onpv:1}),
+    Object.assign(sego('bendHand2','Bend 2',[{v:'A',label:'A'},{v:'B',label:'B'}]),{onpv:1}),
+    Object.assign(num('twist','Twist (°) · ± flips'),{neg:1,onpv:1}),
+    Object.assign(sego('orientation','Hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),{onpv:1}),
+    {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',noHand:true}],
   build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
   kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage});
     // seams: bend-1 gores measure from bend 1's throat; end-bend gores must measure
@@ -5550,6 +5569,12 @@ function t3bendonbend(s){
      which is exactly what made it read as two pieces. Mark them and the joint
      ink skips them; the seam and the real gore joints are untouched. */
   geo.nojoint={}; geo.nojoint[G1+1]=1; if(mid>0.5) geo.nojoint[G1+2]=1;
+  /* HOW IT HANGS has to move the 3D too, or the control says one thing and
+     the drawing shows another. 90 degrees about Y swaps which leg stands up -
+     a proper rotation, so the development is untouched, and applied after the
+     stations are struck so the flat cannot notice. */
+  if(s.orientation==='vertical')
+    geo.rows3.forEach(r=>r.forEach(q=>{ const x=q[0]; q[0]=q[2]; q[2]=-x; }));
   return geo;
 }
 
@@ -6917,6 +6942,11 @@ function form(kind, presetParams){
   const cradFields=fit.fields.filter(f=>f.type==='crad');
   setView(fit.name, kind==='squarebox'&&s.seamMode==='plan' ? 'Seam planner · you place the seams' : fit.sub, true);
   const seamF=fit.fields.find(f=>f.type==='seam');
+  const pvF=fit.fields.filter(f=>f.onpv&&(!f.when||f.when(s)));
+  const pvCtlHtml=pvF.length
+    ? '<div class="pvctls">'+pvF.map(f=>'<div>'+fieldHTML(f,s)+'</div>').join('')
+      +(kind==='bendonbend'?'<div class="pvhint" id="dbdir"></div>':'')+'</div>'
+    : '';
   const BOXHERO={roundbox:1,squarebox:1,valvebox:1,flangebox:1,wsbox:1};
   const boxHero=!!BOXHERO[kind];
   const hasSplits=boxHero&&fit.fields.some(f=>f.k==='pieces');
@@ -6931,6 +6961,7 @@ function form(kind, presetParams){
       <div class="pvctl"><button id="pvIn" aria-label="Zoom in">+</button><button id="pvOut" aria-label="Zoom out">−</button><button id="pvFit" aria-label="Reset zoom to fit">⬚</button></div>
       <div class="pvviews"><button type="button" id="pvSq" title="Straight elevation">SQUARE ON</button><button type="button" id="pvBe" title="Straight down from above">BIRDS EYE</button></div>
     </div>
+    ${pvCtlHtml}
     <div class="pvlegend">
       <button type="button" class="lgc" aria-pressed="false" data-ly="cut"><i style="border-color:var(--ly-object)"></i>CUT</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="fold"><i style="border-color:var(--ly-fold);border-top-style:dashed"></i>FOLD</button>
@@ -6949,13 +6980,11 @@ function form(kind, presetParams){
   const VARG=varGroupOf(kind);
   if(VARG) html+=`<div class="card varcard"><label>${VARG.label}</label><div class="seg" data-varsel="1">${VARG.opts.map(o=>`<button data-vk="${o.k}" ${o.k===kind?'class="on"':''}>${o.label}</button>`).join('')}</div></div>`;
   html+=`<div class="card"><div class="grid2">`;
-  html+=fit.fields.filter(f=>f.type!=='seam').filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
+  html+=fit.fields.filter(f=>f.type!=='seam').filter(f=>!f.onpv).filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
     const full=(f.type!=='num'&&f.type!=='pipe');
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
   html+=`</div><div class="hint" style="margin-top:8px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
-  const hand2Html = kind!=='bendonbend' ? '' :
-    `<label>Bend 2 type</label><div class="seg" data-seg="bendHand2">${['A','B'].map(h=>`<button data-v="${h}" ${(s.bendHand2||'B')===h?'class="on"':''}>${h}</button>`).join('')}</div>
-     <div class="hint" id="dbdir" style="text-align:center;margin-top:6px"></div>`;
+  const hand2Html='';   // bend 2's hand lives on the drawing now - see pvCtlHtml
   if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else if(!boxHero) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">You can size it up and check the preview for free. Pro unlocks the printable PDF, DXF and Jobs.</div>`;
@@ -7489,7 +7518,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.58.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.59.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7525,7 +7554,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.58.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.59.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
