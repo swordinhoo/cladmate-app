@@ -740,7 +740,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .pvx{position:absolute;background:var(--ly-dim);opacity:.5;pointer-events:none;z-index:3;display:none}
   .pvx.h{left:0;right:0;height:1px}
   .pvx.v{top:0;bottom:0;width:1px}
+  /* SIZE CHIPS (Foreman): on a phone the fields card sits a full screen BELOW
+     the drawing, so every size change was scroll down, change, scroll back up
+     to see it. Mirror the fields as a tappable summary right under the
+     drawing - it reads as "here is what you have set", and a tap jumps to
+     that field. Desktop already shows the fields alongside, so it stays off. */
+  .szchips{display:none;gap:6px;flex-wrap:wrap;padding:8px 9px;background:var(--panel2);border-top:1px solid var(--line)}
+  .szchips button{display:inline-flex;align-items:baseline;gap:6px;background:var(--panel);
+      border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;
+      font-family:var(--fm);font-size:10.5px;font-weight:700;letter-spacing:.04em;
+      color:var(--sub);text-transform:uppercase;appearance:none}
+  .szchips button b{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:0;text-transform:none}
+  .szchips button:active{border-color:var(--acc)}
+  .szchips .szsec{color:var(--acc);opacity:.62;font-weight:800}
+  .szchips .szhint{align-self:center;font-family:var(--fm);font-size:10px;color:var(--sub);opacity:.75}
+  @media(max-width:879px){ .szchips{display:flex} }
+  /* 16px is the floor: below it iOS zooms the whole page on focus, and a long
+     option ("1.5D - long radius - 229 mm") was being clipped at 18px on a 375 */
+  @media(max-width:479px){ input,select{font-size:16px!important} }
+
   /* layer legend: tap a chip to freeze that layer */
+  .pvlegend[hidden]{display:none}   /* author display:flex would beat the bare attribute */
   .pvlegend{display:flex;gap:6px;flex-wrap:wrap;padding:7px 9px;background:var(--panel2);
       border-top:1px solid var(--line)}
   .lgc{display:flex;align-items:center;gap:5px;font-family:var(--fm);font-size:9.5px;font-weight:700;
@@ -1051,7 +1071,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.51.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.52.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -6709,7 +6729,7 @@ function form(kind, presetParams){
       <button type="button" class="lgc" aria-pressed="false" data-ly="swage"><i style="border-color:var(--ly-swage);border-top-style:dashed"></i>SWAGE</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="ord"><i style="border-color:var(--ly-centre);border-top-style:dashed"></i>SEAM/ORD</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="hole"><i style="border-color:var(--ly-dim)"></i>HOLES</button></div>
-    <div class="stat" id="pvstat"></div><div id="kitwrap"></div><details class="fitnote" id="mkwrap" hidden><summary>📏 Mark out by hand — no printer</summary><div id="mkbody"></div></details></div>`;
+    <div class="stat" id="pvstat"></div><div class="szchips" id="szchips"></div><div id="kitwrap"></div><details class="fitnote" id="mkwrap" hidden><summary>📏 Mark out by hand — no printer</summary><div id="mkbody"></div></details></div>`;
   /* Controls own a fixed narrow column on the left; the drawing owns the rest
      of the window and STAYS PUT while you scroll (layout pass, 2 Aug 26 - the
      old full-width band pushed the first input 487px below the fold and gave a
@@ -6969,6 +6989,10 @@ function form(kind, presetParams){
     const vw3=T3B[kind]?(T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0,mode:'fit'})):null;
     const in3d=!!vw3&&vw3.mode!=='pat'&&activePc==null;
     pv.classList.toggle('pv3d',in3d); PVZoom.setDisabled(in3d);
+    /* the CUT/FOLD/FLANGE/SWAGE/SEAM/HOLES legend describes PATTERN lines.
+       In 3D there are none of those, and on a phone it was eating a third
+       of the screen above the fold to say nothing. */
+    { const lg=document.querySelector('.pvlegend'); if(lg) lg.hidden=in3d; }
     if(in3d) pv.innerHTML='<div id="pv3d" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">'+t3render(kind,eff(),Math.max(300,Math.min(560,pv.clientWidth-24)))+'</div>';
     else pv.innerHTML=FP.svgPreview(shown,600);
     { const mkw=document.getElementById('mkwrap'), mkb=document.getElementById('mkbody');
@@ -7062,6 +7086,44 @@ function form(kind, presetParams){
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
       +(basic?'':`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.perSheet}/sheet</span>`);
+    /* mirror the fields as tappable size chips (phone only, CSS gates it).
+       Read them off the live controls rather than the field list, so a chip
+       can never disagree with what the form is showing. Section headings are
+       carried through but ONLY where they earn their place: on the Double
+       Bend the twister has an angle, segments and a radius TWICE, and a bare
+       "ANGLE 90" twice over is the exact confusion the dividers kill. A name
+       that already appears once needs no "joining them up" in front of it. */
+    const szc=document.getElementById('szchips');
+    if(szc){
+      const trim=v=>{ const a=String(v).split(' \u00b7 ')[0].trim(); return a.length>14?a.slice(0,13)+'\u2026':a; };
+      const shortLab=v=>String(v).split(/\s+[\u00b7\u2014]\s+/)[0].replace(/\s*\([^)]*\)\s*$/,'').trim();
+      const got=[]; let sec='';
+      document.querySelectorAll('.grid2 > .fld').forEach((fl,i)=>{
+        const hd=fl.querySelector('.fhd');
+        if(hd){ sec=shortLab(hd.childNodes[0]?.textContent||hd.textContent); return; }
+        const lab=fl.querySelector('label'); if(!lab) return;
+        const ctl=fl.querySelector('input[data-k],select[data-pipe],select[data-k],.seg');
+        if(!ctl) return;
+        let val='';
+        if(ctl.classList.contains('seg')){ const on=ctl.querySelector('button.on'); val=on?on.textContent:''; }
+        else if(ctl.tagName==='SELECT'){ const o=ctl.options[ctl.selectedIndex]; val=o?trim(o.textContent):''; }
+        else val=ctl.value;
+        if(val==='') return;
+        got.push({i, sec, name:shortLab(lab.textContent), val});
+      });
+      const seen={}; got.forEach(g=>seen[g.name.toLowerCase()]=(seen[g.name.toLowerCase()]||0)+1);
+      szc.innerHTML=got.length
+        ? got.map(g=>'<button type="button" data-fldi="'+g.i+'">'
+            +(g.sec&&seen[g.name.toLowerCase()]>1?'<span class="szsec">'+g.sec+'</span>':'')
+            +'<span>'+g.name+'</span><b>'+g.val+'</b></button>').join('')
+          +'<span class="szhint">tap to change</span>'
+        : '';
+      szc.querySelectorAll('[data-fldi]').forEach(b=>b.onclick=()=>{
+        const fl=document.querySelectorAll('.grid2 > .fld')[+b.dataset.fldi]; if(!fl) return;
+        fl.scrollIntoView({block:'center',behavior:'smooth'});
+        const c=fl.querySelector('input,select'); if(c) setTimeout(()=>c.focus(),260);
+      });
+    }
     renderKit();
   }
   function kitCaption(p){ const t=(p.title||'').replace(/\s*1:1\s*$/,'');
@@ -7207,7 +7269,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.51.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.52.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7243,7 +7305,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.51.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.52.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
