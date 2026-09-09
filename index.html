@@ -1051,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.47.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.48.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5443,24 +5443,92 @@ function t3bendonbend(s){
   return t3stations(rows);
 }
 
+/* lay each PIECE's development beside the last - a tee is two pieces of metal
+   and they must not develop on top of each other */
+function t3parts(list){
+  const GAP=40; let cur=0;
+  list.forEach(G=>{
+    let x0=1e9,x1=-1e9,y0=1e9;
+    G.bands.forEach(b=>b.forEach(row=>row.forEach(q=>{ if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1]; })));
+    const dx=cur-x0;   // side by side, squared off a common baseline
+    G.bands.forEach(b=>b.forEach(row=>row.forEach(q=>{ q[0]+=dx; q[1]-=y0; })));
+    cur+=(x1-x0)+GAP;
+  });
+  return {parts:list};
+}
+
+/* ---- the Tee: two pipes and the saddle where they argue ----------------- */
+/* Frame copied STRAIGHT from the engine (_branchGeom / branchHole) so the 3D
+   and the printed pattern cannot drift: main axis X radius R, branch axis
+   a=(cos th,0,sin th) through the origin with radial basis e1=(-sin th,0,cos th)
+   and e2=(0,1,0), saddle at t=tInt(phi) - which is why bp() below reads
+   [t*ct-r*cos*st, r*sin, t*st+r*cos*ct], the same three lines the hole template
+   is struck from. The BRANCH develops TRUE: it is a cylinder cut to a curve,
+   exactly like an elbow leg. The MAIN is a plain cylinder that rolls flat to a
+   rectangle - a hole cannot live in the middle of a woven quad sheet, so the
+   saddle is INKED on the metal where you would scribe it and the pane hands
+   over to the real 1:1 hole template. Mark it, then cut it - which is how it
+   goes on the bench anyway. */
+function t3tee(s){
+  const ins=+s.insulation||0, cg=+s.cladGap||0;
+  const mainOD=(+s.mainPipeOD||219.1)+2*ins+cg;
+  const brOD=Math.min((+s.branchPipeOD||114.3)+2*ins+cg, mainOD);
+  const R=mainOD/2, r=brOD/2;
+  const ang=s.angle==null?90:(+s.angle||90);
+  const th=Math.max(15,Math.min(90,ang))*Math.PI/180, st=Math.sin(th), ct=Math.cos(th);
+  const tInt=phi=>(Math.sqrt(Math.max(R*R-r*r*Math.sin(phi)*Math.sin(phi),0))-r*Math.cos(phi)*ct)/st;
+  const seam=((((+s.seamFromThroat||0)%360)+360)%360)*Math.PI/180;
+  const minLen=Math.max(5,+s.minLen||30);
+  let tmax=-1e9;                       // the saddle is not seam-relative: sweep the lot
+  for(let i=0;i<360;i++){ const t=tInt(2*Math.PI*i/360); if(t>tmax)tmax=t; }
+  const tEnd=tmax+minLen;              // free end cut square across the branch
+  const bp=(t,phi)=>[t*ct-r*Math.cos(phi)*st, r*Math.sin(phi), t*st+r*Math.cos(phi)*ct];
+  // BRANCH: square end down to the saddle, ONE band - a cylinder is developable
+  // in one sheet, so it must not be split into strips like a gored bend
+  const top=[], sad=[];
+  for(let i=0;i<=T3N;i++){ const phi=seam+2*Math.PI*i/T3N;
+    top.push(bp(tEnd,phi)); sad.push(bp(tInt(phi),phi)); }
+  const branch=t3stations([top,sad]);
+  // MAIN: plain cylinder, seam at the BOTTOM so the hole lands mid-sheet
+  let px0=1e9,px1=-1e9;
+  for(let i=0;i<180;i++){ const phi=2*Math.PI*i/180, x=bp(tInt(phi),phi)[0];
+    if(x<px0)px0=x; if(x>px1)px1=x; }
+  const pad=Math.max(R*0.9,60), x0=px0-pad, x1=px1+pad;
+  const mrow=x=>{ const row=[];
+    for(let i=0;i<=T3N;i++){ const ps=Math.PI+2*Math.PI*i/T3N;
+      row.push([x, R*Math.sin(ps), R*Math.cos(ps)]); }
+    return row; };
+  const main=t3stations([mrow(x0),mrow(x1)]);
+  /* the saddle scribed on the main, carried as (facet, across) PARAMETERS not
+     points, so it rides the sheet through the morph and always sits exactly ON
+     the drawn metal instead of floating off the facets */
+  main.ink=[];
+  for(let i=0;i<=240;i++){ const phi=2*Math.PI*i/240, P=bp(tInt(phi),phi);
+    const psi=Math.atan2(P[1],P[2]);   // round the main from the top, as branchHole
+    main.ink.push({b:0, u:((((psi-Math.PI)/(2*Math.PI)*T3N)%T3N)+T3N)%T3N, v:(P[0]-x0)/(x1-x0)});
+  }
+  return t3parts([main,branch]);
+}
+
 const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
   oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
-  valveend:t3valveend,tanktop:t3tanktop};
+  valveend:t3valveend,tanktop:t3tanktop,inctee:t3tee,teereducer:t3tee};
 
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
   const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
-  const un=vw.un, R=geo.rows3, BD=geo.bands;
+  const un=vw.un;
+  const PIECES=geo.parts||[geo];       // a tee is two pieces of metal, not one
   // centre the development on its own bounding box (fans sit off-centre)
   let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9;
-  BD.forEach(b=>b.forEach(row=>row.forEach(q=>{ if(q[0]<bx0)bx0=q[0]; if(q[0]>bx1)bx1=q[0]; if(q[1]<by0)by0=q[1]; if(q[1]>by1)by1=q[1]; })));
+  PIECES.forEach(G=>G.bands.forEach(b=>b.forEach(row=>row.forEach(q=>{ if(q[0]<bx0)bx0=q[0]; if(q[0]>bx1)bx1=q[0]; if(q[1]<by0)by0=q[1]; if(q[1]>by1)by1=q[1]; }))));
   const fcx=(bx0+bx1)/2, fcy=(by0+by1)/2;
   // each band owns its vertices, so the unwrap visibly splits the fitting
   // into its gores and lands them as the stacked cut sheet
   const morph=(p,f)=>[p[0]+((f[0]-fcx)-p[0])*un, p[1]*(1-un), p[2]+((f[1]-fcy)-p[2])*un];
-  const BP=BD.map(([FA,FB],j)=>[
-    R[j].map((p,i)=>morph(p,FA[i])),
-    R[j+1].map((p,i)=>morph(p,FB[i])) ]);
+  const BP=PIECES.map(G=>G.bands.map(([FA,FB],j)=>[
+    G.rows3[j].map((p,i)=>morph(p,FA[i])),
+    G.rows3[j+1].map((p,i)=>morph(p,FB[i])) ]));
   // orbit + project (z-up orthographic, painter's algorithm). As the unwrap
   // approaches flat the view eases to face-on, whatever the user had spun -
   // an edge-on sheet is a line, and a line is not a pattern.
@@ -5468,7 +5536,7 @@ function t3render(kind,s,w){
   const ca=Math.cos(azE),sa=Math.sin(azE),ce=Math.cos(elE),se=Math.sin(elE);
   const proj=p=>{ const x=p[0]*ca-p[1]*sa, y=p[0]*sa+p[1]*ca, z=p[2];
     return {x:x, y:-(z*ce-y*se), d:y*ce+z*se}; };
-  const BV=BP.map(pr=>pr.map(row=>row.map(proj)));
+  const BV=BP.map(P=>P.map(pr=>pr.map(row=>row.map(proj))));
   // theme-aware steel ramp
   const hx=c=>{const m=c.match(/#([0-9a-f]{6})/i); if(!m) return [26,30,34];
     return [parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)];};
@@ -5476,30 +5544,53 @@ function t3render(kind,s,w){
   const lo=dark?40:120, hi=dark?185:225;
   const quads=[];
   const L=[0.42,-0.72,0.55];
-  const NN=R[0].length-1;              // facets per ring (T3N, or per-segment on faceted roofs)
-  for(let j=0;j<BD.length;j++) for(let i=0;i<NN;i++){
-    const a=BP[j][0][i],b=BP[j][0][i+1],c=BP[j][1][i+1],d=BP[j][1][i];
-    const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[d[0]-a[0],d[1]-a[1],d[2]-a[2]];
-    let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
-    const nl=Math.hypot(n[0],n[1],n[2])||1; n=[n[0]/nl,n[1]/nl,n[2]/nl];
-    const nv=proj(n), fw=Math.abs(nv.d);   // both faces of the sheet shade alike
-    let sh=Math.abs(n[0]*L[0]+n[1]*L[1]+n[2]*L[2]);
-    sh=0.35+0.65*sh; if(j%2) sh*=0.93;     // subtle two-tone per piece
-    const g=Math.round(lo+(hi-lo)*sh);
-    const q=[BV[j][0][i],BV[j][0][i+1],BV[j][1][i+1],BV[j][1][i]];
-    quads.push({d:(q[0].d+q[1].d+q[2].d+q[3].d)/4,
-      s:'<polygon points="'+q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')
-      +'" fill="rgb('+g+','+Math.round(g*1.02)+','+Math.round(g*1.05)+')"/>'});
-  }
+  PIECES.forEach((G,gi)=>{
+    const NN=G.rows3[0].length-1;      // facets per ring (T3N, or per-segment on faceted roofs)
+    for(let j=0;j<G.bands.length;j++) for(let i=0;i<NN;i++){
+      const a=BP[gi][j][0][i],b=BP[gi][j][0][i+1],c=BP[gi][j][1][i+1],d=BP[gi][j][1][i];
+      const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[d[0]-a[0],d[1]-a[1],d[2]-a[2]];
+      let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+      const nl=Math.hypot(n[0],n[1],n[2])||1; n=[n[0]/nl,n[1]/nl,n[2]/nl];
+      let sh=Math.abs(n[0]*L[0]+n[1]*L[1]+n[2]*L[2]);
+      sh=0.35+0.65*sh; if(j%2) sh*=0.93;     // subtle two-tone per piece
+      const g=Math.round(lo+(hi-lo)*sh);
+      const q=[BV[gi][j][0][i],BV[gi][j][0][i+1],BV[gi][j][1][i+1],BV[gi][j][1][i]];
+      quads.push({d:(q[0].d+q[1].d+q[2].d+q[3].d)/4,
+        s:'<polygon points="'+q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')
+        +'" fill="rgb('+g+','+Math.round(g*1.02)+','+Math.round(g*1.05)+')"/>'});
+    }
+  });
   quads.sort((a,b)=>a.d-b.d);
   const parts=quads.map(q=>q.s), all=[];
-  BV.forEach(pr=>pr.forEach(row=>row.forEach(p=>all.push([p.x,p.y]))));
+  BV.forEach(P=>P.forEach(pr=>pr.forEach(row=>row.forEach(p=>all.push([p.x,p.y])))));
   // joint ink on every band edge, then the seam edges on top
   const path=pts=>'<polyline points="'+pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')+'" fill="none" ';
-  BV.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>')));
-  BV.forEach(pr=>{
-    parts.push(path([pr[0][0],pr[1][0]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
-    if(un>0.02) parts.push(path([pr[0][NN],pr[1][NN]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
+  BV.forEach(P=>P.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>'))));
+  BV.forEach((P,gi)=>{ const NN=PIECES[gi].rows3[0].length-1;
+    P.forEach(pr=>{
+      parts.push(path([pr[0][0],pr[1][0]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
+      if(un>0.02) parts.push(path([pr[0][NN],pr[1][NN]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
+    }); });
+  /* ink scribed ON the metal - the saddle you mark on the main before you cut
+     it. Held as (facet, across) params so it rides the sheet through the morph;
+     on the rolled pipe only the near half is drawn (the far side of the hole
+     would otherwise print straight through the branch), and once the sheet is
+     opening out the whole outline comes up. */
+  PIECES.forEach((G,gi)=>{ if(!G.ink) return;
+    const NN=G.rows3[0].length-1;
+    let cd=0,cn=0;
+    BV[gi].forEach(pr=>pr.forEach(row=>row.forEach(p=>{ cd+=p.d; cn++; })));
+    cd/=cn||1;
+    let run=[];
+    const flush=()=>{ if(run.length>1) parts.push(path(run)+'stroke="'+LY.object+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>'); run=[]; };
+    G.ink.forEach(q=>{
+      const i0=Math.max(0,Math.min(NN-1,Math.floor(q.u))), f=q.u-i0;
+      const A=BP[gi][q.b][0], B=BP[gi][q.b][1], p=[];
+      for(let k=0;k<3;k++) p.push((A[i0][k]+(A[i0+1][k]-A[i0][k])*f)*(1-q.v)+(B[i0][k]+(B[i0+1][k]-B[i0][k])*f)*q.v);
+      const pv=proj(p);
+      if(un>0.35||pv.d>cd) run.push(pv); else flush();
+    });
+    flush();
   });
   return _svgWrap(parts,all,w||205);
 }
@@ -6885,7 +6976,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.47.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.48.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6921,7 +7012,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.47.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.48.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
