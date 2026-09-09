@@ -1051,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.44.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.45.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5231,27 +5231,44 @@ function diagDouble(st){
 const T3VIEW={};                       // per-kind persistent {az,el,un}
 const T3N=28;                          // circumference facets per ring
 
-/* stations: rows of N+1 surface points; i=0 and i=N are the SAME 3D point
-   (the seam) but different flat X (0 vs the girth) so the unwrap splits
-   there. flat: matching rows of {x,y} in true mm. */
-function t3stations(rows3,girthR){
+/* TRUE STRIP DEVELOPMENT (t3 v2). The old flat mapping assumed straight-tube
+   bands - right for elbows and lobsters, but it would call a cone a
+   rectangle. This unrolls the actual ruled surface triangle by triangle,
+   preserving every true length - the same triangulation the trade develops
+   with on the bench - so cones fan, oblique cones fan off-centre, and the
+   twister's rolled twist comes out in the sheet. Cylinder bands reproduce
+   the old numbers to well under a millimetre. */
+function t3stations(rows3){
+  const rows=rows3.length, N=rows3[0].length-1;
+  const d3=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+  const third=(P,Q,dp,dq,ref)=>{      // dist dp from P, dq from Q; with ref,
+    const dx=Q[0]-P[0],dy=Q[1]-P[1];  // take the candidate FARTHER from ref
+    const d=Math.hypot(dx,dy)||1e-9;
+    if(dp<1e-9) return [P[0],P[1]];
+    const a=(dp*dp-dq*dq+d*d)/(2*d), h=Math.sqrt(Math.max(0,dp*dp-a*a));
+    const mx=P[0]+a*dx/d, my=P[1]+a*dy/d;
+    const c1=[mx+h*dy/d,my-h*dx/d], c2=[mx-h*dy/d,my+h*dx/d];
+    if(!ref) return c1;
+    const q1=(c1[0]-ref[0])**2+(c1[1]-ref[1])**2, q2=(c2[0]-ref[0])**2+(c2[1]-ref[1])**2;
+    return q1>=q2?c1:c2; };
   const flat=[];
-  const X=i=>girthR*2*Math.PI*i/T3N;
-  let prev=null, prevW=null;
-  for(let j=0;j<rows3.length;j++){
-    const W=new Array(T3N+1);
-    for(let i=0;i<=T3N;i++){
-      if(j===0) W[i]=0;
-      else{ const a=prev[i], b=rows3[j][i];
-        W[i]=prevW[i]+Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]); }
-    }
-    flat.push(W); prev=rows3[j]; prevW=W;
+  const FA=new Array(N+1), FB=new Array(N+1);
+  FA[0]=[0,0]; FB[0]=[0,d3(rows3[0][0],rows3[1][0])];
+  for(let i=0;i<N;i++){
+    FA[i+1]=third(FA[i],FB[i], d3(rows3[0][i],rows3[0][i+1]), d3(rows3[1][i],rows3[0][i+1]));
+    FB[i+1]=third(FB[i],FA[i+1], d3(rows3[1][i],rows3[1][i+1]), d3(rows3[0][i+1],rows3[1][i+1]));
   }
-  return {rows3,flatY:flat,X};
+  flat.push(FA,FB);
+  for(let j=1;j<rows-1;j++){
+    const A=rows3[j], B=rows3[j+1], PF=flat[j], NB=new Array(N+1);
+    NB[0]=third(PF[0],PF[1], d3(A[0],B[0]), d3(A[1],B[0]), flat[j-1][0]);
+    for(let i=0;i<N;i++)
+      NB[i+1]=third(NB[i],PF[i+1], d3(B[i],B[i+1]), d3(A[i+1],B[i+1]), flat[j-1][Math.min(i+1,N)]);
+    flat.push(NB);
+  }
+  return {rows3, flat};
 }
 
-/* Mitred elbow, true scale: two straight pipes of radius r meeting on the
-   mitre plane. Legs sized so the THROAT keeps the min piece length. */
 function t3elbow(s){
   const r=(+s.pipeOD+2*(+s.insulation||0))/2;
   const A=Math.max(5,Math.min(90,+s.bendDeg||90))*Math.PI/180;
@@ -5269,7 +5286,9 @@ function t3elbow(s){
   const mitre=[]; { const a=tan(0),rd=rad(0);
     for(let i=0;i<=T3N;i++){ const ps=seam+2*Math.PI*i/T3N;
       const d=[rd[0]*Math.cos(ps)+side[0]*Math.sin(ps),rd[1]*Math.cos(ps)+side[1]*Math.sin(ps),rd[2]*Math.cos(ps)+side[2]*Math.sin(ps)];
-      const t=r*dot(d,n)/dot(a,n);           // generator hits the mitre plane
+      const t=-r*dot(d,n)/dot(a,n);          // generator hits the mitre plane
+      // (minus matters: + tilted the ellipse backwards and TWISTED leg 2 half
+      //  a turn through the joint - Craig's eye caught it on 4.44.0, 10 Sep 26)
       mitre.push([r*d[0]+a[0]*t, r*d[1]+a[1]*t, r*d[2]+a[2]*t]); } }
   return t3stations([ring(0,-Lc),mitre,ring(A,Lc)],r);
 }
@@ -5295,18 +5314,102 @@ function t3lobster(s){
   return t3stations(ts.map(rowAt),r);
 }
 
-const T3B={elbow:t3elbow,lobster:t3lobster};
+/* ---- cone family: one ruled band between two rings, developed truly ---- */
+function t3coneRows(rB,rS,h,offX,tau,seamDeg){
+  const seam=(((+seamDeg||0)%360)+360)%360*Math.PI/180, ct=Math.cos(tau||0), st=Math.sin(tau||0);
+  const base=[], top=[];
+  for(let i=0;i<=T3N;i++){ const ps=seam+2*Math.PI*i/T3N, c=Math.cos(ps), s2=Math.sin(ps);
+    base.push([rB*c, rB*s2, 0]);
+    top.push([offX + rS*c*ct, rS*s2, h + rS*c*st]);
+  }
+  return t3stations([base,top]);
+}
+const t3cladR=(od,ins)=>((+od)+2*(+ins||0))/2;
+function t3reducer(s){ return t3coneRows(t3cladR(s.bigPipeOD,s.insulation),t3cladR(s.smallPipeOD,s.insulation),
+  Math.max(1,+s.height||150),0,0,(s.seamClock!=null?s.seamClock*30:180)); }
+function t3oblique(s){ return t3coneRows(t3cladR(s.bigPipeOD,s.insulation),t3cladR(s.smallPipeOD,s.insulation),
+  Math.max(1,+s.height||150),+s.offset||0,0,s.seamFromThroat!=null?s.seamFromThroat:180); }
+function t3flatback(s){ const rB=t3cladR(s.bigPipeOD,s.insulation), rS=t3cladR(s.smallPipeOD,s.insulation);
+  return t3coneRows(rB,rS,Math.max(1,+s.height||150),rB-rS,0,s.seamFromThroat!=null?s.seamFromThroat:180); }
+function t3anglecone(s){ return t3coneRows(t3cladR(s.bigPipeOD,s.insulation),t3cladR(s.smallPipeOD,s.insulation),
+  Math.max(1,+s.height||200),+s.offset||0,(+s.topAngle||0)*Math.PI/180,s.seamFromThroat!=null?s.seamFromThroat:90); }
+function t3roundtop(s){
+  const r=Math.max(1,(+s.dia||350)/2);
+  const ws=Math.max(2, s.wsMode==='deg'?Math.tan((+s.wsDeg||10)*Math.PI/180)*r:(+s.wsHeight||50));
+  const rim=[], apex=[];
+  for(let i=0;i<=T3N;i++){ const ps=2*Math.PI*i/T3N;
+    rim.push([r*Math.cos(ps), r*Math.sin(ps), 0]); apex.push([0,0,ws]); }
+  return t3stations([rim,apex]);   // shallow cone lid: development = the sector
+}
+
+/* ---- the Twister: bend + spool + bend with the twist rolled in ---------- */
+function t3bendonbend(s){
+  const r=(+s.pipeOD+2*(+s.insulation||0))/2;
+  const CR1=Math.max(+s.centreRadius1||229,r+1), CR2=Math.max(+s.centreRadius2||229,r+1);
+  const A1=Math.max(5,Math.min(180,+s.bendDeg1||90))*Math.PI/180;
+  const A2=Math.max(5,Math.min(180,+s.bendDeg2||90))*Math.PI/180;
+  const G1=Math.max(1,Math.min(DCAP,Math.round(+s.segments1||4)));
+  const G2=Math.max(1,Math.min(DCAP,Math.round(+s.segments2||4)));
+  const mid=Math.max(0,+s.midLen||0);
+  const mir=(s.bendHand==='B'||s.bendHand==='C')?-1:1;
+  let seam=(((+s.seamFromThroat||0)*mir)%360+360)%360;
+  let twist=(+s.twist||0)*mir;
+  const sense=h=>(h==='B'||h==='C')?1:0;
+  const opp=sense(s.bendHand||'A')!==sense(s.bendHand2||'B');
+  const twistR=twist*Math.PI/180;
+  const th2=((opp?180:0)+twist)*Math.PI/180, seamR=seam*Math.PI/180, seam2R=seamR-th2;
+  const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k];
+  const crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return mul(a,1/l);};
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const rotAx=(p,ax,an)=>{const c=Math.cos(an),sn=Math.sin(an),k=nrm(ax);
+    return add(add(mul(p,c),mul(crs(k,p),sn)),mul(k,dot(k,p)*(1-c)));};
+  const ring=(c,rad,side,psi0)=>{ const out=[];
+    for(let i=0;i<=T3N;i++){ const ps=psi0+2*Math.PI*i/T3N;
+      out.push(add(c,add(mul(rad,r*Math.cos(ps)),mul(side,r*Math.sin(ps))))); }
+    return out; };
+  const rows=[];
+  // bend 1: throat faces the bend centre; side = tan x rad = +Y (mirrored for hand B)
+  const c1=t=>[CR1*(1-Math.cos(t)),0,CR1*Math.sin(t)];
+  const rad1=t=>[Math.cos(t),0,-Math.sin(t)], tan1=t=>[Math.sin(t),0,Math.cos(t)];
+  const side1=[0,mir,0];
+  const t1s=[0]; for(let j=1;j<=G1;j++) t1s.push((j-0.5)*A1/G1); t1s.push(A1);
+  t1s.forEach(t=>rows.push(ring(c1(t),rad1(t),side1,seamR)));
+  // spool
+  const M=c1(A1), a2=tan1(A1);
+  const M2=add(M,mul(a2,mid));
+  if(mid>0.5) rows.push(ring(M2,rad1(A1),side1,seamR));
+  // bend 2: its plane rolled about the spool axis by direction + twist
+  const away=mul(rad1(A1),-1);                       // radially away from bend-1 centre
+  const rdir=rotAx(away,a2,twistR);   // roll the bend-2 plane by the twist (the 180 for an S-bend lives in the +-CR2 below, matching diagDouble)
+  const C2=add(M2,mul(rdir,opp?CR2:-CR2));
+  const e0=nrm(   [M2[0]-C2[0],M2[1]-C2[1],M2[2]-C2[2]] );
+  const pos2=f=>add(C2,add(mul(e0,CR2*Math.cos(f)),mul(a2,CR2*Math.sin(f))));
+  const tan2=f=>nrm(add(mul(e0,-Math.sin(f)),mul(a2,Math.cos(f))));
+  const rad2=f=>nrm([C2[0]-pos2(f)[0],C2[1]-pos2(f)[1],C2[2]-pos2(f)[2]]);
+  for(let j=1;j<=G2;j++){ const f=(j-0.5)*A2/G2;
+    const rd=rad2(f), sd=crs(tan2(f),rd);
+    rows.push(ring(pos2(f),rd,sd,seam2R)); }
+  { const f=A2, rd=rad2(f), sd=crs(tan2(f),rd);
+    rows.push(ring(pos2(f),rd,sd,seam2R)); }
+  return t3stations(rows);
+}
+
+const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
+  oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend};
 
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
   const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
-  const un=vw.un, R=geo.rows3, F=geo.flatY, rows=R.length;
-  // flat pattern laid in the bend plane (world XZ), centred
-  const girth=geo.X(T3N), H=F[rows-1].reduce((m,v)=>Math.max(m,v),0);
+  const un=vw.un, R=geo.rows3, F=geo.flat, rows=R.length;
+  // centre the development on its own bounding box (fans sit off-centre)
+  let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9;
+  F.forEach(row=>row.forEach(q=>{ if(q[0]<bx0)bx0=q[0]; if(q[0]>bx1)bx1=q[0]; if(q[1]<by0)by0=q[1]; if(q[1]>by1)by1=q[1]; }));
+  const fcx=(bx0+bx1)/2, fcy=(by0+by1)/2;
   const P=[];                       // morphed world points per row
   for(let j=0;j<rows;j++){ const row=[];
     for(let i=0;i<=T3N;i++){ const p=R[j][i];
-      const fx=geo.X(i)-girth/2, fz=F[j][i]-H/2;
+      const fx=F[j][i][0]-fcx, fz=F[j][i][1]-fcy;
       row.push([p[0]+(fx-p[0])*un, p[1]*(1-un), p[2]+(fz-p[2])*un]); }
     P.push(row); }
   // orbit + project (z-up orthographic, painter's algorithm). As the unwrap
@@ -6732,7 +6835,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.44.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.45.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6768,7 +6871,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.44.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.45.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
