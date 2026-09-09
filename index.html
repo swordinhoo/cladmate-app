@@ -1051,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.46.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.47.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5345,6 +5345,51 @@ function t3roundtop(s){
   return t3stations([rim,apex]);   // shallow cone lid: development = the sector
 }
 
+/* ---- Valve End: the peaked watershed D lid ----------------------------- */
+/* The shop development fans every point from the single apex A - and the true
+   lengths prove where A lives: A:1 = hyp(r,ws), A:B = hyp(run,ws), A:C =
+   hyp(run,r,ws), all one point at height ws over the NOSE CENTRE. So the lid
+   is the roundtop structure with a D rim: one ruled band rim->apex. Corners
+   land exactly on rim samples so the unroll keeps them sharp. */
+function t3valveend(s){
+  const W=Math.max(1,+s.boxW||775), r=W/2;
+  const run=Math.max(1, s.boxRun!=null?+s.boxRun:(+s.boxD-r)||572.5);
+  const ws=Math.max(2, s.wsMode==='deg'?Math.tan((+s.wsDeg||10)*Math.PI/180)*r:(+s.wsHeight||70));
+  // perimeter: front nose centre, CCW - quarter nose, side, back, side, quarter
+  const segs=[
+    {len:Math.PI*r/2, at:t=>{const a=t*Math.PI/2;              return [r*Math.cos(a), r*Math.sin(a)];}},
+    {len:run,         at:t=>[-run*t, r]},
+    {len:2*r,         at:t=>[-run, r-2*r*t]},
+    {len:run,         at:t=>[-run+run*t, -r]},
+    {len:Math.PI*r/2, at:t=>{const a=-Math.PI/2+t*Math.PI/2;   return [r*Math.cos(a), r*Math.sin(a)];}}];
+  const total=segs.reduce((a,b)=>a+b.len,0);
+  let alloc=segs.map(g=>Math.max(1,Math.round(T3N*g.len/total)));
+  for(let guard=0; alloc.reduce((a,b)=>a+b,0)!==T3N && guard<40; guard++){
+    const diff=T3N-alloc.reduce((a,b)=>a+b,0), k=alloc.indexOf(Math.max(...alloc));
+    alloc[k]+=Math.sign(diff);
+  }
+  const rim=[];
+  segs.forEach((g,gi)=>{ for(let i=0;i<alloc[gi];i++){ const q=g.at(i/alloc[gi]); rim.push([q[0],q[1],0]); } });
+  rim.push(rim[0].slice());            // close the loop (seam splits at the front)
+  const apex=rim.map(()=>[0,0,ws]);
+  return t3stations([rim,apex]);
+}
+
+/* ---- Tank Top: segmented cone roof ------------------------------------- */
+/* Faceted for real: one ring point per segment joint, so every panel is the
+   true flat wedge and the shading shows the segments. The unwrap lays the
+   panels out as the developed fan - the wedges of the kit laid edge to edge. */
+function t3tanktop(s){
+  const rB=Math.max(1,(+s.baseDia||2500)/2), rT=Math.max(0,(+s.topDia||500)/2);
+  const h=Math.max(1,+s.height||450), G=Math.max(3,Math.min(48,Math.round(+s.segments||12)));
+  const base=[], top=[];
+  for(let i=0;i<=G;i++){ const ps=Math.PI/2+2*Math.PI*i/G;
+    base.push([rB*Math.cos(ps), rB*Math.sin(ps), 0]);
+    top.push([rT*Math.cos(ps), rT*Math.sin(ps), h]);
+  }
+  return t3stations([base,top]);
+}
+
 /* ---- the Twister: bend + spool + bend with the twist rolled in ---------- */
 function t3bendonbend(s){
   const r=(+s.pipeOD+2*(+s.insulation||0))/2;
@@ -5399,7 +5444,8 @@ function t3bendonbend(s){
 }
 
 const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
-  oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend};
+  oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
+  valveend:t3valveend,tanktop:t3tanktop};
 
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
@@ -5430,7 +5476,8 @@ function t3render(kind,s,w){
   const lo=dark?40:120, hi=dark?185:225;
   const quads=[];
   const L=[0.42,-0.72,0.55];
-  for(let j=0;j<BD.length;j++) for(let i=0;i<T3N;i++){
+  const NN=R[0].length-1;              // facets per ring (T3N, or per-segment on faceted roofs)
+  for(let j=0;j<BD.length;j++) for(let i=0;i<NN;i++){
     const a=BP[j][0][i],b=BP[j][0][i+1],c=BP[j][1][i+1],d=BP[j][1][i];
     const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[d[0]-a[0],d[1]-a[1],d[2]-a[2]];
     let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
@@ -5452,7 +5499,7 @@ function t3render(kind,s,w){
   BV.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>')));
   BV.forEach(pr=>{
     parts.push(path([pr[0][0],pr[1][0]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
-    if(un>0.02) parts.push(path([pr[0][T3N],pr[1][T3N]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
+    if(un>0.02) parts.push(path([pr[0][NN],pr[1][NN]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
   });
   return _svgWrap(parts,all,w||205);
 }
@@ -6838,7 +6885,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.46.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.47.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6874,7 +6921,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.46.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.47.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
