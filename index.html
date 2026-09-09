@@ -787,6 +787,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   #fitdiag.t3{touch-action:none;cursor:grab}
   #fitdiag.t3:active{cursor:grabbing}
+  /* 3D mode: the pane is the fitting - pattern furniture stands down */
+  #pv.pv3d{cursor:grab;touch-action:none} #pv.pv3d:active{cursor:grabbing}
+  #pv.pv3d~.pvctl,#pv.pv3d~.pvx,#pv.pv3d~#pvscale{display:none}
+  #pv3d svg{width:auto!important;max-width:96%;max-height:96%}
   #t3uwrap{display:flex;margin-top:6px}
   #t3uwrap button{flex:1;min-height:40px;font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:.09em;
     color:var(--acc);background:var(--acc-soft);border:1px solid var(--acc);border-radius:8px;padding:9px 10px;cursor:pointer}
@@ -1047,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.43.1</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.44.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4265,6 +4269,7 @@ const MAX_SHEETS=400;
    DOM, so it survives the innerHTML swap refresh() does on every input -
    a MutationObserver re-stamps the transform onto each new svg. */
 const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=null,obs=null,tapT=0,touched=false;
+  let DIS=false;   // 3D fitting mode: the orbit owns the pane, zoom stands down
   const clamp=n=>Math.max(0.4,Math.min(12,n));
   const svg=()=>box&&box.firstElementChild;
   function apply(){ const g=svg(); if(g&&g.tagName==='svg'){
@@ -4295,13 +4300,13 @@ const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=
   function zoomAt(cx,cy,f){ touched=true;
     const r=box.getBoundingClientRect(),px=cx-r.left,py=cy-r.top,ns=clamp(v.s*f);
     v.x=px-(px-v.x)*(ns/v.s); v.y=py-(py-v.y)*(ns/v.s); v.s=ns; apply(); }
-  function down(e){ box.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e);
+  function down(e){ if(DIS) return; box.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e);
     const t=Date.now(); if(t-tapT<300&&ptrs.size===1) reset(); tapT=t;
     if(ptrs.size===1) last={x:e.clientX,y:e.clientY};
     else if(ptrs.size===2){ const p=[...ptrs.values()];
       pinch={d:Math.hypot(p[0].clientX-p[1].clientX,p[0].clientY-p[1].clientY),
              mx:(p[0].clientX+p[1].clientX)/2,my:(p[0].clientY+p[1].clientY)/2}; } }
-  function move(e){ if(!ptrs.has(e.pointerId))return; ptrs.set(e.pointerId,e);
+  function move(e){ if(DIS||!ptrs.has(e.pointerId))return; ptrs.set(e.pointerId,e);
     if(ptrs.size===2&&pinch){ const p=[...ptrs.values()],
       d=Math.hypot(p[0].clientX-p[1].clientX,p[0].clientY-p[1].clientY);
       if(pinch.d>0) zoomAt(pinch.mx,pinch.my,d/pinch.d); pinch.d=d; return; }
@@ -4309,7 +4314,7 @@ const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=
       last={x:e.clientX,y:e.clientY}; apply(); } }
   function up(e){ ptrs.delete(e.pointerId); pinch=null;
     last=ptrs.size===1?(()=>{const p=[...ptrs.values()][0];return{x:p.clientX,y:p.clientY};})():null; }
-  function wheel(e){ e.preventDefault(); zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*0.0015)); }
+  function wheel(e){ if(DIS) return; e.preventDefault(); zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*0.0015)); }
   /* live scale bar: true on-screen mm at the current zoom */
   function pvScale(){ const g=svg(),el=document.getElementById('pvscale');
     if(!g||!el||g.tagName!=='svg'){ if(el) el.style.display='none'; return; }
@@ -4321,7 +4326,7 @@ const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=
     el.style.display='flex';
     el.querySelector('.bar').style.width=(mm*pxPerMm).toFixed(1)+'px';
     el.querySelector('.lab').textContent=mm+' mm'; }
-  return { attach(el){ if(!el)return; box=el; v={s:1,x:0,y:0}; ptrs.clear(); pinch=null; last=null; touched=false;
+  return { setDisabled(d){ DIS=!!d; }, attach(el){ if(!el)return; box=el; v={s:1,x:0,y:0}; ptrs.clear(); pinch=null; last=null; touched=false;
       el.addEventListener('pointerdown',down); el.addEventListener('pointermove',move);
       el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
       el.addEventListener('wheel',wheel,{passive:false}); el.addEventListener('dblclick',reset);
@@ -5292,7 +5297,7 @@ function t3lobster(s){
 
 const T3B={elbow:t3elbow,lobster:t3lobster};
 
-function t3render(kind,s){
+function t3render(kind,s,w){
   const geo=T3B[kind](s);
   const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
   const un=vw.un, R=geo.rows3, F=geo.flatY, rows=R.length;
@@ -5343,7 +5348,7 @@ function t3render(kind,s){
   for(let j=0;j<rows;j++){ seamPts.push(V[j][0]); seamPts2.push(V[j][T3N]); }
   parts.push(path(seamPts)+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
   if(un>0.02) parts.push(path(seamPts2)+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
-  return _svgWrap(parts,all,205);
+  return _svgWrap(parts,all,w||205);
 }
 
 // split angles round the barrel (degrees clockwise from the TOP), matching
@@ -5987,7 +5992,7 @@ function diagYBranch(s){
 }
 function fittingDiagram(kind,s){
   try{
-    if(T3B[kind]) return t3render(kind,s);   // orbitable true-scale view (t3)
+    if(T3B[kind]&&!s.__small) return t3render(kind,s);   // orbitable true-scale view (t3); __small = the schematic beside the seam wheel stays 2D
     if(kind==='dome') return diagDome(s);
     if(kind==='valvebox'||kind==='wvalvebox') return diagValveBox(s);
     const clad=x=>x+2*(s.insulation||0);
@@ -6275,6 +6280,7 @@ function form(kind, presetParams){
           hx=app.querySelector('.pvx.h'), vx=app.querySelector('.pvx.v'),
           rd=document.getElementById('pvcoord');
     pv.addEventListener('pointermove',e=>{
+      if(pv.classList.contains('pv3d')){ hx.style.display=vx.style.display='none'; rd.textContent=''; return; }
       const g=pv.firstElementChild; if(!g||g.tagName!=='svg') return;
       const wr=wrap.getBoundingClientRect();
       hx.style.top=(e.clientY-wr.top)+'px'; vx.style.left=(e.clientX-wr.left)+'px';
@@ -6485,7 +6491,11 @@ function form(kind, presetParams){
     if(activePc!=null&&(!form._kit||activePc>=form._kit.length)) activePc=null;
     const shown=activePc==null?pat:form._kit[activePc];
     const pv=document.getElementById('pv');
-    pv.innerHTML=FP.svgPreview(shown,600);
+    const vw3=T3B[kind]?(T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0,mode:'fit'})):null;
+    const in3d=!!vw3&&vw3.mode!=='pat'&&activePc==null;
+    pv.classList.toggle('pv3d',in3d); PVZoom.setDisabled(in3d);
+    if(in3d) pv.innerHTML='<div id="pv3d" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">'+t3render(kind,eff(),Math.max(300,Math.min(560,pv.clientWidth-24)))+'</div>';
+    else pv.innerHTML=FP.svgPreview(shown,600);
     { const mkw=document.getElementById('mkwrap'), mkb=document.getElementById('mkbody');
       if(mkw&&mkb){ let mk=null; try{ mk=markoutHTML(shown); }catch(e){}
         mkw.hidden=!mk; mkb.innerHTML=mk||''; } }
@@ -6495,52 +6505,63 @@ function form(kind, presetParams){
     const pill=document.getElementById('pvback');
     if(pill) pill.style.display=activePc==null?'none':'inline-block';
     const pvt=document.getElementById('pvtitle');
-    if(pvt) pvt.textContent=activePc==null?(boxHero?'Cut patterns · 1:1':'Live preview · 1:1'):kitCaption(shown);
+    if(pvt) pvt.textContent=activePc!=null?kitCaption(shown):(in3d?'The fitting · 3D — drag to spin':(boxHero?'Cut patterns · 1:1':'Live preview · 1:1'));
     const pl=plan(pat,SET.page);
     const pvs=document.getElementById('pvsheets'),
           ptxt=pl.n+' × '+SET.page.toUpperCase();
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(pat,SET);
-    const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,eff());
-    /* t3 fittings orbit with a drag; UNWRAP is ONE TAP - the fitting peels
-       itself open into the flat pattern over ~a second, tap again and it
-       rolls back up (Craig, 10 Sep 26: "it should simply unwrap", not a
-       slider). Handlers live on the container, which innerHTML never
-       replaces, so the redraws stay cheap. */
-    if(fd&&T3B[kind]){ fd.classList.add('t3');
-      const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
+    const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,{...eff(),__small:1});
+    /* ONE WINDOW, TWO JOBS (Craig, 10 Sep: "we can use the live preview
+       window to do both"). For t3 fittings the big pane IS the fitting -
+       true-scale 3D, orbit with a drag, seam on show while the sizes go in -
+       and UNWRAP peels that same pane open and lands on the real printable
+       pattern. The small schematic beside the seam wheel stays 2D. */
+    if(fd&&T3B[kind]){
+      const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0,mode:'fit'});
+      const pvEl=document.getElementById('pv');
       const label=()=>{ const b=document.getElementById('t3uw'); if(!b) return;
-        const tgt=vw._unTgt!=null?vw._unTgt:vw.un;
-        b.textContent=tgt>=0.5?'\u25C2 WRAP IT BACK UP':'UNWRAP THE PATTERN \u25B8'; };
-      const rd=()=>{ fd.innerHTML=fittingDiagram(kind,eff()); label(); };
+        b.textContent=vw.mode==='pat'?'\u25C2 BACK TO THE FITTING \u00B7 3D':'UNWRAP THE PATTERN \u25B8'; };
+      const rd=()=>{ if(vw.mode!=='pat'&&activePc==null&&pvEl){
+          pvEl.innerHTML='<div id="pv3d" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">'
+            +t3render(kind,eff(),Math.max(300,Math.min(560,pvEl.clientWidth-24)))+'</div>'; }
+        label(); };
       const kick=()=>{ if(!fd._raf) fd._raf=requestAnimationFrame(()=>{fd._raf=0;rd();}); };
       let dg=false,lx=0,ly=0;
-      fd.onpointerdown=e=>{ dg=true; lx=e.clientX; ly=e.clientY; try{fd.setPointerCapture(e.pointerId);}catch(_){} };
-      fd.onpointerup=fd.onpointercancel=()=>{ dg=false; };
-      fd.onpointermove=e=>{ if(!dg) return;
-        vw.az+=(e.clientX-lx)*0.01; vw.el=Math.max(-1.35,Math.min(1.35,vw.el+(e.clientY-ly)*0.01));
-        lx=e.clientX; ly=e.clientY; kick(); };
-      const host=fd.parentElement;
-      if(host&&!host.querySelector('#t3uwrap')){
+      if(pvEl){
+        pvEl.onpointerdown=e=>{ if(!pvEl.classList.contains('pv3d'))return;
+          dg=true; lx=e.clientX; ly=e.clientY; try{pvEl.setPointerCapture(e.pointerId);}catch(_){} };
+        pvEl.onpointerup=pvEl.onpointercancel=()=>{ dg=false; };
+        pvEl.onpointermove=e=>{ if(!dg||!pvEl.classList.contains('pv3d')) return;
+          vw.az+=(e.clientX-lx)*0.008; vw.el=Math.max(-1.35,Math.min(1.35,vw.el+(e.clientY-ly)*0.008));
+          lx=e.clientX; ly=e.clientY; kick(); };
+      }
+      const wrapEl=app.querySelector('.pvwrap');
+      if(wrapEl&&!app.querySelector('#t3uwrap')){
         const w=document.createElement('div'); w.id='t3uwrap';
         w.innerHTML='<button type="button" id="t3uw"></button>';
-        host.insertBefore(w,fd.nextSibling);
+        wrapEl.parentElement.insertBefore(w,wrapEl.nextSibling);
       }
-      const uw=host?host.querySelector('#t3uw'):null;
+      const uw=app.querySelector('#t3uw');
       if(uw) uw.onclick=()=>{
-        const target=(vw._unTgt!=null?vw._unTgt:vw.un)>=0.5?0:1;
-        vw._unTgt=target; label();
-        /* timer-driven, not rAF: a throttled or backgrounded view stalls
-           animation frames mid-morph, and a half-unwrapped fitting stuck on
-           screen is worse than a chunky tween. Timeouts always complete. */
         clearTimeout(fd._uwto||0);
-        const from=vw.un, t0=performance.now(), D=900;
-        const ease=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;   // easeInOutQuad
-        const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
-          vw.un=from+(target-from)*ease(p); rd();
-          if(p<1) fd._uwto=setTimeout(step,16);
-          else { vw.un=target; vw._unTgt=null; rd(); } };
-        step(); };
+        const ease=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2, D=900;
+        if(vw.mode==='pat'){                      // pattern -> fitting: wrap back up
+          vw.mode='fit'; vw.un=1; refresh();
+          const t0=performance.now();
+          const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
+            vw.un=1-ease(p); rd();
+            if(p<1) fd._uwto=setTimeout(step,16); else { vw.un=0; rd(); } };
+          step();
+        } else {                                   // fitting -> peel open -> real pattern
+          const t0=performance.now();
+          const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
+            vw.un=ease(p); rd();
+            if(p<1) fd._uwto=setTimeout(step,16);
+            else { vw.mode='pat'; vw.un=1; PVZoom.reset(); refresh(); } };
+          step();
+        }
+      };
       label();
     }
     { const sp=document.getElementById('seamplan');
@@ -6711,7 +6732,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.43.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.44.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -6747,7 +6768,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.43.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.44.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
