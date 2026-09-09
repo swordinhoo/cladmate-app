@@ -1104,7 +1104,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.57.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.58.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5982,10 +5982,29 @@ function t3render(kind,s,w){
       return; }
     P.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>')));
     if(G.noseam) return;   // the tee body's join is not this edge - see t3tee
-    P.forEach(pr=>{
-      parts.push(path([pr[0][0],pr[1][0]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
-      if(un>0.02) parts.push(path([pr[0][NN],pr[1][NN]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
-    }); });
+    /* SEAM, FRONT TOLD FROM BACK (Craig). One flat red line looks identical
+       whether you are looking at the near face of the fitting or straight
+       through it at the far side, so you cannot tell which way round you are
+       holding it. Solid where the seam faces you, faded and dashed where it
+       runs round the back - the same language the 2D schematic has always
+       spoken. Unwrapped there is no front or back, so it all goes solid. */
+    let cd=0,cn=0;
+    P.forEach(pr=>pr.forEach(row=>row.forEach(q=>{ cd+=q.d; cn++; })));
+    cd/=cn||1;
+    const near=q=>un>0.35||q.d>cd;
+    const SOLID='stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>';
+    const BACK='stroke="'+LY.hidfaint+'" stroke-width="1.7" stroke-dasharray="3.5 4" stroke-linecap="round"/>';
+    const edge=k=>{ const pts=[], vis=[];
+      P.forEach(pr=>{ pts.push(pr[0][k],pr[1][k]); vis.push(near(pr[0][k]),near(pr[1][k])); });
+      let i=0;
+      while(i<pts.length-1){ const v=vis[i]&&vis[i+1]; let j=i+1;
+        while(j<pts.length-1 && (vis[j]&&vis[j+1])===v) j++;
+        const seg=pts.slice(i,j+1);
+        if(seg.length>1) parts.push(path(seg)+(v?SOLID:BACK));
+        i=j; } };
+    edge(0);
+    if(un>0.02) edge(NN);
+  });
   /* ink scribed ON the metal - the saddle you mark on the main before you cut
      it. Held as (facet, across) params so it rides the sheet through the morph;
      on the rolled pipe only the near half is drawn (the far side of the hole
@@ -7458,7 +7477,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.57.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.58.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7494,7 +7513,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.57.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.58.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
