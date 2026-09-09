@@ -1117,7 +1117,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.59.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.59.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5541,7 +5541,15 @@ function t3bendonbend(s){
   // bend 1: throat faces the bend centre; side = tan x rad = +Y (mirrored for hand B)
   const c1=t=>[CR1*(1-Math.cos(t)),0,CR1*Math.sin(t)];
   const rad1=t=>[Math.cos(t),0,-Math.sin(t)], tan1=t=>[Math.sin(t),0,Math.cos(t)];
-  const side1=[0,mir,0];
+  /* BUILD ONE HAND, THEN TURN THE WHOLE THING OVER (see the end of this
+     function). Mirroring piecemeal was the bug: bend 1's rings were wound
+     with side1=[0,mir,0] while bend 2's used a bare right-handed cross
+     product, so on hand B the seam angle meant opposite things either side
+     of the junction and jumped to the far side of the pipe - the one thing
+     this fitting exists to prevent (Craig). Everything is now built in a
+     single right-handed frame; seam and twist are already pre-negated by mir
+     above so that they come out right way round AFTER the flip. */
+  const side1=[0,1,0];
   const t1s=[0]; for(let j=1;j<=G1;j++) t1s.push((j-0.5)*A1/G1); t1s.push(A1);
   t1s.forEach(t=>rows.push(ring(c1(t),rad1(t),side1,seamR)));
   // spool
@@ -5573,6 +5581,10 @@ function t3bendonbend(s){
      the drawing shows another. 90 degrees about Y swaps which leg stands up -
      a proper rotation, so the development is untouched, and applied after the
      stations are struck so the flat cannot notice. */
+  // hand B/C IS the mirror-image fitting: one flip of the finished assembly,
+  // so nothing can disagree with anything else. The flat is unaffected -
+  // t3stations works from lengths, and a mirror preserves every one.
+  if(mir<0) geo.rows3.forEach(r=>r.forEach(q=>{ q[1]=-q[1]; }));
   if(s.orientation==='vertical')
     geo.rows3.forEach(r=>r.forEach(q=>{ const x=q[0]; q[0]=q[2]; q[2]=-x; }));
   return geo;
@@ -7518,7 +7530,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.59.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.59.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7554,7 +7566,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.59.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.59.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
