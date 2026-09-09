@@ -1051,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.48.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.49.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5448,6 +5448,7 @@ function t3bendonbend(s){
 function t3parts(list){
   const GAP=40; let cur=0;
   list.forEach(G=>{
+    if(G.fade) return;                 // hosts never reach the sheet
     let x0=1e9,x1=-1e9,y0=1e9;
     G.bands.forEach(b=>b.forEach(row=>row.forEach(q=>{ if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1]; })));
     const dx=cur-x0;   // side by side, squared off a common baseline
@@ -5510,9 +5511,142 @@ function t3tee(s){
   return t3parts([main,branch]);
 }
 
+/* ---- the rest of the tee family: a tube cut by whatever it lands on ----- */
+/* Every one of these is the same animal as the tee - a cylinder cut to a
+   curve - so the BRANCH develops TRUE. All the engine hands over is hAt(psi),
+   the generator length at branch angle psi measured from the square-cut end
+   down to the host, so build the tube from its flat end and step each
+   generator back by exactly that. Lifting hAt straight out of the engine is
+   what stops the 3D and the printed wrap drifting apart.
+   The HOST is CONTEXT ONLY: these fittings print the branch wrap alone (the
+   reducer, dome, tank top and bend all have their own tiles), so the host
+   fades away as the branch lays flat instead of pretending to develop. */
+function t3branchTube(r,seam,hAt,org,ax,e1,e2){
+  const top=[],cut=[];
+  for(let i=0;i<=T3N;i++){ const ps=seam+2*Math.PI*i/T3N;
+    const c=Math.cos(ps), s2=Math.sin(ps), h=hAt(ps);
+    const P=[org[0]+r*(c*e1[0]+s2*e2[0]), org[1]+r*(c*e1[1]+s2*e2[1]), org[2]+r*(c*e1[2]+s2*e2[2])];
+    top.push(P);
+    cut.push([P[0]-h*ax[0], P[1]-h*ax[1], P[2]-h*ax[2]]);
+  }
+  return t3stations([top,cut]);
+}
+const t3fade=G=>{ G.fade=1; return G; };
+// host as a surface of revolution about Z from a [rho,z] profile
+function t3revHost(prof){
+  return t3fade(t3stations(prof.map(([rho,z])=>{ const row=[];
+    for(let i=0;i<=T3N;i++){ const a=2*Math.PI*i/T3N; row.push([rho*Math.cos(a), rho*Math.sin(a), z]); }
+    return row; })));
+}
+
+/* Tee on Reducer - branch square off the cone, engine teeOnCone */
+function t3teeoncone(s){
+  const ins=+s.insulation||0, cg=+s.cladGap||0, od=v=>(+v||0)+2*ins+cg;
+  const Rb=od(s.bigPipeOD||323.9)/2, Rs=od(s.smallPipeOD||168.3)/2, rb=od(s.branchPipeOD||88.9)/2;
+  const H=Math.max(1,+s.height||300), zc=+s.branchZ||120, L=Math.max(5,s.minLen==null?50:+s.minLen);
+  const flat=s.coneMode==='flatback';
+  const Rz=z=>Rb-(Rb-Rs)*z/H;
+  const surf=psi=>{ const z=zc-rb*Math.cos(psi), y=rb*Math.sin(psi), R=Rz(z);
+    return (flat?R-Rb:0)+Math.sqrt(Math.max(R*R-y*y,1)); };
+  const x0=surf(0), hAt=psi=>L+x0-surf(psi);
+  const seam=((s.seamFromThroat==null?90:+s.seamFromThroat))*Math.PI/180;
+  // branch runs square off the cone: axis +X, cos psi down the cone (-Z)
+  const br=t3branchTube(rb,seam,hAt,[x0+L,0,zc],[1,0,0],[0,0,-1],[0,1,0]);
+  const coneRow=z=>{ const R=Rz(z), cx=flat?(R-Rb):0, row=[];
+    for(let i=0;i<=T3N;i++){ const a=2*Math.PI*i/T3N; row.push([cx+R*Math.cos(a), R*Math.sin(a), z]); }
+    return row; };
+  return t3parts([t3fade(t3stations([coneRow(0),coneRow(H)])), br]);
+}
+
+/* Tee on Dome - plumb branch on the crown, engine teeOnDome */
+function t3teedome(s){
+  const D=Math.max(1,+s.dia||2500), H=Math.max(1,+s.height||500), a=+s.teePos||0;
+  const ins=+s.insulation||0, rb=((+s.branchPipeOD||323.9)+2*ins+(+s.cladGap||0))/2;
+  const L=Math.max(5,s.minLen==null?50:+s.minLen), R=D/2;
+  const qa=2, qb=-(D+2*H), qc=3*D*D/4-(H-D)*(H-D);
+  const Rk=(-qb-Math.sqrt(Math.max(qb*qb-4*qa*qc,0)))/(2*qa), Rc=D-Rk;
+  const rT=(R-Rk)*Rc/(Rc-Rk);                     // crown/knuckle join
+  const surf=rr=>Math.sqrt(Math.max(Rc*Rc-rr*rr,0));
+  const s0=surf(Math.max(0,a-rb));
+  const hAt=psi=>L+s0-surf(Math.hypot(a+rb*Math.cos(psi), rb*Math.sin(psi)));
+  const seam=Math.PI+((s.seamFromThroat==null?90:+s.seamFromThroat))*Math.PI/180;
+  const br=t3branchTube(rb,seam,hAt,[a,0,s0+L],[0,0,1],[1,0,0],[0,1,0]);
+  // dished head profile: crown sphere out to rT, then the knuckle to the rim
+  const prof=[]; for(let i=0;i<=10;i++){ const rr=rT*i/10; prof.push([rr,surf(rr)]); }
+  const zJ=surf(rT), zk=zJ*(Rc-Rk)/Rc, a0=Math.atan2(zJ-zk, rT-(R-Rk));
+  for(let i=1;i<=8;i++){ const an=a0*(1-i/8);
+    prof.push([(R-Rk)+Rk*Math.cos(an), zk+Rk*Math.sin(an)]); }
+  return t3parts([t3revHost(prof), br]);
+}
+
+/* Tee on Tank Top - plumb branch through the cone roof, engine teeOnTankTop */
+function t3teetanktop(s){
+  const D=Math.max(1,+s.dia||2300), aH=Math.max(1,+s.apexH||1080), X=+s.teePos||0;
+  const ins=+s.insulation||0, rb=((+s.branchPipeOD||323.9)+2*ins+(+s.cladGap||0))/2;
+  const L=Math.max(5,s.minLen==null?100:+s.minLen), R=D/2, tanA=aH/R;
+  const z=rho=>(R-rho)*tanA, z0=z(X-rb);
+  const hAt=psi=>L+z0-z(Math.hypot(X+rb*Math.cos(psi), rb*Math.sin(psi)));
+  const seam=Math.PI+((s.seamFromThroat==null?90:+s.seamFromThroat))*Math.PI/180;
+  const br=t3branchTube(rb,seam,hAt,[X,0,z0+L],[0,0,1],[1,0,0],[0,1,0]);
+  return t3parts([t3revHost([[0,aH],[R,0]]), br]);
+}
+
+/* Trunnion - plumb stub landing on the back of a bend, engine teeBendStub.
+   Torus frame straight out of drop(): centre circle radius R in the XZ plane
+   about the Y axis, tube rt, so sqrt(px^2+pz^2) = R + sqrt(rt^2 - py^2). */
+function t3teebend(s){
+  const ins=+s.insulation||0, cg=+s.cladGap||0, od=v=>(+v||0)+2*ins+cg;
+  const rt=od(s.mainPipeOD||219.1)/2, rb=Math.min(od(s.stubPipeOD||114.3)/2, rt-1);
+  const R=Math.max(rt+1,+s.centreRadius||305), xa=-R+(+s.offset||0), Htop=(+s.height||450)+R;
+  const drop=psi=>{ const px=xa+rb*Math.cos(psi), py=rb*Math.sin(psi);
+    const q=Math.sqrt(Math.max(rt*rt-py*py,0));
+    return Math.sqrt(Math.max((R+q)*(R+q)-px*px,1)); };
+  const hAt=psi=>Math.max(1,Htop-drop(psi));
+  const seam=((s.seamFromThroat==null?0:+s.seamFromThroat))*Math.PI/180;
+  const br=t3branchTube(rb,seam,hAt,[xa,0,Htop],[0,0,1],[1,0,0],[0,1,0]);
+  const tor=t=>{ const C=[R*Math.cos(t),0,R*Math.sin(t)], rd=[Math.cos(t),0,Math.sin(t)], row=[];
+    for(let i=0;i<=T3N;i++){ const an=2*Math.PI*i/T3N, c=Math.cos(an);
+      row.push([C[0]+rt*c*rd[0], rt*Math.sin(an), C[2]+rt*c*rd[2]]); }
+    return row; };
+  const rows=[]; for(let k=0;k<=14;k++) rows.push(tor(Math.PI/2+Math.PI/2*k/14));
+  return t3parts([t3fade(t3stations(rows)), br]);
+}
+
+/* Trunnion on Bend - radial stub into the bend tube, engine trunnionOnBend.
+   Its tInt is _branchGeom's at 90 deg: the bend is taken as the cylinder it
+   locally is, which is the engine's own model, so the stub is set radial to
+   the bend centreline and the host lobster is drawn round it. */
+function t3trunnion(s){
+  const ins=+s.insulation||0, cg=+s.cladGap||0, od=v=>(+v||0)+2*ins+cg;
+  const R=od(s.bendPipeOD||219.1)/2, r=Math.min(od(s.trunnionPipeOD||114.3)/2, R-1);
+  const CR=Math.max(R+1,+s.centreRadius||305), G=Math.max(1,Math.min(24,Math.round(+s.segments||4)));
+  const L=Math.max(5,s.minLen==null?200:+s.minLen), JA=+s.jointAllow||0;
+  const tInt=phi=>Math.sqrt(Math.max(R*R-r*r*Math.sin(phi)*Math.sin(phi),0));
+  const seam=((s.seamFromThroat==null?0:+s.seamFromThroat))*Math.PI/180;
+  let tmax=-1e9; for(let i=0;i<360;i++){ const t=tInt(2*Math.PI*i/360); if(t>tmax)tmax=t; }
+  const hAt=phi=>L+JA+(tmax-tInt(phi));
+  const A=Math.PI/2;                                  // trunnions sit under a 90
+  const tt=Math.min(A,Math.max(0,Math.acos(Math.max(-1,Math.min(1,1-(+s.offset||0)/CR)))));
+  const C=[CR*(1-Math.cos(tt)),0,CR*Math.sin(tt)];
+  const rad=[-Math.cos(tt),0,Math.sin(tt)], tan=[Math.sin(tt),0,Math.cos(tt)];
+  const e1=[-tan[0],-tan[1],-tan[2]];                 // cos phi runs back down the bend
+  const e2=[e1[1]*rad[2]-e1[2]*rad[1], e1[2]*rad[0]-e1[0]*rad[2], e1[0]*rad[1]-e1[1]*rad[0]];
+  const org=[C[0]+rad[0]*(tmax+L+JA), C[1], C[2]+rad[2]*(tmax+L+JA)];
+  const br=t3branchTube(r,seam,hAt,org,rad,e1,e2);
+  // same bend frame as the lobster: centre (CR,0,0), outward radial (-cos t,0,sin t)
+  const ring=t=>{ const cx=CR*(1-Math.cos(t)), cz=CR*Math.sin(t), row=[];
+    for(let i=0;i<=T3N;i++){ const a=2*Math.PI*i/T3N, c=Math.cos(a);
+      row.push([cx-R*c*Math.cos(t), R*Math.sin(a), cz+R*c*Math.sin(t)]); }
+    return row; };
+  const ts=[0]; for(let j=1;j<=G;j++) ts.push((j-0.5)*A/G); ts.push(A);
+  return t3parts([t3fade(t3stations(ts.map(ring))), br]);
+}
+
 const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
   oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
-  valveend:t3valveend,tanktop:t3tanktop,inctee:t3tee,teereducer:t3tee};
+  valveend:t3valveend,tanktop:t3tanktop,inctee:t3tee,teereducer:t3tee,
+  teeoncone:t3teeoncone,teedome:t3teedome,teetanktop:t3teetanktop,
+  teebend:t3teebend,trunnion:t3trunnion};
 
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
@@ -5521,14 +5655,20 @@ function t3render(kind,s,w){
   const PIECES=geo.parts||[geo];       // a tee is two pieces of metal, not one
   // centre the development on its own bounding box (fans sit off-centre)
   let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9;
-  PIECES.forEach(G=>G.bands.forEach(b=>b.forEach(row=>row.forEach(q=>{ if(q[0]<bx0)bx0=q[0]; if(q[0]>bx1)bx1=q[0]; if(q[1]<by0)by0=q[1]; if(q[1]>by1)by1=q[1]; }))));
+  PIECES.forEach(G=>{ if(G.fade) return;   // hosts are context, they never develop
+    G.bands.forEach(b=>b.forEach(row=>row.forEach(q=>{ if(q[0]<bx0)bx0=q[0]; if(q[0]>bx1)bx1=q[0]; if(q[1]<by0)by0=q[1]; if(q[1]>by1)by1=q[1]; }))); });
   const fcx=(bx0+bx1)/2, fcy=(by0+by1)/2;
   // each band owns its vertices, so the unwrap visibly splits the fitting
   // into its gores and lands them as the stacked cut sheet
   const morph=(p,f)=>[p[0]+((f[0]-fcx)-p[0])*un, p[1]*(1-un), p[2]+((f[1]-fcy)-p[2])*un];
+  /* a HOST piece (the reducer a branch lands on, the bend under a trunnion)
+     has no pattern of its own here - it is there so you can see what the
+     branch sits on. It shrinks away to nothing as the branch lays flat
+     rather than pretending to develop, and keeps the framing honest. */
+  const fadeAt=Math.max(0,1-un*1.7), fadeM=p=>[p[0]*fadeAt,p[1]*fadeAt,p[2]*fadeAt];
   const BP=PIECES.map(G=>G.bands.map(([FA,FB],j)=>[
-    G.rows3[j].map((p,i)=>morph(p,FA[i])),
-    G.rows3[j+1].map((p,i)=>morph(p,FB[i])) ]));
+    G.rows3[j].map((p,i)=>G.fade?fadeM(p):morph(p,FA[i])),
+    G.rows3[j+1].map((p,i)=>G.fade?fadeM(p):morph(p,FB[i])) ]));
   // orbit + project (z-up orthographic, painter's algorithm). As the unwrap
   // approaches flat the view eases to face-on, whatever the user had spun -
   // an edge-on sheet is a line, and a line is not a pattern.
@@ -5546,18 +5686,29 @@ function t3render(kind,s,w){
   const L=[0.42,-0.72,0.55];
   PIECES.forEach((G,gi)=>{
     const NN=G.rows3[0].length-1;      // facets per ring (T3N, or per-segment on faceted roofs)
+    const op=G.fade?fadeAt.toFixed(2):null;
+    if(G.fade&&fadeAt<=0.01) return;
     for(let j=0;j<G.bands.length;j++) for(let i=0;i<NN;i++){
       const a=BP[gi][j][0][i],b=BP[gi][j][0][i+1],c=BP[gi][j][1][i+1],d=BP[gi][j][1][i];
       const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[d[0]-a[0],d[1]-a[1],d[2]-a[2]];
       let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
       const nl=Math.hypot(n[0],n[1],n[2])||1; n=[n[0]/nl,n[1]/nl,n[2]/nl];
       let sh=Math.abs(n[0]*L[0]+n[1]*L[1]+n[2]*L[2]);
-      sh=0.35+0.65*sh; if(j%2) sh*=0.93;     // subtle two-tone per piece
+      sh=0.35+0.65*sh;
+      if(j%2&&!G.fade) sh*=0.93;   // subtle two-tone per gore - but a smooth host
+                                   // has dozens of bands and it reads as false rings
       const g=Math.round(lo+(hi-lo)*sh);
       const q=[BV[gi][j][0][i],BV[gi][j][0][i+1],BV[gi][j][1][i+1],BV[gi][j][1][i]];
+      /* stroke the facet in its OWN fill colour: SVG anti-aliases each polygon
+         separately, so abutting quads leave a hairline of background between
+         them and a dense mesh reads as a wireframe grid that is not there.
+         non-scaling-stroke because the viewBox is in real mm - a fixed width
+         would vanish on a 2500 dome and go fat on a 168 elbow */
+      const col='rgb('+g+','+Math.round(g*1.02)+','+Math.round(g*1.05)+')';
       quads.push({d:(q[0].d+q[1].d+q[2].d+q[3].d)/4,
         s:'<polygon points="'+q.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')
-        +'" fill="rgb('+g+','+Math.round(g*1.02)+','+Math.round(g*1.05)+')"/>'});
+        +'" fill="'+col+'" stroke="'+col+'" stroke-width="0.8" vector-effect="non-scaling-stroke"'
+        +(op?' opacity="'+op+'"':'')+'/>'});
     }
   });
   quads.sort((a,b)=>a.d-b.d);
@@ -5565,8 +5716,13 @@ function t3render(kind,s,w){
   BV.forEach(P=>P.forEach(pr=>pr.forEach(row=>row.forEach(p=>all.push([p.x,p.y])))));
   // joint ink on every band edge, then the seam edges on top
   const path=pts=>'<polyline points="'+pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')+'" fill="none" ';
-  BV.forEach(P=>P.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>'))));
-  BV.forEach((P,gi)=>{ const NN=PIECES[gi].rows3[0].length-1;
+  BV.forEach((P,gi)=>{ const G=PIECES[gi], NN=G.rows3[0].length-1;
+    if(G.fade){          // a host carries no seam and no gore joints - just its
+      if(fadeAt>0.01){   // two rims, faint, going with it as it fades
+        const fo=(0.5*fadeAt).toFixed(2);
+        [P[0][0], P[P.length-1][1]].forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="'+fo+'"/>')); }
+      return; }
+    P.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>')));
     P.forEach(pr=>{
       parts.push(path([pr[0][0],pr[1][0]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
       if(un>0.02) parts.push(path([pr[0][NN],pr[1][NN]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
@@ -6976,7 +7132,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.48.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.49.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7012,7 +7168,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.48.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.49.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
