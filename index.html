@@ -1051,7 +1051,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.50.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.51.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5688,13 +5688,37 @@ function t3sqround(s){
   return t3stations([B,T]);
 }
 
+/* ---- Watershed Box: a folded wrap, so the 3D IS the folds ---------------- */
+/* Both modes are a cross-section extruded along the box length, which is why
+   the wrap develops to a plain rectangle girth x length - exactly what the
+   engine prints. Mirror mode: base | 90 fold | wall | eaves fold | slope up
+   to the ridge, cut 2 and flip one. Horiz mode: the whole hood in one -
+   hem | skirt | eaves | slope | RIDGE | slope | eaves | skirt | hem. The
+   other half (or the wall band under the hood) is drawn as fading context so
+   you can see the box, since it is not the piece being printed here. */
+function t3wsbox(s){
+  const L=Math.max(1,+s.boxL||400), W=Math.max(1,+s.boxW||300);
+  const H=Math.max(1,+s.boxH||400), D=Math.max(1,Math.min(H-1,+s.shedDepth||40));
+  const wall=H-D;
+  const ext=(prof,y0,y1)=>t3stations([prof.map(q=>[q[0],y0,q[1]]), prof.map(q=>[q[0],y1,q[1]])]);
+  if(s.splitMode==='horiz'){
+    const drop=Math.max(1,Math.min(wall-1,+s.hoodDrop==null?75:+s.hoodDrop));
+    const hood=[[W/2,wall-drop],[W/2,wall],[0,H],[-W/2,wall],[-W/2,wall-drop]];
+    const band=[[W/2,0],[W/2,wall-drop]];          // the wall band it drops over
+    return t3parts([t3fade(ext(band,-L/2,L/2)), t3fade(ext(band.map(q=>[-q[0],q[1]]),-L/2,L/2)),
+                    ext(hood,-L/2,L/2)]);
+  }
+  const half=[[0,0],[W/2,0],[W/2,wall],[0,H]];     // base | wall | slope to the ridge
+  return t3parts([t3fade(ext(half.map(q=>[-q[0],q[1]]),-L/2,L/2)), ext(half,-L/2,L/2)]);
+}
+
 const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
   oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
   valveend:t3valveend,tanktop:t3tanktop,inctee:t3tee,teereducer:t3tee,
   teeoncone:t3teeoncone,teedome:t3teedome,teetanktop:t3teetanktop,
   teebend:t3teebend,trunnion:t3trunnion,
   sqround:t3sqround,rectround:t3sqround,obliqueround:t3sqround,
-  rasqround:t3sqround,oblxform:t3sqround};
+  rasqround:t3sqround,oblxform:t3sqround,wsbox:t3wsbox};
 
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
@@ -7183,7 +7207,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.50.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.51.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7219,7 +7243,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.50.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.51.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
