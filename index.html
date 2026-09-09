@@ -1103,7 +1103,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.54.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.55.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5768,13 +5768,67 @@ function t3wsbox(s){
   return t3parts([t3fade(ext(half.map(q=>[-q[0],q[1]]),-L/2,L/2)), ext(half,-L/2,L/2)]);
 }
 
+/* ---- vessel heads: dome, dished end, hemisphere ------------------------- */
+/* I had these down as impossible to unwrap, and that was wrong: a dished head
+   is double-curved, so the WHOLE head has no flat pattern - but the app never
+   prints the whole head. It prints ONE GORE, and a gore is a narrow strip
+   between two meridians, which is exactly what the trade cuts a dome into so
+   that it CAN be rolled from flat metal. So the head shows in 3D with its gore
+   lines, and the piece that develops is the gore - the same one piece the
+   template gives you, cut N off.
+   Meridian profile lifted from engine domeKit: knuckle arc Rk about (R-Rk,0),
+   crown arc Rc about (0,H-Rc), Rk from the same quadratic, with its two
+   degenerate heads handled the same way (hemisphere Rc==Rk, dished cap Rk->0). */
+function t3domeProfile(D,H){
+  const R=D/2;
+  const a=2,b=-(D+2*H),c=3*D*D/4-(H-D)*(H-D);
+  const Rk=(-b-Math.sqrt(Math.max(0,b*b-4*a*c)))/(2*a), Rc=D-Rk;
+  const Cc=[0,H-Rc], Kc=[R-Rk,0];
+  const dl=Math.hypot(Kc[0]-Cc[0],Kc[1]-Cc[1]);
+  const hemi=dl<1e-6, noKn=!hemi&&Rk<0.5;
+  const T=hemi?[R*Math.SQRT1_2,R*Math.SQRT1_2]
+              :[Cc[0]+Rc*(Kc[0]-Cc[0])/dl, Cc[1]+Rc*(Kc[1]-Cc[1])/dl];
+  const angApex=Math.atan2(H-Cc[1],0), angTc=Math.atan2(T[1]-Cc[1],T[0]-Cc[0]);
+  const crownSpan=angApex-angTc;
+  const knSpan=hemi?Math.PI/4:Math.atan2(T[1]-Kc[1],T[0]-Kc[0]);
+  const stn=[], M=14;                       // finer than the printed 6+6, for a smooth head
+  if(noKn){ for(let i=0;i<=2*M;i++){ const an=angTc+crownSpan*i/(2*M);
+      stn.push([Cc[0]+Rc*Math.cos(an), Cc[1]+Rc*Math.sin(an)]); } }
+  else { for(let i=0;i<=M;i++){ const an=knSpan*i/M;
+           stn.push([Kc[0]+Rk*Math.cos(an), Kc[1]+Rk*Math.sin(an)]); }
+         for(let i=1;i<=M;i++){ const an=angTc+crownSpan*i/M;
+           stn.push([Cc[0]+Rc*Math.cos(an), Cc[1]+Rc*Math.sin(an)]); } }
+  return stn;                                // [rho,z] rim -> apex
+}
+function t3dome(s){
+  const D=Math.max(1,+s.dia||2500);
+  const H=Math.max(1,Math.min(D/2, s.__H!=null?+s.__H:(+s.height||500)));
+  const N=Math.max(3,Math.min(60,Math.round(+s.segments||26)));
+  const stn=t3domeProfile(D,H), half=Math.PI/N;
+  /* the piece that develops: ONE gore, its two meridian edges. Rows run ACROSS
+     the gore and i runs UP the meridian, so it comes off as one continuous
+     leaf - not chopped into rings the way a gored bend is. */
+  const edge=a=>stn.map(q=>[q[0]*Math.cos(a), q[0]*Math.sin(a), q[1]]);
+  const gore=t3stations([edge(-half), edge(half)]);
+  // the rest of the head, as context: revolved everywhere BUT the gore slot
+  const K=Math.max(8,N*2);
+  const rows=stn.map(q=>{ const row=[];
+    for(let i=0;i<=K;i++){ const a=half+(2*Math.PI-2*half)*i/K;
+      row.push([q[0]*Math.cos(a), q[0]*Math.sin(a), q[1]]); }
+    return row; });
+  return t3parts([t3fade(t3stations(rows)), gore]);
+}
+const t3dishedend=s=>t3dome(Object.assign({},s,{__H:(+s.dia||3500)*(1-Math.sqrt(3)/2)}));
+const t3hemidome=s=>t3dome(Object.assign({},s,{__H:(+s.dia||2500)/2}));
+
 const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
   oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
   valveend:t3valveend,tanktop:t3tanktop,inctee:t3tee,teereducer:t3tee,
   teeoncone:t3teeoncone,teedome:t3teedome,teetanktop:t3teetanktop,
   teebend:t3teebend,trunnion:t3trunnion,
   sqround:t3sqround,rectround:t3sqround,obliqueround:t3sqround,
-  rasqround:t3sqround,oblxform:t3sqround,wsbox:t3wsbox};
+  rasqround:t3sqround,oblxform:t3sqround,wsbox:t3wsbox,
+  dome:t3dome,dishedend:t3dishedend,hemidome:t3hemidome};
 
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
@@ -5847,6 +5901,12 @@ function t3render(kind,s,w){
      rotation-invariant, so the fitting now turns inside a still window.
      It still eases open through the unwrap, because that genuinely does
      change the size of the metal. */
+  /* SQUARED-ON is a fixed view, so it can fit TIGHT and fill the frame -
+     nothing is going to rotate underneath it. Free spinning keeps the
+     rotation-proof radius below, which has to leave room for the worst
+     angle and so never fills the pane. */
+  if(vw.sq){ BV.forEach(P=>P.forEach(pr=>pr.forEach(row=>row.forEach(q=>all.push([q.x,q.y]))))); }
+  else
   { let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
     BP.forEach(P=>P.forEach(pr=>pr.forEach(row=>row.forEach(q=>{
       if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1];
@@ -7121,13 +7181,14 @@ function form(kind, presetParams){
           const a0=vw.az, e0=vw.el, t0=performance.now(), D=380;
           const ease=x=>1-Math.pow(1-x,3);
           const step=()=>{ const q=Math.min(1,(performance.now()-t0)/D), k=ease(q);
-            vw.az=a0*(1-k); vw.el=e0*(1-k); rd();
+            vw.az=a0*(1-k); vw.el=e0*(1-k); vw.sq=(q>=1)?1:0; rd();
             if(q<1) setTimeout(step,16); };
           step(); }; }
       let dg=false,lx=0,ly=0;
       if(pvEl){
         pvEl.onpointerdown=e=>{ if(!pvEl.classList.contains('pv3d'))return;
-          dg=true; lx=e.clientX; ly=e.clientY; try{pvEl.setPointerCapture(e.pointerId);}catch(_){} };
+          dg=true; lx=e.clientX; ly=e.clientY; vw.sq=0;   // back to the rotation-proof frame
+          try{pvEl.setPointerCapture(e.pointerId);}catch(_){} };
         pvEl.onpointerup=pvEl.onpointercancel=()=>{ dg=false; };
         pvEl.onpointermove=e=>{ if(!dg||!pvEl.classList.contains('pv3d')) return;
           vw.az+=(e.clientX-lx)*0.008; vw.el=Math.max(-1.35,Math.min(1.35,vw.el+(e.clientY-ly)*0.008));
@@ -7329,7 +7390,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.54.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.55.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7365,7 +7426,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.54.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.55.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
