@@ -793,12 +793,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   #pv.pv3d~.pvctl,#pv.pv3d~.pvx,#pv.pv3d~#pvscale{display:none}
   /* snap the fitting square-on: a straight elevation, which is the 3D read
      as a flat drawing. Only offered while the pane is showing the 3D. */
-  .pvsq{display:none;position:absolute;right:8px;bottom:8px;z-index:5;
+  .pvviews{display:none;position:absolute;right:8px;bottom:8px;z-index:5;gap:5px}
+  #pv.pv3d~.pvviews{display:flex}
+  .pvviews button{
       font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:.07em;
       color:var(--sub);background:var(--panel);border:1px solid var(--line);
       border-radius:7px;padding:6px 10px;cursor:pointer;appearance:none}
-  .pvsq:active{border-color:var(--acc);color:var(--acc)}
-  #pv.pv3d~.pvsq{display:block}
+  .pvviews button:active{border-color:var(--acc);color:var(--acc)}
   /* _svgWrap ships an inline max-width:44vw for the pattern view, and inline
      beats a plain rule - so the 3D was clamped to 165px inside a 342px pane.
      Take the whole box back. */
@@ -1103,7 +1104,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.55.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.56.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -1791,10 +1792,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     angs.sort((a,b) => a-b);
     const topAt = a => { const r2 = a*Math.PI/180; return [ox + rTop*Math.cos(r2), oy + rTop*Math.sin(r2), H]; };
     const cornOf = a => corners[Math.floor((((a % 360) + 360) % 360) / 90) % 4];
+    const midSide = (p, q) => [(p[0]+q[0])/2, (p[1]+q[1])/2, 0];
+    const seamOnPlate = Math.abs(seam % 90) < 1e-6;
     const B = [], T = [];
     for (let i = 0; i < angs.length; i++) {
       const a = angs[i], top = topAt(a), onC = Math.abs(a % 90) < 1e-6;
-      if (onC && i > 0 && i < angs.length - 1) {
+      if (i === 0 && seamOnPlate) {
+        /* Seam DOWN THE MIDDLE OF THE FLAT PLATE (Craig, 9 Sep). It used to run
+           up a corner of the triangle, which is the worst place on the fitting
+           to lap - the metal is turning through the fold right there. Start the
+           walk at the MIDPOINT of that side and run out to the corner, so both
+           seam edges land on the plate centre line, on flat metal. */
+        B.push(midSide(cornOf(a - 1e-4), cornOf(a + 1e-4))); T.push(top);
+        B.push(cornOf(a + 1e-4)); T.push(top);
+      } else if (onC && i > 0 && i < angs.length - 1) {
         B.push(cornOf(a - 1e-4)); T.push(top);
         B.push(cornOf(a + 1e-4)); T.push(top);
       } else { B.push(cornOf(a + (i === angs.length-1 ? -1e-4 : 1e-4))); T.push(top); }
@@ -1805,7 +1816,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
        of metal (the default seam, 90, is a corner angle). Close the fan with
        that triangle so the base runs the full perimeter and both seam edges
        come out the same length (they join like-to-like when rolled). */
-    if (Math.abs(seam % 90) < 1e-6) { B.push(cornOf(seam + 1e-4)); T.push(topAt(seam)); }
+    if (seamOnPlate) { B.push(midSide(cornOf(seam - 1e-4), cornOf(seam + 1e-4))); T.push(topAt(seam)); }
     const { b2, t2 } = developLoops(B, T);
     const nm = p.name || ((ox||oy) ? 'Oblique to Round' : 'Square to Round');
     return packDeveloped({
@@ -4515,35 +4526,35 @@ const F={
   note:'Pick the FIRST and SECOND bend types and the diagram draws the fitting as it hangs — A with A (or B with B) runs the same way, A with B makes an S. Prints in fitting order: first bend (starter + middles), the TWISTER, end bend (middles + finisher). Twist rolls bend 2 out of plane. The end-bend seam is auto-rolled so the seam line runs true along the whole fitting.'},
  sqround:{name:'Square to Round',sub:'Transition · concentric',icon:I.str,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,side:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('side','Base side (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('side','Base side (mm)'),num('height','Height (mm)'),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
   build:s=>{const q=Object.assign({},s,{name:'Square to Round'});if(s.side!=null){q.sqW=s.side;q.sqD=s.side;}return FP.squareToRound(q);},
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
   note:'Square base, round on centre. An equal square-to-round is just the round Ø typed into the side box. Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  rectround:{name:'Rectangle to Round',sub:'Transition · concentric',icon:I.rtr,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:400,sqD:250,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
   build:s=>FP.squareToRound(Object.assign({},s,{name:'Rectangle to Round'})),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
   note:'Rectangular base, round on centre. Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset (mm)'),{neg:1}),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
   build:s=>FP.squareToRound(Object.assign({},s,{name:'Oblique to Round'})),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox],
   note:'Round end slid along the base — what the old program called oblique or eccentric square/rectangle to round. Takes minus to go the other way. Round anywhere over the base (both directions at once) is the Oblique Transformer tile; a flush plumb side is the Right Angle tile.'},
  rasqround:{name:'Right Angle to Round',sub:'Flush side · plumb back',icon:I.ratr,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:300,height:250,flush:'w',lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),sego('flush','Flush on',[{v:'w',label:'Width edge'},{v:'d',label:'Depth edge'}]),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),sego('flush','Flush on',[{v:'w',label:'Width edge'},{v:'d',label:'Depth edge'}]),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
   build:s=>FP.squareToRound(Object.assign({},s,{name:'Right Angle to Round'})),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Flush · offset '+Math.round(c.ox||c.oy)],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Worked offset '+Math.round(c.ox||c.oy)],
   note:'The round sits tight to one edge so that side of the transformer rises plumb — the offset is worked for you, nothing to type. Says so if the round is too big for the side you picked.'},
  oblxform:{name:'Oblique Transformer',sub:'Round anywhere over the base',icon:I.oxf,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:400,sqD:300,height:250,offsetX:60,offsetY:40,lapTotal:40,holePitch:60,holeEndGap:20},
-  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset width (mm)'),{neg:1}),Object.assign(num('offsetY','Top offset depth (mm)'),{neg:1}),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
+  fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset width (mm)'),{neg:1}),Object.assign(num('offsetY','Top offset depth (mm)'),{neg:1}),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
   build:s=>FP.squareToRound(Object.assign({},s,{name:'Oblique Transformer'})),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox+' / '+c.oy],
@@ -4829,8 +4840,10 @@ const ORDER=['elbow','flatelbow','lobster','flatlobster','bendonbend','inctee','
 // saved jobs still reprint, they just stop being offered.
 const GROUPS=[{t:'Bends',k:['elbow','lobster','bendonbend']},{t:'Tees & Branches',k:['inctee','teebend','teeoncone','teedome','teetanktop']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone']},{t:'Transitions',k:['sqround','rectround','obliqueround','rasqround','oblxform']},{t:'Watershed Tops',k:['roundtop','tanktop','valveend']},{t:'Vessel Ends',k:['dome','dishedend','hemidome']}];
 // tee still has a mode selector; the box variants are retired with the boxes.
-const VARIANTS=[
-  {label:'Tee type', members:[['inctee','Standard'],['teereducer','Reducing branch']]} ];
+/* Tee type selector retired (Craig): the branch SIZE already says whether
+   a tee reduces, and inctee carries the angle field, so it covers both.
+   teereducer stays in ORDER/F so any saved job still reprints. */
+const VARIANTS=[];
 const NALL=new Set(GROUPS.flatMap(g=>g.k).concat(VARIANTS.flatMap(v=>v.members.map(m=>m[0])))).size;
 function varGroupOf(kind){ const g=VARIANTS.find(v=>v.members.some(m=>m[0]===kind)); return g?{label:g.label,opts:g.members.map(m=>({k:m[0],label:m[1]}))}:null; }
 /* double bend: direction falls out of the two bend types. Mirror-class bends
@@ -5564,6 +5577,7 @@ function t3tee(s){
     const psi=Math.atan2(P[1],P[2]);   // round the main from the top, as branchHole
     main.ink.push({b:0, u:((((psi-Math.PI)/(2*Math.PI)*T3N)%T3N)+T3N)%T3N, v:(P[0]-x0)/(x1-x0)});
   }
+  main.noseam=1;          // the body is a wrap; its own join is not the saddle
   return t3parts([main,branch]);
 }
 
@@ -5588,6 +5602,10 @@ function t3branchTube(r,seam,hAt,org,ax,e1,e2){
   return t3stations([top,cut]);
 }
 const t3fade=G=>{ G.fade=1; return G; };
+/* turn an assembly over: 180 about X. A proper rotation, NOT a mirror - a
+   mirror would come out the wrong hand on the pattern. Applied after the
+   development is struck, so the flat is untouched either way. */
+const t3upend=list=>{ list.forEach(G=>G.rows3.forEach(r=>r.forEach(q=>{ q[1]=-q[1]; q[2]=-q[2]; }))); return list; };
 // host as a surface of revolution about Z from a [rho,z] profile
 function t3revHost(prof){
   return t3fade(t3stations(prof.map(([rho,z])=>{ const row=[];
@@ -5665,7 +5683,7 @@ function t3teebend(s){
       row.push([C[0]+rt*c*rd[0], rt*Math.sin(an), C[2]+rt*c*rd[2]]); }
     return row; };
   const rows=[]; for(let k=0;k<=14;k++) rows.push(tor(Math.PI/2+Math.PI/2*k/14));
-  return t3parts([t3fade(t3stations(rows)), br]);
+  return t3parts(t3upend([t3fade(t3stations(rows)), br]));
 }
 
 /* Trunnion on Bend - radial stub into the bend tube, engine trunnionOnBend.
@@ -5695,7 +5713,7 @@ function t3trunnion(s){
       row.push([cx-R*c*Math.cos(t), R*Math.sin(a), cz+R*c*Math.sin(t)]); }
     return row; };
   const ts=[0]; for(let j=1;j<=G;j++) ts.push((j-0.5)*A/G); ts.push(A);
-  return t3parts([t3fade(t3stations(ts.map(ring))), br]);
+  return t3parts(t3upend([t3fade(t3stations(ts.map(ring))), br]));
 }
 
 /* ---- transformers: square / rectangle base to a round top --------------- */
@@ -5731,16 +5749,20 @@ function t3sqround(s){
   angs.sort((a,b)=>a-b);
   const topAt=a=>{ const r2=a*Math.PI/180; return [ox+rTop*Math.cos(r2), oy+rTop*Math.sin(r2), H]; };
   const cornOf=a=>corners[Math.floor((((a%360)+360)%360)/90)%4].slice();
+  const midSide=(u,v)=>[(u[0]+v[0])/2,(u[1]+v[1])/2,0];
+  const seamOnPlate=Math.abs(seam%90)<1e-6;
   const B=[],T=[];
   for(let i=0;i<angs.length;i++){
     const a=angs[i], top=topAt(a), onC=Math.abs(a%90)<1e-6;
-    if(onC&&i>0&&i<angs.length-1){
+    if(i===0&&seamOnPlate){                         // join down the plate centre line
+      B.push(midSide(cornOf(a-1e-4),cornOf(a+1e-4))); T.push(top);
+      B.push(cornOf(a+1e-4)); T.push(top.slice());
+    } else if(onC&&i>0&&i<angs.length-1){
       B.push(cornOf(a-1e-4)); T.push(top);          // the flat plate on this side:
       B.push(cornOf(a+1e-4)); T.push(top.slice());  // base jumps, apex stays
     } else B.push(cornOf(a+(i===angs.length-1?-1e-4:1e-4))), T.push(top);
   }
-  // seam ON a corner angle: close the fan with the triangle under the seam
-  if(Math.abs(seam%90)<1e-6){ B.push(cornOf(seam+1e-4)); T.push(topAt(seam)); }
+  if(seamOnPlate){ B.push(midSide(cornOf(seam-1e-4),cornOf(seam+1e-4))); T.push(topAt(seam)); }
   return t3stations([B,T]);
 }
 
@@ -5926,6 +5948,7 @@ function t3render(kind,s,w){
         [P[0][0], P[P.length-1][1]].forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="'+fo+'"/>')); }
       return; }
     P.forEach(pr=>pr.forEach(row=>parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>')));
+    if(G.noseam) return;   // the tee body's join is not this edge - see t3tee
     P.forEach(pr=>{
       parts.push(path([pr[0][0],pr[1][0]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
       if(un>0.02) parts.push(path([pr[0][NN],pr[1][NN]])+'stroke="'+LY.centre+'" stroke-width="2" stroke-linecap="round"/>');
@@ -6842,7 +6865,7 @@ function form(kind, presetParams){
       <div class="pvx h"></div><div class="pvx v"></div>
       <div id="pvscale" class="pvscale" style="display:none"><span class="bar"></span><span class="lab"></span></div>
       <div class="pvctl"><button id="pvIn" aria-label="Zoom in">+</button><button id="pvOut" aria-label="Zoom out">−</button><button id="pvFit" aria-label="Reset zoom to fit">⬚</button></div>
-      <button type="button" id="pvSq" class="pvsq" title="Square the view up">SQUARE ON</button>
+      <div class="pvviews"><button type="button" id="pvSq" title="Straight elevation">SQUARE ON</button><button type="button" id="pvBe" title="Straight down from above">BIRDS EYE</button></div>
     </div>
     <div class="pvlegend">
       <button type="button" class="lgc" aria-pressed="false" data-ly="cut"><i style="border-color:var(--ly-object)"></i>CUT</button>
@@ -6965,6 +6988,12 @@ function form(kind, presetParams){
         svg.querySelectorAll('.handbtn').forEach(x=>{ const on=x.dataset.h===s.bendHand;
           x.querySelector('rect').setAttribute('fill',on?'#2f7bd6':'transparent');
           x.querySelector('text').setAttribute('fill',on?'#fff':LY.text); });
+        /* A and B are mirror-class bends, so the fitting turns over when you
+           swap them. Swing the view to match (Craig) - otherwise picking B
+           leaves you looking at the back of it and you cannot read the seam. */
+        { const vw3=T3VIEW[kind];
+          if(vw3){ const mir=(s.bendHand==='B'||s.bendHand==='C');
+            vw3.az=mir?-0.85:0.85; vw3.el=0.32; vw3.sq=0; } }
         refresh(); });
       const upd=()=>{ const v=s.seamFromThroat; const n=Math.round(v/30)+1; const exact=Math.abs(v-(n-1)*30)<0.01&&n>=1&&n<=12;
         svg.querySelectorAll('.seamdot').forEach(d=>{ d.setAttribute('fill', (exact&&+d.dataset.dn===n)?LY.centre:LY.faint); d.setAttribute('r',(exact&&+d.dataset.dn===n)?'11':'9'); }); };
@@ -7176,14 +7205,18 @@ function form(kind, presetParams){
          projects the fitting as a straight elevation - the 3D squared up and
          read as a flat drawing. Timer-driven like the unwrap, because rAF
          stalls in a throttled pane. */
-      { const sq=document.getElementById('pvSq');
-        if(sq) sq.onclick=e=>{ e.stopPropagation();
-          const a0=vw.az, e0=vw.el, t0=performance.now(), D=380;
+      /* two canonical views: SQUARE ON is the straight elevation (az 0, el 0),
+         BIRDS EYE looks straight down on the plan (el 90). Both ease over and
+         then fit tight, since a fixed view cannot rotate out of its frame. */
+      { const snap=(azT,elT)=>{ const a0=vw.az, e0=vw.el, t0=performance.now(), D=380;
           const ease=x=>1-Math.pow(1-x,3);
           const step=()=>{ const q=Math.min(1,(performance.now()-t0)/D), k=ease(q);
-            vw.az=a0*(1-k); vw.el=e0*(1-k); vw.sq=(q>=1)?1:0; rd();
+            vw.az=a0+(azT-a0)*k; vw.el=e0+(elT-e0)*k; vw.sq=(q>=1)?1:0; rd();
             if(q<1) setTimeout(step,16); };
-          step(); }; }
+          step(); };
+        const sq=document.getElementById('pvSq'), be=document.getElementById('pvBe');
+        if(sq) sq.onclick=e=>{ e.stopPropagation(); snap(0,0); };
+        if(be) be.onclick=e=>{ e.stopPropagation(); snap(0,Math.PI/2); }; }
       let dg=false,lx=0,ly=0;
       if(pvEl){
         pvEl.onpointerdown=e=>{ if(!pvEl.classList.contains('pv3d'))return;
@@ -7390,7 +7423,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.55.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.56.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7426,7 +7459,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.55.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.56.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
