@@ -791,6 +791,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   /* 3D mode: the pane is the fitting - pattern furniture stands down */
   #pv.pv3d{cursor:grab;touch-action:none} #pv.pv3d:active{cursor:grabbing}
   #pv.pv3d~.pvctl,#pv.pv3d~.pvx,#pv.pv3d~#pvscale{display:none}
+  /* snap the fitting square-on: a straight elevation, which is the 3D read
+     as a flat drawing. Only offered while the pane is showing the 3D. */
+  .pvsq{display:none;position:absolute;right:8px;bottom:8px;z-index:5;
+      font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:.07em;
+      color:var(--sub);background:var(--panel);border:1px solid var(--line);
+      border-radius:7px;padding:6px 10px;cursor:pointer;appearance:none}
+  .pvsq:active{border-color:var(--acc);color:var(--acc)}
+  #pv.pv3d~.pvsq{display:block}
   /* _svgWrap ships an inline max-width:44vw for the pattern view, and inline
      beats a plain rule - so the 3D was clamped to 165px inside a 342px pane.
      Take the whole box back. */
@@ -1095,7 +1103,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.53.3</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.54.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4320,7 +4328,11 @@ const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0},ptrs=new Map(),last=null,pinch=
       g.style.transform=`translate(${v.x}px,${v.y}px) scale(${v.s})`; }
     /* fitted view: one finger scrolls the PAGE, the +/- HUD is the touch
        route into zoom. Once zoomed, the viewport owns every gesture. */
-    if(box) box.style.touchAction = v.s>1.001 ? 'none' : 'pan-y';
+    /* DIS means the 3D orbit has the viewport - it owns every gesture, or a
+       vertical drag scrolls the page out from under the fitting. This is an
+       INLINE style, so it beats #pv.pv3d{touch-action:none} and has to be
+       cleared here rather than left to the stylesheet. */
+    if(box) box.style.touchAction = (DIS||v.s>1.001) ? 'none' : 'pan-y';
     const hud=document.getElementById('pvzoom'); if(hud) hud.textContent=Math.round(v.s*100)+'%';
     pvScale(); }
   /* fit = CONTAIN in the viewport box, centred. The canvas has a real height
@@ -6770,6 +6782,7 @@ function form(kind, presetParams){
       <div class="pvx h"></div><div class="pvx v"></div>
       <div id="pvscale" class="pvscale" style="display:none"><span class="bar"></span><span class="lab"></span></div>
       <div class="pvctl"><button id="pvIn" aria-label="Zoom in">+</button><button id="pvOut" aria-label="Zoom out">−</button><button id="pvFit" aria-label="Reset zoom to fit">⬚</button></div>
+      <button type="button" id="pvSq" class="pvsq" title="Square the view up">SQUARE ON</button>
     </div>
     <div class="pvlegend">
       <button type="button" class="lgc" aria-pressed="false" data-ly="cut"><i style="border-color:var(--ly-object)"></i>CUT</button>
@@ -7061,6 +7074,7 @@ function form(kind, presetParams){
     const vw3=T3B[kind]?(T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0,mode:'fit'})):null;
     const in3d=!!vw3&&vw3.mode!=='pat'&&activePc==null;
     pv.classList.toggle('pv3d',in3d); PVZoom.setDisabled(in3d);
+    if(in3d) pv.style.touchAction='none';   // before the next apply() gets a chance
     /* the CUT/FOLD/FLANGE/SWAGE/SEAM/HOLES legend describes PATTERN lines.
        In 3D there are none of those, and on a phone it was eating a third
        of the screen above the fold to say nothing. */
@@ -7098,6 +7112,18 @@ function form(kind, presetParams){
             +t3render(kind,eff(),Math.max(300,Math.min(560,pvEl.clientWidth-24)))+'</div>'; }
         label(); };
       const kick=()=>{ if(!fd._raf) fd._raf=requestAnimationFrame(()=>{fd._raf=0;rd();}); };
+      /* SQUARE ON: ease the orbit back to dead-ahead (az 0, el 0), which
+         projects the fitting as a straight elevation - the 3D squared up and
+         read as a flat drawing. Timer-driven like the unwrap, because rAF
+         stalls in a throttled pane. */
+      { const sq=document.getElementById('pvSq');
+        if(sq) sq.onclick=e=>{ e.stopPropagation();
+          const a0=vw.az, e0=vw.el, t0=performance.now(), D=380;
+          const ease=x=>1-Math.pow(1-x,3);
+          const step=()=>{ const q=Math.min(1,(performance.now()-t0)/D), k=ease(q);
+            vw.az=a0*(1-k); vw.el=e0*(1-k); rd();
+            if(q<1) setTimeout(step,16); };
+          step(); }; }
       let dg=false,lx=0,ly=0;
       if(pvEl){
         pvEl.onpointerdown=e=>{ if(!pvEl.classList.contains('pv3d'))return;
@@ -7303,7 +7329,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.53.3</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.54.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7339,7 +7365,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.53.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.54.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
