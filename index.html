@@ -1032,6 +1032,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     .seamwheel.onpv{position:absolute;left:8px;bottom:8px;width:108px;height:108px;z-index:4;
         background:color-mix(in srgb,var(--panel) 86%,transparent);border:1px solid var(--line);
         border-radius:10px;padding:3px;backdrop-filter:blur(2px)}
+    /* the centre hint does not survive being shrunk to a 108px corner -
+       it collides with the clock numbers and is unreadable either way */
+    .seamwheel.onpv .seamhint{display:none}
     .seamvis:empty{display:none}
   }
   @media(max-width:479px){
@@ -1085,7 +1088,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.53.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.53.1</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -6703,7 +6706,7 @@ function fieldHTML(f,s){
       const lx=80+72*Math.sin(phi), ly=80+72*Math.cos(phi);
       dots+=`<g data-dot="${n}" style="cursor:pointer"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="transparent"/><circle class="seamdot" data-dn="${n}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="${LY.faint}"/><text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" font-size="11.5" font-weight="700" fill="${LY.text}" text-anchor="middle">${n}</text></g>`; }
     const centre = f.noHand
-      ? `<text x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>`
+      ? `<text class="seamhint" x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>`
       : handCentre(hands, s.bendHand||'A', f.handLabel||'BEND');
     return `<div class="seamctl">
       <div class="seamvis"><svg data-seamsvg="1" viewBox="0 0 160 160" class="seamwheel"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/>${dots}${centre}</svg><div id="fitdiag"></div></div>
@@ -7293,7 +7296,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.53.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.53.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7329,7 +7332,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.53.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.53.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
