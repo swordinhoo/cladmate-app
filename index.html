@@ -740,25 +740,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .pvx{position:absolute;background:var(--ly-dim);opacity:.5;pointer-events:none;z-index:3;display:none}
   .pvx.h{left:0;right:0;height:1px}
   .pvx.v{top:0;bottom:0;width:1px}
-  /* SIZE CHIPS (Foreman): on a phone the fields card sits a full screen BELOW
-     the drawing, so every size change was scroll down, change, scroll back up
-     to see it. Mirror the fields as a tappable summary right under the
-     drawing - it reads as "here is what you have set", and a tap jumps to
-     that field. Desktop already shows the fields alongside, so it stays off. */
-  .szchips{display:none;gap:6px;flex-wrap:wrap;padding:8px 9px;background:var(--panel2);border-top:1px solid var(--line)}
-  .szchips button{display:inline-flex;align-items:baseline;gap:6px;background:var(--panel);
-      border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;
-      font-family:var(--fm);font-size:10.5px;font-weight:700;letter-spacing:.04em;
-      color:var(--sub);text-transform:uppercase;appearance:none}
-  .szchips button b{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:0;text-transform:none}
-  .szchips button:active{border-color:var(--acc)}
-  .szchips .szsec{color:var(--acc);opacity:.62;font-weight:800}
-  .szchips .szhint{align-self:center;font-family:var(--fm);font-size:10px;color:var(--sub);opacity:.75}
-  @media(max-width:879px){ .szchips{display:flex} }
-  /* 16px is the floor: below it iOS zooms the whole page on focus, and a long
-     option ("1.5D - long radius - 229 mm") was being clipped at 18px on a 375 */
-  @media(max-width:479px){ input,select{font-size:16px!important} }
-
   /* layer legend: tap a chip to freeze that layer */
   .pvlegend[hidden]{display:none}   /* author display:flex would beat the bare attribute */
   .pvlegend{display:flex;gap:6px;flex-wrap:wrap;padding:7px 9px;background:var(--panel2);
@@ -810,7 +791,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   /* 3D mode: the pane is the fitting - pattern furniture stands down */
   #pv.pv3d{cursor:grab;touch-action:none} #pv.pv3d:active{cursor:grabbing}
   #pv.pv3d~.pvctl,#pv.pv3d~.pvx,#pv.pv3d~#pvscale{display:none}
-  #pv3d svg{width:auto!important;max-width:96%;max-height:96%}
+  /* _svgWrap ships an inline max-width:44vw for the pattern view, and inline
+     beats a plain rule - so the 3D was clamped to 165px inside a 342px pane.
+     Take the whole box back. */
+  #pv3d{padding:2px}
+  #pv3d svg{width:auto!important;height:auto!important;max-width:100%!important;max-height:100%!important}
   #t3uwrap{display:flex;margin-top:6px}
   #t3uwrap button{flex:1;min-height:40px;font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:.09em;
     color:var(--acc);background:var(--acc-soft);border:1px solid var(--acc);border-radius:8px;padding:9px 10px;cursor:pointer}
@@ -921,6 +906,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      lose track of which row you are reading once you scroll to 5D. */
   .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .tscroll table{min-width:660px}
+  /* the 660 floor is there for the 8-column pipe chart. The mark-out table
+     has three columns and was inheriting it, so you had to drag the figures
+     sideways to read them - it fits the panel instead. */
+  .tscroll.fit table{min-width:0;width:100%}
+  .tscroll.fit td,.tscroll.fit th{padding-left:6px;padding-right:6px}
   .tscroll th:first-child,.tscroll td:first-child{position:sticky;left:0}
   .tscroll td:first-child{background:var(--card);z-index:2}
   .tscroll th:first-child{background:var(--brand-dk);z-index:3}
@@ -1028,7 +1018,31 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .workspace{display:flex;flex-direction:column;gap:12px}
   .pane-ctl,.pane-pv{min-width:0}
   .pane-pv{order:-1}
-  #pv{max-height:44vh}
+  /* PHONE LAYOUT (Craig, pre-launch tidy). The drawing owns a FIXED top third
+     and never resizes - see t3render, which frames on the model's bounding
+     radius so spinning the 3D cannot rescale it. Everything that was doubled
+     up with the inputs, or was reference rather than work, comes off the main
+     screen: the layer legend, and the size echo. */
+  @media(max-width:879px){
+    .pvlegend{display:none}
+    .pvwrap{height:33vh;min-height:190px}
+    #pv{max-height:none;height:100%;box-sizing:border-box}
+    /* the seam wheel rides IN the corner of the drawing, so you watch the seam
+       move on the fitting as you tap the clock instead of scrolling to find it */
+    .seamwheel.onpv{position:absolute;left:8px;bottom:8px;width:108px;height:108px;z-index:4;
+        background:color-mix(in srgb,var(--panel) 86%,transparent);border:1px solid var(--line);
+        border-radius:10px;padding:3px;backdrop-filter:blur(2px)}
+    .seamvis:empty{display:none}
+  }
+  @media(max-width:479px){
+    /* 16px is the iOS floor for INPUTS only - focus one below that and the
+       whole page zooms. A select opens the native picker and never zooms, so
+       it can go smaller, which is what stops the long centre-radius option
+       being clipped on a 375. */
+    input{font-size:16px!important}
+    select{font-size:14.5px!important}
+  }
+
   .printline{margin-top:8px;font-size:11px;line-height:1.4;color:#5c3d00;
       background:var(--note-bg);border:1px solid var(--note-line);border-radius:8px;padding:7px 10px}
   .printline b{font-family:var(--fd);font-stretch:87.5%;letter-spacing:.04em}
@@ -1071,7 +1085,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
   <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.52.0</span><span class="probadge" id="proBadge">FREE</span>
+  <span class="ver">v4.53.0</span><span class="probadge" id="proBadge">FREE</span>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -5805,7 +5819,22 @@ function t3render(kind,s,w){
   });
   quads.sort((a,b)=>a.d-b.d);
   const parts=quads.map(q=>q.s), all=[];
-  BV.forEach(P=>P.forEach(pr=>pr.forEach(row=>row.forEach(p=>all.push([p.x,p.y])))));
+  /* FIX THE FRAME. Fitting the projected bbox meant the drawing rescaled
+     every time you spun it - the silhouette of a bend is wider side-on
+     than end-on. Frame on the model bounding RADIUS instead: a radius is
+     rotation-invariant, so the fitting now turns inside a still window.
+     It still eases open through the unwrap, because that genuinely does
+     change the size of the metal. */
+  { let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
+    BP.forEach(P=>P.forEach(pr=>pr.forEach(row=>row.forEach(q=>{
+      if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1];
+      if(q[1]>y1)y1=q[1]; if(q[2]<z0)z0=q[2]; if(q[2]>z1)z1=q[2]; }))));
+    const cx=(x0+x1)/2, cy=(y0+y1)/2, cz=(z0+z1)/2;
+    let R=1;
+    BP.forEach(P=>P.forEach(pr=>pr.forEach(row=>row.forEach(q=>{
+      const d=Math.hypot(q[0]-cx,q[1]-cy,q[2]-cz); if(d>R) R=d; }))));
+    const c=proj([cx,cy,cz]); R*=1.02;
+    all.push([c.x-R,c.y-R],[c.x+R,c.y+R]); }
   // joint ink on every band edge, then the seam edges on top
   const path=pts=>'<polyline points="'+pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')+'" fill="none" ';
   BV.forEach((P,gi)=>{ const G=PIECES[gi], NN=G.rows3[0].length-1;
@@ -6629,10 +6658,20 @@ function markoutHTML(p){
      :`<td>${f(r.hi-r.lo)}</td>`;
     return `<tr><td>${r.n}</td><td>${f(r.from)}</td>${cells}</tr>`; }).join('');
   return `<div class="hint" style="text-align:left;margin:2px 0 8px">${p.title?`<b>${p.title.replace(/ +1:1$/,'')}</b> — `:''}scribe a straight datum line, step the divisions off along it, then square each figure up${mode==='centre'?' and down from the datum':''}${mode==='full'?' (figures are cut edge to cut edge on the division line)':''}. All mm. ${d.step?`<b>${d.rows.length} divisions at ${f(d.step)}</b> · girth ${f(d.span)}.`:`Girth ${f(d.span)}.`} Same geometry the printed template comes from.</div>
-  <div class="tscroll"><table><thead><tr><th>Div</th><th>Along datum</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  <div class="tscroll fit"><table><thead><tr><th>Div</th><th>Along datum</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 /* ================= fitting form ================= */
+let _wheelHook=0;
+function placeSeamWheel(){
+  const wheel=app.querySelector('[data-seamsvg]'); if(!wheel) return;
+  const phone=!matchMedia('(min-width:880px)').matches;
+  const pw=app.querySelector('.pvwrap'), vis=app.querySelector('.seamvis');
+  if(phone){ if(pw&&wheel.parentElement!==pw){ wheel.classList.add('onpv'); pw.appendChild(wheel); } }
+  else if(vis&&wheel.parentElement!==vis){ wheel.classList.remove('onpv'); vis.insertBefore(wheel,vis.firstChild); }
+  if(!_wheelHook){ _wheelHook=1; addEventListener('resize',()=>placeSeamWheel()); }
+}
+
 // the bend-type selector, drawn in the MIDDLE of the seam wheel (A|B, or 2x2 A/B/C/D)
 function handCentre(hands, cur, label){
   const ON='#2f7bd6';
@@ -6729,7 +6768,7 @@ function form(kind, presetParams){
       <button type="button" class="lgc" aria-pressed="false" data-ly="swage"><i style="border-color:var(--ly-swage);border-top-style:dashed"></i>SWAGE</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="ord"><i style="border-color:var(--ly-centre);border-top-style:dashed"></i>SEAM/ORD</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="hole"><i style="border-color:var(--ly-dim)"></i>HOLES</button></div>
-    <div class="stat" id="pvstat"></div><div class="szchips" id="szchips"></div><div id="kitwrap"></div><details class="fitnote" id="mkwrap" hidden><summary>📏 Mark out by hand — no printer</summary><div id="mkbody"></div></details></div>`;
+    <div class="stat" id="pvstat"></div><div id="kitwrap"></div></div>`;
   /* Controls own a fixed narrow column on the left; the drawing owns the rest
      of the window and STAYS PUT while you scroll (layout pass, 2 Aug 26 - the
      old full-width band pushed the first input 487px below the fold and gave a
@@ -6753,7 +6792,8 @@ function form(kind, presetParams){
   else html+=`<div class="genwrap"><div class="prob" id="probbox" hidden></div>
       <button class="btn primary" id="genBtn">Generate printable PDF</button>
       <div class="btnrow" style="grid-template-columns:1fr 1fr 1fr"><button class="btn ghost" id="shareBtn">Share</button><button class="btn ghost" id="dxfBtn" ${PRO?'':'disabled'}>DXF${PRO?'':' (Pro)'}</button><button class="btn ghost" id="jobBtn" ${PRO?'':'disabled'}>+ Job${PRO?'':' (Pro)'}</button></div>
-      <div class="printline"><b>PRINT AT 100% — ACTUAL SIZE.</b> Never "Fit to page" or "Shrink to fit". Tape the sheets on the red crosshairs, then measure the ${INCH_PAGE(SET.page)?'4&nbsp;inch':'100&nbsp;mm'} calibration bar before you mark any metal.</div></div>`;
+</div>`;
+  html+=`<details class="fitnote" id="mkwrap" hidden><summary>📏 Mark out by hand — no printer</summary><div id="mkbody"></div></details>`;
   if(fit.note) html+=`<details class="fitnote"><summary>How this fitting works</summary><div>${fit.note}</div></details>`;
   html+=`</div><div class="pane-pv${boxHero?'':' pv-stick'}">`;
   if(boxHero) html+=`<div class="card boxhero">
@@ -6763,6 +6803,12 @@ function form(kind, presetParams){
   else html+=previewCard;
   html+=`</div></div>`;
   app.innerHTML=html;
+  /* The seam wheel belongs ON the drawing (Craig): tap the clock and watch the
+     seam move on the fitting, instead of setting it blind in a card further
+     down. Phone only - desktop already has both in view at once. MOVED, not
+     copied, so its handlers and its state come with it; and re-checked on
+     resize so turning a tablet across the breakpoint puts it back. */
+  placeSeamWheel();
 
   /* --- the viewport instrument --- */
   PVZoom.attach(app.querySelector('#pv'));
@@ -6869,7 +6915,23 @@ function form(kind, presetParams){
       if(pb){ pb.animate?pb.animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:220}):0;
         pb.scrollIntoView({block:'nearest',behavior:'smooth'}); }
       return; }
+    /* The scale warning used to sit under the button as a permanent amber
+       block nobody reads twice. It is the one thing that scraps metal, so it
+       now lands as a popup at the moment it matters - on the way to the PDF. */
+    const cal=INCH_PAGE(SET.page)?'4 inch':'100 mm';
+    const bg=modal(`<h3 style="margin:0 0 10px">Print at 100% — actual size</h3>
+      <p style="margin:0 0 10px;line-height:1.5">Never <b>Fit to page</b> or <b>Shrink to fit</b>, or every figure on the sheet comes out short.</p>
+      <p style="margin:0 0 14px;line-height:1.5">Tape the sheets on the red crosshairs, then measure the <b>${cal}</b> calibration bar before you mark any metal.</p>
+      <div class="btnrow" style="grid-template-columns:1fr 1fr">
+        <button class="btn ghost" id="pwCancel">Back</button>
+        <button class="btn primary" id="pwGo">Got it — save the PDF</button></div>`);
+    bg.querySelector('#pwCancel').onclick=()=>bg.close();
+    bg.querySelector('#pwGo').onclick=()=>{ bg.close(); plotIt(); };
+  };
+  function plotIt(){
+    const gb=document.getElementById('genBtn'); if(!gb) return;
     gb.classList.add('plotting');
+
     setTimeout(()=>{ try{ const d=buildDoc(); d.out.doc.save(d.name); toast(d.msg); }
       catch(e){ setProblem(e.message||'That will not make a pattern.'); toast(e.message); }
       finally{ setTimeout(()=>gb.classList.remove('plotting'),350); } },80); };
@@ -7086,44 +7148,6 @@ function form(kind, presetParams){
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
       +(basic?'':`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.perSheet}/sheet</span>`);
-    /* mirror the fields as tappable size chips (phone only, CSS gates it).
-       Read them off the live controls rather than the field list, so a chip
-       can never disagree with what the form is showing. Section headings are
-       carried through but ONLY where they earn their place: on the Double
-       Bend the twister has an angle, segments and a radius TWICE, and a bare
-       "ANGLE 90" twice over is the exact confusion the dividers kill. A name
-       that already appears once needs no "joining them up" in front of it. */
-    const szc=document.getElementById('szchips');
-    if(szc){
-      const trim=v=>{ const a=String(v).split(' \u00b7 ')[0].trim(); return a.length>14?a.slice(0,13)+'\u2026':a; };
-      const shortLab=v=>String(v).split(/\s+[\u00b7\u2014]\s+/)[0].replace(/\s*\([^)]*\)\s*$/,'').trim();
-      const got=[]; let sec='';
-      document.querySelectorAll('.grid2 > .fld').forEach((fl,i)=>{
-        const hd=fl.querySelector('.fhd');
-        if(hd){ sec=shortLab(hd.childNodes[0]?.textContent||hd.textContent); return; }
-        const lab=fl.querySelector('label'); if(!lab) return;
-        const ctl=fl.querySelector('input[data-k],select[data-pipe],select[data-k],.seg');
-        if(!ctl) return;
-        let val='';
-        if(ctl.classList.contains('seg')){ const on=ctl.querySelector('button.on'); val=on?on.textContent:''; }
-        else if(ctl.tagName==='SELECT'){ const o=ctl.options[ctl.selectedIndex]; val=o?trim(o.textContent):''; }
-        else val=ctl.value;
-        if(val==='') return;
-        got.push({i, sec, name:shortLab(lab.textContent), val});
-      });
-      const seen={}; got.forEach(g=>seen[g.name.toLowerCase()]=(seen[g.name.toLowerCase()]||0)+1);
-      szc.innerHTML=got.length
-        ? got.map(g=>'<button type="button" data-fldi="'+g.i+'">'
-            +(g.sec&&seen[g.name.toLowerCase()]>1?'<span class="szsec">'+g.sec+'</span>':'')
-            +'<span>'+g.name+'</span><b>'+g.val+'</b></button>').join('')
-          +'<span class="szhint">tap to change</span>'
-        : '';
-      szc.querySelectorAll('[data-fldi]').forEach(b=>b.onclick=()=>{
-        const fl=document.querySelectorAll('.grid2 > .fld')[+b.dataset.fldi]; if(!fl) return;
-        fl.scrollIntoView({block:'center',behavior:'smooth'});
-        const c=fl.querySelector('input,select'); if(c) setTimeout(()=>c.focus(),260);
-      });
-    }
     renderKit();
   }
   function kitCaption(p){ const t=(p.title||'').replace(/\s*1:1\s*$/,'');
@@ -7269,7 +7293,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.52.0</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.53.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7305,7 +7329,7 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.52.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.53.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
