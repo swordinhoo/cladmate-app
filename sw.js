@@ -1,5 +1,8 @@
-const CACHE = 'turboclad-b723cc4a';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'turboclad-b0d2f276';
+/* three.min.js is in the install list on purpose: the whole promise is that the
+   app works with no signal, and a renderer that only turned up on the second
+   open would break that on the one day it mattered. 132KB gzipped. */
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './three.min.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
