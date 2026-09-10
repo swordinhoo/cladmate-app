@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.64.2</span>
+  <span class="ver">v4.64.3</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4571,7 +4571,7 @@ const F={
   note:'Two patterns make the bend: the STARTER / FINISHER gore (half height, flat edge butts the straight pipe, cut 2 off) and the MIDDLE gore (wavy both edges, cut N-1). Show all kit pieces to see both, or Generate to print the set. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position'}],
   build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
@@ -7538,16 +7538,6 @@ function placeSeamWheel(){
   if(!_wheelHook){ _wheelHook=1; addEventListener('resize',()=>placeSeamWheel()); }
 }
 
-// the bend-type selector, drawn in the MIDDLE of the seam wheel (A|B, or 2x2 A/B/C/D)
-function handCentre(hands, cur, label){
-  const ON='#2f7bd6';
-  const cell=(h,x,y,w,ht)=>`<g data-h="${h}" class="handbtn" style="cursor:pointer"><rect x="${x}" y="${y}" width="${w}" height="${ht}" fill="${cur===h?ON:'transparent'}"/><text x="${(x+w/2).toFixed(1)}" y="${(y+ht/2+4.5).toFixed(1)}" font-size="14" font-weight="800" fill="${cur===h?'#fff':LY.text}" text-anchor="middle" font-family="var(--fd)">${h}</text></g>`;
-  const cap=(x0,y0,W)=>`<text x="80" y="${(y0-4).toFixed(1)}" font-size="6.5" font-weight="700" letter-spacing="1" fill="${LY.faint}" text-anchor="middle" font-family="var(--fm)">${(label||'BEND').toUpperCase()}</text>`;
-  if(hands.length<=2){ const x0=55,y0=69,W=50,H=23;
-    return `<g class="handsel">${cap(x0,y0,W)}<rect x="${x0}" y="${y0}" width="${W}" height="${H}" rx="5" fill="${LY.canvas}" stroke="${LY.faint}" stroke-width="1.5"/>${cell(hands[0],x0,y0,W/2,H)}${cell(hands[1],x0+W/2,y0,W/2,H)}<line x1="${x0+W/2}" y1="${y0}" x2="${x0+W/2}" y2="${y0+H}" stroke="${LY.faint}" stroke-width="1.2"/></g>`; }
-  const x0=54,y0=60,W=52,H=40, cw=W/2, ch=H/2;
-  return `<g class="handsel">${cap(x0,y0,W)}<rect x="${x0}" y="${y0}" width="${W}" height="${H}" rx="5" fill="${LY.canvas}" stroke="${LY.faint}" stroke-width="1.5"/>${cell(hands[0],x0,y0,cw,ch)}${cell(hands[1],x0+cw,y0,cw,ch)}${cell(hands[2],x0,y0+ch,cw,ch)}${cell(hands[3],x0+cw,y0+ch,cw,ch)}<line x1="${x0+cw}" y1="${y0}" x2="${x0+cw}" y2="${y0+H}" stroke="${LY.faint}" stroke-width="1.2"/><line x1="${x0}" y1="${y0+ch}" x2="${x0+W}" y2="${y0+ch}" stroke="${LY.faint}" stroke-width="1.2"/></g>`;
-}
 function fieldHTML(f,s){
   if(f.type==='hd') return `<div class="fhd">${f.label}${f.sub?`<span class="n">${f.sub}</span>`:''}</div>`;
   if(f.type==='num'){ const inp=`<input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
@@ -7562,15 +7552,14 @@ function fieldHTML(f,s){
   if(f.type==='seg') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
-    const hands = ['A','B'];   // C/D retired: flip the seam on A/B instead (site note, 26 Jul)
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
       const x=80+55*Math.sin(phi), y=80+55*Math.cos(phi);
       const lx=80+72*Math.sin(phi), ly=80+72*Math.cos(phi);
       dots+=`<g data-dot="${n}" style="cursor:pointer"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="transparent"/><circle class="seamdot" data-dn="${n}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="${LY.faint}"/><text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" font-size="11.5" font-weight="700" fill="${LY.text}" text-anchor="middle">${n}</text></g>`; }
-    const centre = f.noHand
-      ? `<text class="seamhint" x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>`
-      : handCentre(hands, s.bendHand||'A', f.handLabel||'BEND');
+    /* A|B retired from the middle of the wheel (Craig, 11 Sep): the live 3D shows
+       where the red seam lands, so the twelve points say it on their own. */
+    const centre = `<text class="seamhint" x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>`;
     return `<div class="seamctl">
       <div class="seamvis"><svg data-seamsvg="1" viewBox="0 0 160 160" class="seamwheel"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/>${dots}${centre}</svg><div id="fitdiag"></div></div>
     </div>`; }
@@ -7603,6 +7592,15 @@ function form(kind, presetParams){
   // C/D retired from the UI - same bend, seam mirrored. Old saves normalise.
   if(s.bendHand==='C') s.bendHand='B'; else if(s.bendHand==='D') s.bendHand='A';
   if(s.bendHand2==='C') s.bendHand2='B'; else if(s.bendHand2==='D') s.bendHand2='A';
+  /* A|B retired from the seam wheel too (Craig, 11 Sep). On the lobster and
+     the elbow the engine cut a B at the seam MIRRORED (360 - seam), so an old B
+     job reopens as A with the seam at the mirrored point and prints exactly the
+     same metal. The flat-sided bends never read the hand at all - B only ever
+     changed their picture - so there it simply becomes A. The double bend keeps
+     both its hands: there they decide same-way against S-bend. */
+  if(s.bendHand==='B'&&(kind==='lobster'||kind==='elbow')){
+    s.seamFromThroat=(360-(+s.seamFromThroat||0))%360; s.bendHand='A'; }
+  else if(s.bendHand==='B'&&(kind==='flatlobster'||kind==='flatelbow')) s.bendHand='A';
   // per-fitting old-save normalise (valve end: overall boxD -> straight boxRun)
   if(fit.migrate) fit.migrate(s);
   const touch=()=>{ s.__touched=true; };
@@ -7748,20 +7746,6 @@ function form(kind, presetParams){
 
   { const svg=app.querySelector('[data-seamsvg]');
     if(svg){
-      // bend-type selector lives in the middle of the wheel now
-      svg.querySelectorAll('.handbtn').forEach(g=>g.onclick=()=>{ touch(); s.bendHand=g.dataset.h;
-        svg.querySelectorAll('.handbtn').forEach(x=>{ const on=x.dataset.h===s.bendHand;
-          x.querySelector('rect').setAttribute('fill',on?'#2f7bd6':'transparent');
-          x.querySelector('text').setAttribute('fill',on?'#fff':LY.text); });
-        /* A and B are mirror-class bends - B is the same fitting turned over.
-           So each hand SNAPS TO ITS OWN FLAT ELEVATION (Craig): A square-on
-           from one side, B square-on from the other, facing the opposite way.
-           az 0 looks from +y, az 180 from -y, both at el 0, and sq fits it
-           tight the same as the SQUARE ON button. */
-        { const vw3=T3VIEW[kind];
-          if(vw3){ const mir=(s.bendHand==='B'||s.bendHand==='C');
-            vw3.az=mir?Math.PI:0; vw3.el=0; vw3.sq=1; } }
-        refresh(); });
       const upd=()=>{ const v=s.seamFromThroat; const n=Math.round(v/30)+1; const exact=Math.abs(v-(n-1)*30)<0.01&&n>=1&&n<=12;
         svg.querySelectorAll('.seamdot').forEach(d=>{ d.setAttribute('fill', (exact&&+d.dataset.dn===n)?LY.centre:LY.faint); d.setAttribute('r',(exact&&+d.dataset.dn===n)?'11':'9'); }); };
       svg.querySelectorAll('[data-dot]').forEach(g=>g.onclick=()=>{ touch(); s.seamFromThroat=(+g.dataset.dot-1)*30; refresh(); upd();
@@ -8193,7 +8177,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.2</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.3</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8230,7 +8214,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.64.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.64.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
