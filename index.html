@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.64.1</span>
+  <span class="ver">v4.64.2</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4559,7 +4559,7 @@ const F={
   stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)'),num('segments','Segments'),FAST],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)',0.1),num('segments','Segments'),FAST],
   build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage}),
   /* A lobster bend is TWO patterns, not one: the half-height starter/finisher
      that butts the straight pipe (cut 2) and the wavy middle gore (cut N-1).
@@ -4571,20 +4571,20 @@ const F={
   note:'Two patterns make the bend: the STARTER / FINISHER gore (half height, flat edge butts the straight pipe, cut 2 off) and the MIDDLE gore (wavy both edges, cut N-1). Show all kit pieces to see both, or Generate to print the set. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)'),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
   build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
  flatelbow:{name:'Flat-sided Elbow',sub:'D-section · 2-piece',icon:I.elbow,free:true,
   defaults:{pipeOD:168.3,insulation:25,recessDepth:40,recessAt:'back',bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),num('bendDeg','Bend angle (°)'),num('minLen','Min piece length (mm)'),FAST],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),FAST],
   build:s=>FP.flatElbow({...s,pieces:2,swage:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Recess '+c.recessDepth.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   note:'A round elbow with one face pressed flat (recess on the back). Generate prints the full 1:1 D-section wrap - the round part keeps the mitre wave, the flat develops to a straight-topped panel between the two dashed crease folds. Roll the seam edges onto the round part. CUT 2 OFF.'},
  flatlobster:{name:'Flat-sided Bend',sub:'D-section · segmented',icon:I.lob,
   defaults:{pipeOD:168.3,insulation:25,recessDepth:40,recessAt:'back',centreRadius:229,bendDeg:90,segments:4,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)'),num('segments','Segments'),FAST],
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)',0.1),num('segments','Segments'),FAST],
   build:s=>FP.flatLobster({...s,gore:'mid',jointAllow:SET.swage}),
   kit:s=>FP.flatLobsterKit({...s,jointAllow:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
@@ -4594,9 +4594,9 @@ const F={
   defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
     hd('Bend 1','fitted first — everything measures off this one'),
-    num('bendDeg1','Angle (°)'),num('segments1','Segments'),{type:'crad',k:'centreRadius1',label:'Centre radius'},
+    num('bendDeg1','Angle (°)',0.1),num('segments1','Segments'),{type:'crad',k:'centreRadius1',label:'Centre radius'},
     hd('Bend 2','the far end — the twist rolls this one'),
-    num('bendDeg2','Angle (°)'),num('segments2','Segments'),{type:'crad',k:'centreRadius2',label:'Centre radius'},
+    num('bendDeg2','Angle (°)',0.1),num('segments2','Segments'),{type:'crad',k:'centreRadius2',label:'Centre radius'},
     hd('Joining them up'),
     num('midLen','Weld to weld (mm)'),
     /* these four say how the fitting SITS rather than what size it is, so
@@ -8193,7 +8193,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.1</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8230,7 +8230,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.64.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.64.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
