@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.63.1</span>
+  <span class="ver">v4.64.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -6341,6 +6341,365 @@ function t3render(kind,s,w){
   return _svgWrap(parts,all,w||205, SOLID3D && un<0.25);
 }
 
+
+/* ================= t3gl - the installed app's real renderer ==============
+   Craig, 10 Sep 26: "the app needs to be the absolute best version it possibly
+   can be". The website's WebGL machine looked better than the app, and the
+   reason was never the maths - it was that metal looks like metal when it
+   reflects a room, and flat SVG polygons cannot reflect anything.
+
+   So the PWA gets a proper renderer. dist/TurboClad.html is untouched and
+   still ships the SVG one, because that build has to stay ONE offline file.
+   The PWA is a directory behind a service worker, so three.js sits beside it
+   and is cached in the install list: no CDN, and no signal needed after the
+   first open. window.CM_GL is the only switch.
+
+   THE GEOMETRY IS NOT DUPLICATED. This walks the very same t3 builders the
+   SVG renderer walks - same rows3, same bands, same nojoint/noseam/fade/ink -
+   so the two renderers cannot disagree about what a fitting is. That was the
+   mistake in the website's separate copy of the maths and it is not repeated
+   here. Everything below is presentation only.
+
+   Orthographic on purpose: the SVG renderer is orthographic, a fitter reads
+   elevations not perspective, and SQUARE ON has to actually square up. */
+const T3GL = {
+  T: null, loading: null, dead: false, ctx: null,
+
+  can(){ return !!window.CM_GL && !this.dead; },
+
+  /* one dynamic import, ever. If it fails - old browser, blocked module,
+     no WebGL - we go dead and every call site falls back to the SVG. */
+  load(){
+    if (this.T) return Promise.resolve(this.T);
+    if (this.loading) return this.loading;
+    this.loading = import(window.CM_GL)
+      .then(m => { this.T = m; return m; })
+      .catch(() => { this.dead = true; return null; });
+    return this.loading;
+  },
+
+  /* The environment. A workshop is a bright ceiling, a mid wall and a dark
+     floor, and that vertical ramp is all a rolled surface needs to read as
+     metal. Generated from a canvas rather than shipping an HDR: smaller, one
+     less thing to cache, and it matches the app's own dark ground. */
+  envTex(T, renderer){
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 128);
+    g.addColorStop(0.00, '#cfe0ef');   // ceiling
+    g.addColorStop(0.42, '#8fa3b5');   // upper wall
+    g.addColorStop(0.52, '#ffffff');   // the strip light, and the horizon flare
+    g.addColorStop(0.62, '#5d6b78');   // lower wall
+    g.addColorStop(1.00, '#14181d');   // floor
+    x.fillStyle = g; x.fillRect(0, 0, 256, 128);
+    const tex = new T.CanvasTexture(c);
+    tex.mapping = T.EquirectangularReflectionMapping;
+    const pm = new T.PMREMGenerator(renderer);
+    const env = pm.fromEquirectangular(tex).texture;
+    pm.dispose(); tex.dispose();
+    return env;
+  },
+
+  init(T, host){
+    let r;
+    try { r = new T.WebGLRenderer({ antialias: true, alpha: true }); }
+    catch (e) { this.dead = true; return null; }
+    r.setPixelRatio(Math.min(devicePixelRatio, 2));
+    r.toneMapping = T.ACESFilmicToneMapping;
+    r.outputColorSpace = T.SRGBColorSpace;
+    const cv = r.domElement;
+    Object.assign(cv.style, { width: '100%', height: '100%', display: 'block', touchAction: 'none' });
+
+    const scene = new T.Scene();
+    scene.environment = this.envTex(T, r);
+    const cam = new T.OrthographicCamera(-1, 1, 1, -1, -500, 500);
+    const key = new T.DirectionalLight('#ffffff', 1.25); key.position.set(3, 6, 4); scene.add(key);
+    scene.add(new T.AmbientLight('#5a6b7d', 0.55));
+    const group = new T.Group(); scene.add(group);
+
+    const ctx = { r, cv, scene, cam, group, host, built: null, parts: [] };
+    host.appendChild(cv);
+    this.ctx = ctx;
+    return ctx;
+  },
+
+  clear(ctx){
+    ctx.parts.forEach(o => {
+      ctx.group.remove(o);
+      o.geometry && o.geometry.dispose();
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+    });
+    ctx.parts = [];
+  },
+
+  /* Build the meshes for one fitting. Called when the fitting or its sizes
+     change; spinning and unwrapping only move what is already here. */
+  build(T, ctx, kind, s){
+    this.clear(ctx);
+    const geo = T3B[kind](s);
+    const PIECES = geo.parts || [geo];
+
+    /* the flat's own centre, so the development lands centred - identical to
+       the SVG renderer's fcx/fcy */
+    let bx0 = 1e9, bx1 = -1e9, by0 = 1e9, by1 = -1e9;
+    PIECES.forEach(G => { if (G.fade) return;
+      G.bands.forEach(b => b.forEach(row => row.forEach(q => {
+        if (q[0] < bx0) bx0 = q[0]; if (q[0] > bx1) bx1 = q[0];
+        if (q[1] < by0) by0 = q[1]; if (q[1] > by1) by1 = q[1]; }))); });
+    const fcx = (bx0 + bx1) / 2, fcy = (by0 + by1) / 2;
+
+    /* one scale for the whole thing, off the 3D extent, so a fitting does not
+       appear to change size when it peels */
+    let m = 1;
+    PIECES.forEach(G => G.rows3.forEach(row => row.forEach(q => {
+      m = Math.max(m, Math.abs(q[0]), Math.abs(q[1]), Math.abs(q[2])); })));
+    PIECES.forEach(G => { if (G.fade) return; G.bands.forEach(b => b.forEach(row => row.forEach(q => {
+      m = Math.max(m, Math.abs(q[0] - fcx), Math.abs(q[1] - fcy)); }))); });
+    const K = 1 / m;
+
+    const store = { pieces: [], K, kind, s };
+
+    PIECES.forEach(G => {
+      const NN = G.rows3[0].length - 1, nb = G.bands.length;
+      const p3 = [], pF = [], idx = [];
+      let base = 0;
+      /* THE DEVELOPMENT LIES IN XZ, y = 0. The world is z-up, so a plane
+         spanning X and Z is a vertical board - which is what an elevation is,
+         and it is what the SVG renderer lands on: at az 0 el 0 the eye looks
+         along -Y and the flat is dead face-on. Putting it in XY looks right
+         until you peel one and get an edge-on line. */
+      for (let j = 0; j < nb; j++) {
+        const [FA, FB] = G.bands[j], R0 = G.rows3[j], R1 = G.rows3[j + 1];
+        // per-band vertices: the joints stay crisp instead of smearing across
+        for (let i = 0; i <= NN; i++) {
+          p3.push(R0[i][0] * K, R0[i][1] * K, R0[i][2] * K);
+          pF.push((FA[i][0] - fcx) * K, 0, (FA[i][1] - fcy) * K);
+        }
+        for (let i = 0; i <= NN; i++) {
+          p3.push(R1[i][0] * K, R1[i][1] * K, R1[i][2] * K);
+          pF.push((FB[i][0] - fcx) * K, 0, (FB[i][1] - fcy) * K);
+        }
+        for (let i = 0; i < NN; i++) {
+          const a = base + i, b = a + 1, c = base + NN + 1 + i, d = c + 1;
+          idx.push(a, c, b, b, c, d);
+        }
+        base += 2 * (NN + 1);
+      }
+      const bg = new T.BufferGeometry();
+      bg.setAttribute('position', new T.Float32BufferAttribute(p3.slice(), 3));
+      bg.setIndex(idx);
+      bg.computeVertexNormals();
+      const mat = new T.MeshStandardMaterial({
+        color: G.fade ? '#6c7885' : '#c9d3db',
+        metalness: G.fade ? 0.2 : 0.88,
+        roughness: G.fade ? 0.8 : 0.33,
+        side: T.DoubleSide,
+        transparent: !!G.fade, opacity: 1,
+      });
+      const mesh = new T.Mesh(bg, mat);
+      ctx.group.add(mesh); ctx.parts.push(mesh);
+      store.pieces.push({ G, mesh, p3, pF, NN, nb });
+    });
+
+    ctx.built = store;
+    return store;
+  },
+
+  /* Lines are rebuilt each frame the shape moves: they are a few hundred
+     vertices against tens of thousands of triangles, and keeping them in step
+     with the morph matters more than the handful of microseconds. */
+  lines(T, ctx, un){
+    (ctx.lineObjs || []).forEach(o => { ctx.group.remove(o); o.geometry.dispose(); o.material.dispose(); });
+    ctx.lineObjs = [];
+    const st = ctx.built; if (!st) return;
+    const K = st.K, fadeAt = Math.max(0, 1 - un * 1.7);
+
+    const add = (verts, colour, opacity, noDepth) => {
+      if (verts.length < 6) return;
+      const g = new T.BufferGeometry();
+      g.setAttribute('position', new T.Float32BufferAttribute(verts, 3));
+      const mm = new T.LineBasicMaterial({ color: colour, transparent: true, opacity });
+      if (noDepth) { mm.depthTest = false; }
+      const o = new T.LineSegments(g, mm);
+      if (noDepth) o.renderOrder = 3;
+      ctx.group.add(o); ctx.lineObjs.push(o);
+    };
+
+    const joints = [], seam = [], swage = [], ink = [];
+    st.pieces.forEach(({ G, p3, pF, NN, nb }) => {
+      const at = i => {
+        const k = i * 3;
+        if (G.fade) return [p3[k] * fadeAt, p3[k + 1] * fadeAt, p3[k + 2] * fadeAt];
+        return [p3[k] + (pF[k] - p3[k]) * un,
+                p3[k + 1] + (pF[k + 1] - p3[k + 1]) * un,
+                p3[k + 2] + (pF[k + 2] - p3[k + 2]) * un];
+      };
+      const vert = (j, side, i) => at(j * 2 * (NN + 1) + side * (NN + 1) + i);
+      const push = (arr, a, b) => { arr.push(a[0], a[1], a[2], b[0], b[1], b[2]); };
+
+      if (G.fade) {
+        if (fadeAt > 0.01) for (const [j, side] of [[0, 0], [nb - 1, 1]])
+          for (let i = 0; i < NN; i++) push(joints, vert(j, side, i), vert(j, side, i + 1));
+        return;
+      }
+
+      // joint ink: where one piece of metal ends and the next begins
+      for (let j = 0; j < nb; j++) for (const side of [0, 1]) {
+        if (G.nojoint && G.nojoint[j + side]) continue;
+        for (let i = 0; i < NN; i++) push(joints, vert(j, side, i), vert(j, side, i + 1));
+      }
+
+      // the seam, up facet 0 - and facet NN too once it has opened out
+      if (!G.noseam) {
+        const edges = un > 0.02 ? [0, NN] : [0];
+        for (const e of edges) for (let j = 0; j < nb; j++) push(seam, vert(j, 0, e), vert(j, 1, e));
+      }
+
+      // the swage on every segment of a bend, on the piece the next one laps
+      // over - the same watershed rule the SVG renderer follows
+      if (SWAGEKIND[st.kind] && (+SET.swage || 0) > 0 && un < 0.9) {
+        const RZ = r => { const row = G.rows3[r]; let z = 0; for (const q of row) z += q[2]; return z / (row.length || 1); };
+        let s0 = 1e9, s1 = -1e9;
+        G.rows3.forEach(row => row.forEach(q => { for (let c = 0; c < 3; c++) { if (q[c] < s0) s0 = q[c]; if (q[c] > s1) s1 = q[c]; } }));
+        const off = Math.max(+SET.swage || 0, (s1 - s0) * 0.014) * K, tz = (s1 - s0) * 1e-3;
+        const ring = r => (r < nb ? [r, 0] : [nb - 1, 1]);
+        for (let r = 0; r <= nb; r++) {
+          if (G.nojoint && G.nojoint[r]) continue;
+          const nbr = r === 0 ? 1 : r === nb ? nb - 1 : (RZ(r + 1) < RZ(r - 1) - tz ? r + 1 : r - 1);
+          const [aj, as_] = ring(r), [bj, bs] = ring(nbr);
+          const bead = i => {
+            const A = vert(aj, as_, i), B = vert(bj, bs, i);
+            const d = Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]) || 1;
+            const u = Math.min(0.45, off / d);
+            return [A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u, A[2] + (B[2] - A[2]) * u];
+          };
+          for (let i = 0; i < NN; i++) push(swage, bead(i), bead(i + 1));
+        }
+      }
+
+      // ink scribed on the metal: the saddle you mark before you cut
+      if (G.ink) {
+        let prev = null;
+        G.ink.forEach(q => {
+          const i0 = Math.max(0, Math.min(NN - 1, Math.floor(q.u))), f = q.u - i0;
+          const A0 = vert(q.b, 0, i0), A1 = vert(q.b, 0, i0 + 1);
+          const B0 = vert(q.b, 1, i0), B1 = vert(q.b, 1, i0 + 1);
+          const p = [0, 1, 2].map(c =>
+            (A0[c] + (A1[c] - A0[c]) * f) * (1 - q.v) + (B0[c] + (B1[c] - B0[c]) * f) * q.v);
+          if (prev) push(ink, prev, p);
+          prev = p;
+        });
+      }
+    });
+
+    add(joints, LY.object, 0.85);
+    add(swage, '#eef4f9', 0.55);
+    add(ink, LY.object, 0.95);
+    add(seam, LY.centre, 1);
+    /* the seam where it runs round the back: depth-tested away by the metal,
+       so a ghost of it is drawn over the top. Same thing the SVG renderer says
+       with a dashed line - you can always tell which way round you are. */
+    add(seam, LY.centre, 0.22, true);
+  },
+
+  /* Move what is already built: the peel, the spin and the frame. */
+  pose(T, ctx, vw, w, h){
+    const st = ctx.built; if (!st) return;
+    const un = vw.un || 0, fadeAt = Math.max(0, 1 - un * 1.7);
+
+    st.pieces.forEach(({ G, mesh, p3, pF }) => {
+      const a = mesh.geometry.getAttribute('position'), arr = a.array;
+      if (G.fade) { for (let i = 0; i < arr.length; i++) arr[i] = p3[i] * fadeAt;
+        mesh.material.opacity = Math.max(0, fadeAt); mesh.visible = fadeAt > 0.01; }
+      else for (let i = 0; i < arr.length; i++) arr[i] = p3[i] + (pF[i] - p3[i]) * un;
+      a.needsUpdate = true;
+      mesh.geometry.computeVertexNormals();
+    });
+
+    this.lines(T, ctx, un);
+
+    /* As the unwrap approaches flat the view eases to face-on whatever the
+       user had spun to - an edge-on sheet is a line, and a line is not a
+       pattern. Exactly what the SVG renderer does. */
+    /* THE APP'S WORLD IS Z-UP. three.js defaults to Y-up, and taking that on
+       trust laid the fitting on its side. This is the SVG renderer's own
+       projection read back as a camera: it rotates about Z by az, then tilts
+       by el, so the view direction is (sin az cos el, cos az cos el, sin el)
+       and world +Z is up the screen. Both renderers now frame identically,
+       which is the point - they are two views of one truth, not two guesses.
+
+       Both angles ease to zero as it peels, exactly as the SVG does: at az 0
+       el 0 the eye looks along -Y with Z up, and the development - which lies
+       in XY - is dead face-on. An edge-on sheet is a line, and a line is not
+       a pattern. */
+    const az = (vw.az || 0) * (1 - un);
+    // hard against the pole the up vector and the view line up and the matrix
+    // degenerates, so stop just short of it
+    const el = Math.max(-1.5533, Math.min(1.5533, (vw.el || 0) * (1 - un)));
+    const d = 40, ce = Math.cos(el), se = Math.sin(el);
+    ctx.cam.position.set(d * Math.sin(az) * ce, d * Math.cos(az) * ce, d * se);
+    ctx.cam.up.set(0, 0, 1);
+    ctx.cam.lookAt(0, 0, 0);
+
+    /* FIX THE FRAME on the model's bounding radius, not its silhouette: a
+       radius cannot change when you spin, so the fitting turns inside a still
+       window instead of breathing in and out. */
+    let R = 0.001;
+    st.pieces.forEach(({ G, mesh }) => { if (G.fade && fadeAt <= 0.01) return;
+      const arr = mesh.geometry.getAttribute('position').array;
+      for (let i = 0; i < arr.length; i += 3)
+        R = Math.max(R, Math.hypot(arr[i], arr[i + 1], arr[i + 2])); });
+    R *= 1.06;
+    const asp = (w || 1) / (h || 1);
+    const hx = asp >= 1 ? R * asp : R, hy = asp >= 1 ? R : R / asp;
+    ctx.cam.left = -hx; ctx.cam.right = hx; ctx.cam.top = hy; ctx.cam.bottom = -hy;
+    ctx.cam.updateProjectionMatrix();
+  },
+
+  /* The one entry point. Returns true if it drew, false to use the SVG. */
+  draw(pv, kind, s, w){
+    if (!this.can() || !T3B[kind]) return false;
+    const T = this.T;
+    if (!T) {
+      /* three is not here yet. Remember what was asked for and re-issue it
+         when the module lands - refresh() belongs to form() and this module
+         is top level, so it cannot reach for it. */
+      this.pending = { pv, kind, s, w };
+      this.load().then(m => {
+        const p = this.pending; this.pending = null;
+        if (m && p && document.body.contains(p.pv)) this.draw(p.pv, p.kind, p.s, p.w);
+      });
+      return false;
+    }
+
+    let host = pv.querySelector('#pv3d');
+    if (!host || !this.ctx || this.ctx.host !== host) {
+      pv.innerHTML = '<div id="pv3d" style="width:100%;height:100%"></div>';
+      host = pv.querySelector('#pv3d');
+      if (this.ctx) { this.clear(this.ctx); this.ctx.r.dispose(); this.ctx = null; }
+      if (!this.init(T, host)) return false;
+    }
+    const ctx = this.ctx;
+    const vw = T3VIEW[kind] || (T3VIEW[kind] = { az: 0.85, el: 0.32, un: 0, mode: 'fit' });
+
+    const sig = kind + '|' + JSON.stringify(s) + '|' + SET.swage;
+    if (ctx.sig !== sig) { this.build(T, ctx, kind, s); ctx.sig = sig; }
+
+    const ww = Math.max(1, host.clientWidth || w || 300), hh = Math.max(1, host.clientHeight || ww);
+    ctx.r.setSize(ww, hh, false);
+    this.pose(T, ctx, vw, ww, hh);
+    ctx.r.render(ctx.scene, ctx.cam);
+    return true;
+  },
+};
+
+/* Draw the big preview: the real renderer where it is available, the SVG one
+   everywhere else. Every caller goes through here so there is one decision. */
+function t3mount(pv, kind, s, w){
+  if (T3GL.draw(pv, kind, s, w)) return;
+  pv.innerHTML = '<div id="pv3d" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">'
+    + t3render(kind, s, w) + '</div>';
+}
+
 // split angles round the barrel (degrees clockwise from the TOP), matching
 // engine _boxSplits: 2 = sides, 3 = half + two quarters (3/6/9 o'clock),
 // 4 = four quarters. frontback preset puts a 2-split on top/bottom instead.
@@ -7538,7 +7897,7 @@ function form(kind, presetParams){
        In 3D there are none of those, and on a phone it was eating a third
        of the screen above the fold to say nothing. */
     { const lg=document.querySelector('.pvlegend'); if(lg) lg.hidden=in3d; }
-    if(in3d) pv.innerHTML='<div id="pv3d" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">'+t3render(kind,eff(),Math.max(300,Math.min(560,pv.clientWidth-24)))+'</div>';
+    if(in3d) t3mount(pv,kind,eff(),Math.max(300,Math.min(560,pv.clientWidth-24)));
     else pv.innerHTML=FP.svgPreview(shown,600);
     { const mkw=document.getElementById('mkwrap'), mkb=document.getElementById('mkbody');
       if(mkw&&mkb){ let mk=null; try{ mk=markoutHTML(shown); }catch(e){}
@@ -7567,8 +7926,7 @@ function form(kind, presetParams){
       const label=()=>{ const b=document.getElementById('t3uw'); if(!b) return;
         b.textContent=vw.mode==='pat'?'\u25C2 BACK TO THE FITTING \u00B7 3D':'UNWRAP THE PATTERN \u25B8'; };
       const rd=()=>{ if(vw.mode!=='pat'&&activePc==null&&pvEl){
-          pvEl.innerHTML='<div id="pv3d" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">'
-            +t3render(kind,eff(),Math.max(300,Math.min(560,pvEl.clientWidth-24)))+'</div>'; }
+          t3mount(pvEl,kind,eff(),Math.max(300,Math.min(560,pvEl.clientWidth-24))); }
         label(); };
       const kick=()=>{ if(!fd._raf) fd._raf=requestAnimationFrame(()=>{fd._raf=0;rd();}); };
       /* SQUARE ON: ease the orbit back to dead-ahead (az 0, el 0), which
@@ -7797,7 +8155,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.63.1</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7834,7 +8192,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.63.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.64.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
