@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.64.0</span>
+  <span class="ver">v4.64.1</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -6385,11 +6385,17 @@ const T3GL = {
   envTex(T, renderer){
     const c = document.createElement('canvas'); c.width = 256; c.height = 128;
     const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 128);
-    g.addColorStop(0.00, '#cfe0ef');   // ceiling
-    g.addColorStop(0.42, '#8fa3b5');   // upper wall
-    g.addColorStop(0.52, '#ffffff');   // the strip light, and the horizon flare
-    g.addColorStop(0.62, '#5d6b78');   // lower wall
-    g.addColorStop(1.00, '#14181d');   // floor
+    /* Craig, 11 Sep: "maybe a little darker". The first workshop was a wide
+       white band over a pale room, and from most angles it blew the surface
+       out. It is the DIFFERENCE between strip light and floor that makes a
+       rolled surface read, so the light stays bright and narrow and
+       everything else comes down. */
+    g.addColorStop(0.00, '#9fb3c6');   // ceiling
+    g.addColorStop(0.46, '#56687b');   // upper wall
+    g.addColorStop(0.505, '#f2f6fa');  // the strip light - narrow, or it blows out
+    g.addColorStop(0.545, '#f2f6fa');
+    g.addColorStop(0.60, '#333d48');   // lower wall
+    g.addColorStop(1.00, '#080b0e');   // floor
     x.fillStyle = g; x.fillRect(0, 0, 256, 128);
     const tex = new T.CanvasTexture(c);
     tex.mapping = T.EquirectangularReflectionMapping;
@@ -6405,6 +6411,7 @@ const T3GL = {
     catch (e) { this.dead = true; return null; }
     r.setPixelRatio(Math.min(devicePixelRatio, 2));
     r.toneMapping = T.ACESFilmicToneMapping;
+    r.toneMappingExposure = 0.85;
     r.outputColorSpace = T.SRGBColorSpace;
     const cv = r.domElement;
     Object.assign(cv.style, { width: '100%', height: '100%', display: 'block', touchAction: 'none' });
@@ -6489,7 +6496,7 @@ const T3GL = {
       bg.setIndex(idx);
       bg.computeVertexNormals();
       const mat = new T.MeshStandardMaterial({
-        color: G.fade ? '#6c7885' : '#c9d3db',
+        color: G.fade ? '#6c7885' : '#aeb8c1',
         metalness: G.fade ? 0.2 : 0.88,
         roughness: G.fade ? 0.8 : 0.33,
         side: T.DoubleSide,
@@ -6512,6 +6519,7 @@ const T3GL = {
     ctx.lineObjs = [];
     const st = ctx.built; if (!st) return;
     const K = st.K, fadeAt = Math.max(0, 1 - un * 1.7);
+    const XR = SET.shade3d === 'xray';
 
     const add = (verts, colour, opacity, noDepth) => {
       if (verts.length < 6) return;
@@ -6524,7 +6532,7 @@ const T3GL = {
       ctx.group.add(o); ctx.lineObjs.push(o);
     };
 
-    const joints = [], seam = [], swage = [], ink = [];
+    const joints = [], seam = [], swage = [], ink = [], wire = [];
     st.pieces.forEach(({ G, p3, pF, NN, nb }) => {
       const at = i => {
         const k = i * 3;
@@ -6542,6 +6550,19 @@ const T3GL = {
         return;
       }
 
+      /* SEE-THROUGH IS A WIREFRAME (Craig, 11 Sep). In the SVG renderer it
+         meant "draw every ring, front and back"; in a real 3D view the honest
+         version of that is the mesh itself - every ring round the barrel and
+         a generator every few facets along it, drawn through the metal so the
+         back shows. One in four generators: all 64 is a grey smear. */
+      if (XR) {
+        const step = Math.max(1, Math.round(NN / 16));
+        for (let j = 0; j < nb; j++) {
+          for (const side of [0, 1]) for (let i = 0; i < NN; i++) push(wire, vert(j, side, i), vert(j, side, i + 1));
+          for (let i = 0; i <= NN; i += step) push(wire, vert(j, 0, i), vert(j, 1, i));
+        }
+      }
+
       // joint ink: where one piece of metal ends and the next begins
       for (let j = 0; j < nb; j++) for (const side of [0, 1]) {
         if (G.nojoint && G.nojoint[j + side]) continue;
@@ -6556,7 +6577,7 @@ const T3GL = {
 
       // the swage on every segment of a bend, on the piece the next one laps
       // over - the same watershed rule the SVG renderer follows
-      if (SWAGEKIND[st.kind] && (+SET.swage || 0) > 0 && un < 0.9) {
+      if (!XR && SWAGEKIND[st.kind] && (+SET.swage || 0) > 0 && un < 0.9) {
         const RZ = r => { const row = G.rows3[r]; let z = 0; for (const q of row) z += q[2]; return z / (row.length || 1); };
         let s0 = 1e9, s1 = -1e9;
         G.rows3.forEach(row => row.forEach(q => { for (let c = 0; c < 3; c++) { if (q[c] < s0) s0 = q[c]; if (q[c] > s1) s1 = q[c]; } }));
@@ -6591,20 +6612,29 @@ const T3GL = {
       }
     });
 
-    add(joints, LY.object, 0.85);
-    add(swage, '#eef4f9', 0.55);
-    add(ink, LY.object, 0.95);
-    add(seam, LY.centre, 1);
-    /* the seam where it runs round the back: depth-tested away by the metal,
-       so a ghost of it is drawn over the top. Same thing the SVG renderer says
-       with a dashed line - you can always tell which way round you are. */
-    add(seam, LY.centre, 0.22, true);
+    if (XR) {
+      // nothing hides anything in a wireframe - that is the point of it
+      add(wire, LY.object, 0.38, true);
+      add(joints, LY.object, 1, true);
+      add(ink, LY.object, 1, true);
+      add(seam, LY.centre, 1, true);
+    } else {
+      add(joints, LY.object, 1);
+      add(swage, '#ffffff', 0.8);
+      add(ink, LY.object, 0.95);
+      add(seam, LY.centre, 1);
+      /* the seam where it runs round the back: depth-tested away by the metal,
+         so a ghost of it is drawn over the top. Same thing the SVG renderer says
+         with a dashed line - you can always tell which way round you are. */
+      add(seam, LY.centre, 0.22, true);
+    }
   },
 
   /* Move what is already built: the peel, the spin and the frame. */
   pose(T, ctx, vw, w, h){
     const st = ctx.built; if (!st) return;
     const un = vw.un || 0, fadeAt = Math.max(0, 1 - un * 1.7);
+    const XR = SET.shade3d === 'xray';
 
     st.pieces.forEach(({ G, mesh, p3, pF }) => {
       const a = mesh.geometry.getAttribute('position'), arr = a.array;
@@ -6613,6 +6643,14 @@ const T3GL = {
       else for (let i = 0; i < arr.length; i++) arr[i] = p3[i] + (pF[i] - p3[i]) * un;
       a.needsUpdate = true;
       mesh.geometry.computeVertexNormals();
+      /* in the wireframe the metal stays as the faintest ghost, so the wire
+         still reads as a surface rather than a cage floating in space */
+      if (!G.fade) {
+        const m = mesh.material;
+        if (m.transparent !== XR) { m.transparent = XR; m.needsUpdate = true; }
+        m.opacity = XR ? 0.07 : 1;
+        m.depthWrite = !XR;
+      }
     });
 
     this.lines(T, ctx, un);
@@ -8126,7 +8164,7 @@ function settingsPage(){
     <label>Theme</label><div class="seg" id="sAppear"><button data-v="dark" ${SET.appearance!=='light'?'class="on"':''}>Dark</button><button data-v="light" ${SET.appearance==='light'?'class="on"':''}>Light</button></div>
     <div class="hint" style="text-align:left;margin-bottom:8px">Dark is the workshop HUD look. Light turns the whole app — and the drawing canvas — white, easier to read in bright sun on site. The sun button in the header does the same thing from anywhere. Templates always print black on white either way.</div>
     <label>3D fitting</label><div class="seg" id="sShade"><button data-v="solid" ${SET.shade3d!=='xray'?'class="on"':''}>Solid metal</button><button data-v="xray" ${SET.shade3d==='xray'?'class="on"':''}>See-through</button></div>
-    <div class="hint" style="text-align:left;margin-bottom:8px">Solid metal lights the fitting like rolled sheet and hides what is behind it — and on bends it draws the swage bead on every segment, sitting on the piece the next one laps over. See-through shows all the joint rings at once, front and back.</div>
+    <div class="hint" style="text-align:left;margin-bottom:8px">Solid metal lights the fitting like rolled sheet and hides what is behind it — and on bends it draws the swage bead on every segment, sitting on the piece the next one laps over. See-through turns it into a wireframe — every ring and joint, front and back, straight through the metal.</div>
     <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
     <div class="hint" style="text-align:left;margin-bottom:8px">Basic shows diameter and circumference. Detailed adds mitre angles, ordinates, area and sheet counts.</div>
     <label>Ordinate divisions</label><div class="seg" id="sDiv"><button data-v="12" ${(SET.nDiv||12)==12?'class="on"':''}>12</button><button data-v="24" ${SET.nDiv==24?'class="on"':''}>24</button></div></details>
@@ -8155,7 +8193,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.0</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8192,7 +8230,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.64.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.64.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
