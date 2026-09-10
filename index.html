@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.62.1</span>
+  <span class="ver">v4.63.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -5126,9 +5126,20 @@ function chart(){
 
 
 /* ================= dynamic fitting diagrams ================= */
-function _svgWrap(parts,pts,w){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+function _svgWrap(parts,pts,w,shadow){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   pts.forEach(p=>{x0=Math.min(x0,p[0]);y0=Math.min(y0,p[1]);x1=Math.max(x1,p[0]);y1=Math.max(y1,p[1]);});
-  const pad=8; return `<svg viewBox="${(x0-pad).toFixed(1)} ${(y0-pad).toFixed(1)} ${(x1-x0+2*pad).toFixed(1)} ${(y1-y0+2*pad).toFixed(1)}" style="width:${w||150}px;max-width:44vw;height:auto">${parts.join('')}</svg>`; }
+  const pad=8;
+  /* A soft ellipse on the floor under the fitting. It is a cheat - there is no
+     floor and no light to cast it - but a shape with nothing under it reads as
+     a cut-out sticker, and this is the cheapest thing that makes it sit
+     somewhere. Only for the solid 3D, never on a flat pattern. */
+  let bg='';
+  if(shadow){ const cx=(x0+x1)/2, ry=(x1-x0)*0.055, cy=y1+ry*0.55, rx=(x1-x0)*0.44;
+    bg='<defs><radialGradient id="t3sh"><stop offset="0" stop-color="#000" stop-opacity=".55"/>'
+      +'<stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>'
+      +'<ellipse cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" rx="'+rx.toFixed(1)+'" ry="'+ry.toFixed(1)+'" fill="url(#t3sh)"/>';
+    y1=cy+ry; }
+  return `<svg viewBox="${(x0-pad).toFixed(1)} ${(y0-pad).toFixed(1)} ${(x1-x0+2*pad).toFixed(1)} ${(y1-y0+2*pad).toFixed(1)}" style="width:${w||150}px;max-width:44vw;height:auto">${bg}${parts.join('')}</svg>`; }
 const _ln=(a,b,st)=>`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" ${st}/>`;
 const _pl=(ps,st)=>`<polyline points="${ps.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" ${st}/>`;
 /* ================= CAD layers =========================================
@@ -5511,11 +5522,15 @@ function diagDouble(st){
    see the flat. Rolled out fitting by fitting; kinds not yet built keep
    their old 2D diagrams. */
 const T3VIEW={};                       // per-kind persistent {az,el,un}
-/* 40, not 28: flat-shaded metal shows its facets, and a 28-sided barrel put a
-   visible crease down the middle of the highlight. Only the tube builders use
-   this - the revolved hosts and heads set their own - so it costs a few dozen
-   polygons on a bend and nothing anywhere else. */
-const T3N=40;                          // circumference facets per ring
+/* 64, not 28. Flat-shaded metal shows every facet it has, and the shading
+   steps ARE the facets - so the only way to make an SVG barrel look rolled
+   rather than folded is to give it more sides. Craig, 10 Sep: the website's
+   WebGL machine "is almost better than the app". It has a GPU and an
+   environment map and this has neither, but most of the visible gap was
+   step count. Only the tube builders read this - the revolved hosts and the
+   heads set their own - so a 90 degree bend goes from 200 polygons to 320 and
+   a dome does not change at all. */
+const T3N=64;                          // circumference facets per ring
 
 /* TRUE STRIP DEVELOPMENT (t3 v2). The old flat mapping assumed straight-tube
    bands - right for elbows and lobsters, but it would call a cone a
@@ -6160,9 +6175,10 @@ function t3render(kind,s,w){
            that through ground -> horizon flare -> sky and a plain cylinder
            comes out looking like a rolled barrel instead of a grey tube. */
         const nv=proj(n), t=Math.max(0,Math.min(1,(-nv.y+1)/2));
-        sh=0.22+0.42*t
-          + 0.34*Math.exp(-Math.pow((t-0.66)/0.175,2))    // the horizon flare, wide
-          + 0.10*Math.exp(-Math.pow((t-0.98)/0.09,2));    // top light
+        sh=0.19+0.40*t
+          + 0.30*Math.exp(-Math.pow((t-0.62)/0.20,2))     // the horizon flare, wide
+          + 0.16*Math.exp(-Math.pow((t-0.99)/0.10,2))     // the sky, straight down
+          + 0.07*Math.exp(-Math.pow((t-0.14)/0.13,2));    // bounce off the bench
         /* the flare is deliberately broad: the barrel is only 28 facets round,
            and a tight highlight lands inside one of them and reads as a hard
            white stripe rather than a curved surface catching the light */
@@ -6322,7 +6338,7 @@ function t3render(kind,s,w){
     });
     flush();
   });
-  return _svgWrap(parts,all,w||205);
+  return _svgWrap(parts,all,w||205, SOLID3D && un<0.25);
 }
 
 // split angles round the barrel (degrees clockwise from the TOP), matching
@@ -7772,7 +7788,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.62.1</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.63.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7809,7 +7825,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.62.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.63.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
