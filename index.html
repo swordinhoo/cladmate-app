@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CladMate">
+<meta name="apple-mobile-web-app-title" content="TurboClad">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a1e22'/%3E%3Cpath d='M16 5v22M5 16h22' stroke='%2321dede' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='none' stroke='%23ff6f61' stroke-width='1.6'/%3E%3C/svg%3E">
-<title>CladMate — Insulation Cladding Patterns</title>
+<title>TurboClad — Insulation Cladding Patterns</title>
 <!-- set the theme before first paint so there is no light flash -->
 <script>try{var s=JSON.parse(localStorage.getItem('cm_settings')||'{}');document.documentElement.setAttribute('data-theme',(s.appearance?s.appearance!=='light':s.canvas!=='paper')?'dark':'light');}catch(e){}</script>
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
@@ -393,7 +393,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 <style>
 
   /* ================================================================
-     CladMate v4 — CAD workstation, precision pass.
+     TurboClad v4 — CAD workstation, precision pass.
      Graphite title bar over a light workspace + AutoCAD model-space
      viewports (the drawings): dark canvas, true layer colours.
      Printed output is unaffected — makePDF/toDXF stay black on white.
@@ -1171,8 +1171,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 <header>
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-  <div class="hdtxt"><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.60.0</span>
+  <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
+  <span class="ver">v4.61.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -1200,7 +1200,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      own domain and its own support address it changes in two places, not
      seventeen. Deliberately no personal name and no personal email: this is
      a product, and the paperwork it prints should say so. */
-  const CREDIT = 'CladMate  ·  1:1 flat pattern templates';
+  // Printed in the corner of every template. Declared HERE, outside the
+  // PDF/DXF output block, so renaming the product updates every sheet without
+  // moving a single byte of the block itself.
+  const CREDIT = 'TurboClad  ·  1:1 flat pattern templates';
 
   /* ---- standard pipe chart (DN, OD, long radius, short radius) mm ----------
      `nom` is the nominal size in mm (the inch size x 25.4) and it is what the
@@ -3493,7 +3496,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   //   meet tangent -> solve the smaller root of the tangency quadratic for Rk.
   // Because Rc+Rk=D the join always sits at 60deg, so the crown spans 30deg
   // and the knuckle 60deg of their respective arcs. Gore half-width at any
-  // station = pi*x/N + swage, x = the horizontal radius there. CladMate draws
+  // station = pi*x/N + swage, x = the horizontal radius there. TurboClad draws
   // the true 1:1 gore - the old program only tabled the ordinates by hand.
   function domeKit(p) {
     const D = p.dia, H = p.height, N = Math.max(3, Math.round(p.segments));
@@ -4282,7 +4285,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    in the day the domain lands and the About card, the licence prompt and
    the printed footer all pick it up at once. No personal name and no
    personal address anywhere: this is a product, not a person. */
-const BRAND = { name:'CladMate', owner:'STX Insulation Ltd', site:'stxinsulation.co.uk', email:'support@stxinsulation.co.uk' };
+const BRAND = { name:'TurboClad', owner:'STX Insulation Ltd', site:'stxinsulation.co.uk', email:'support@stxinsulation.co.uk' };
+/* Renamed from CladMate 10 Sep 26: the old name collided with CLADMATE FACADE
+   SYSTEMS LTD (UK cladding, trading since 2019, owns cladmate.co.uk) and with a
+   weatherboard tool sold in AU/NZ whose premium SKU was also "CladMate Pro".
+   Everything the user reads now comes from BRAND.name, which is what the note
+   above always claimed and is now actually true - the next rename is one line.
+   Deliberately NOT renamed: the cm_ localStorage keys (changing them would wipe
+   every existing user's jobs, settings and licence) and the CM- licence prefix
+   (its vectors are shared with the cladmate-site repo's licence.ts and must
+   move together). */
 
 /* ================= persistence ================= */
 const store = {
@@ -4358,7 +4370,7 @@ const app=document.getElementById('app'), backBtn=document.getElementById('backB
 const ttl=document.getElementById('ttl'), subttl=document.getElementById('subttl'), proBadge=document.getElementById('proBadge');
 const PM=10, OV=20;
 function renderPro(){ proBadge.textContent=PRO?'PRO':'GO PRO'; proBadge.classList.toggle('pro',!!PRO);
-  proBadge.title=PRO?'CladMate Pro is active on this device':'Unlock every fitting, DXF and Jobs'; }
+  proBadge.title=PRO?BRAND.name+' Pro is active on this device':'Unlock every fitting, DXF and Jobs'; }
 proBadge.onclick=()=>{ if(PRO){ TAB='set'; CUR=null; document.getElementById('nav').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.tab==='set'));
     const ind=document.getElementById('navind'); if(ind) ind.style.transform='translateX(200%)'; repage(route); }
   else showUnlock(); };
@@ -4375,7 +4387,7 @@ function licBannerHTML(){
   const now=Date.now(), day=86400000;
   const renew=BRAND.site?(' Renew at '+BRAND.site+'.'):'';
   if(now>exp+PRO_GRACE_MS)
-    return `<div class="note">CladMate Pro has EXPIRED - enter your renewal code under Settings.${renew}</div>`;
+    return `<div class="note">${BRAND.name} Pro has EXPIRED - enter your renewal code under Settings.${renew}</div>`;
   if(now>exp){ const d=Math.max(1,Math.ceil((exp+PRO_GRACE_MS-now)/day));
     return `<div class="note">Pro expired - still working for ${d} more day${d===1?'':'s'} while your renewal lands. Enter the new code under Settings.${renew}</div>`; }
   if(exp-now<30*day){ const d=Math.max(1,Math.ceil((exp-now)/day));
@@ -4959,7 +4971,7 @@ function unlocked(k){ return PRO || isFree(k); }
 
 /* ================= pro / unlock ================= */
 function showUnlock(){
-  const bg=modal(`<h3>CladMate Pro</h3>
+  const bg=modal(`<h3>${BRAND.name} Pro</h3>
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
     <label style="display:block">Licence code</label>
     <input id="licIn" placeholder="CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
@@ -5030,7 +5042,7 @@ function pushRecent(k){ if(!F[k]) return;
 function bindGo(root){ root.querySelectorAll('[data-go]').forEach(e=>e.onclick=ev=>{ ev.stopPropagation();
   const g=e.dataset.go; if(g!=='chart') pushRecent(g); repage(()=>{ g==='chart'?chart():form(g); }); }); }
 function home(){
-  setView('CladMate','Cladding patterns',false);
+  setView(BRAND.name,'Cladding patterns',false);
   document.body.dataset.home='1';   // lets the tile grid spread out on a desktop
   let ti=0;
   /* every fitting that shares a variant selector also gets a pill on its tile,
@@ -5056,7 +5068,7 @@ function home(){
       <button id="findX" class="findx${HOMEQ?'':' hide'}" aria-label="Clear search">✕</button></div>
     <div id="findRes"></div>
     <div id="homeBody">${recent}${tiles}
-    <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
+    <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install ${BRAND.name} on this device</button></div>
     ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}</div>`;
   /* search runs over the tile text AND the trade words above, so it finds a
      twister from "swan neck" and a transformer from "plenum". */
@@ -7353,9 +7365,9 @@ function form(kind, presetParams){
   const lb=document.getElementById('lockBtn'); if(lb) lb.onclick=showUnlock;
   const buildDoc=()=>{ flushRefresh();
     if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(eff()), {page:SET.page, orient:'auto', brand:SET.brand||undefined});
-      return {out, name:'CladMate_'+kind+'_kit_'+SET.page+'.pdf', msg:'Full kit PDF — '+out.pieces+' patterns, '+out.sheets+' sheets'}; }
+      return {out, name:BRAND.name+'_'+kind+'_kit_'+SET.page+'.pdf', msg:'Full kit PDF — '+out.pieces+' patterns, '+out.sheets+' sheets'}; }
     const out=FP.makePDF(window.jspdf.jsPDF, form._pat, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
-    return {out, name:'CladMate_'+kind+'_'+SET.page+'.pdf', msg:'PDF ready — '+out.sheets+' sheet'+(out.sheets>1?'s':'')}; };
+    return {out, name:BRAND.name+'_'+kind+'_'+SET.page+'.pdf', msg:'PDF ready — '+out.sheets+' sheet'+(out.sheets>1?'s':'')}; };
   /* Generate 'plots' the sheet: sweep starts, then the synchronous jsPDF build */
   const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{
     if(gb.classList.contains('plotting')) return;
@@ -7388,12 +7400,12 @@ function form(kind, presetParams){
   const sb=document.getElementById('shareBtn'); if(sb) sb.onclick=async()=>{ const d=buildDoc();
     const file=new File([d.out.doc.output('blob')], d.name, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{ await navigator.share({files:[file], title:'CladMate template'}); }catch(e){} }
+      try{ await navigator.share({files:[file], title:BRAND.name+' template'}); }catch(e){} }
     else { d.out.doc.save(d.name); toast('This browser cannot share files - saved the PDF instead.'); } };
   const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!PRO) return showUnlock();
     flushRefresh();
     const blob=new Blob([FP.toDXF(form._pat)],{type:'application/dxf'}); const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download='CladMate_'+kind+'.dxf'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('DXF saved to your downloads.'); };
+    a.href=URL.createObjectURL(blob); a.download=BRAND.name+'_'+kind+'.dxf'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('DXF saved to your downloads.'); };
   const jb=document.getElementById('jobBtn'); if(jb) jb.onclick=()=>{ if(!PRO) return showUnlock(); flushRefresh(); saveToJob(kind); };
   refresh();
 
@@ -7703,7 +7715,7 @@ function jobDetail(id){
       pats.push(...ps); }
     if(!pats.length) return toast('Nothing in this job to print yet - add a fitting.');
     const out=FP.makeKitPDF(window.jspdf.jsPDF, pats, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
-    out.doc.save('CladMate_job_'+job.name.replace(/[^\w-]+/g,'_')+'.pdf');
+    out.doc.save(BRAND.name+'_job_'+job.name.replace(/[^\w-]+/g,'_')+'.pdf');
     toast('Job pack — '+out.pieces+' patterns, '+out.sheets+' sheets'); };
 }
 function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
@@ -7747,8 +7759,8 @@ function settingsPage(){
     <label>Sheet size (mm)</label><div class="row" style="gap:6px"><input type="number" id="sSW" value="${SET.sheetW}"><input type="number" id="sSH" value="${SET.sheetH}"></div>
     <div class="hint" style="text-align:left;margin-bottom:8px">Feeds the per-sheet count in the Detailed preview info — how many of a pattern nest on one sheet.</div>
     <label>Company name on templates ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></details>
-   <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ CladMate Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
-     :`<button class="btn gold" id="sUp">Unlock CladMate Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
+   <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ ${BRAND.name} Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
+     :`<button class="btn gold" id="sUp">Unlock ${BRAND.name} Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Backup</summary>
     <div class="btnrow" style="margin-top:10px"><button class="btn ghost" id="sExport">Export backup</button><button class="btn ghost" id="sImport">Restore backup</button></div>
     <input type="file" id="sImportFile" accept=".json,application/json" class="hide">
@@ -7756,7 +7768,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.60.0</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.61.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7793,23 +7805,26 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.60.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.61.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-    a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+    a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
   const impF=document.getElementById('sImportFile');
   document.getElementById('sImport').onclick=()=>impF.click();
   impF.onchange=()=>{ const f=impF.files[0]; if(!f) return;
     const rd=new FileReader();
     rd.onload=()=>{ try{ const d=JSON.parse(rd.result);
-        if(d.app!=='CladMate') throw new Error('not a CladMate backup');
+        /* accept the old name too - a backup taken before the 4.61.0 rename
+           is still this app's backup, and refusing it would strand someone's
+           jobs on a wiped phone for the sake of a string. */
+        if(d.app!==BRAND.name && d.app!=='CladMate') throw new Error('not a '+BRAND.name+' backup');
         if(d.settings) { SET=Object.assign({},SET,d.settings); saveSet(); }
         if(Array.isArray(d.jobs)) { JOBS=d.jobs; saveJobs(); }
         if(d.pro && !PRO){ PRO=true; store.set('cm_pro',true); if(d.proExp!==undefined) store.set('cm_pro_exp',d.proExp); renderPro(); }
         ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); });
         toast('Backup restored'); repage(settingsPage);
-      }catch(e){ toast('That file isn’t a CladMate backup'); } };
+      }catch(e){ toast('That file isn’t a '+BRAND.name+' backup'); } };
     rd.readAsText(f); impF.value=''; };
 }
 
@@ -7818,11 +7833,11 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ navig
 // ask the browser not to evict our storage (jobs + licence live in it)
 if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); window._installEvt=e; if(TAB==='fit'&&!CUR) route(); });
-window.addEventListener('appinstalled',()=>toast('CladMate installed'));
+window.addEventListener('appinstalled',()=>toast(BRAND.name+' installed'));
 applyTheme(); renderPro(); route();
 /* first run: the three rules that make templates come out right */
 if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
-  const bg=modal(`<div class="tb"><span>CladMate · First run</span><span>SHT 1/1</span></div>
+  const bg=modal(`<div class="tb"><span>${BRAND.name} · First run</span><span>SHT 1/1</span></div>
     <div class="bd"><h3>Before your first template</h3>
     <ul class="prolist"><li>Sizes are BARE PIPE + insulation — patterns are worked to the outside of the lagging</li><li>Print at 100% ("Actual size"), never "Fit to page" — then measure the calibration bar on the sheet</li><li>Offer the first template up to the metal before cutting a batch</li></ul>
     <div class="hint" style="margin-top:10px">Set up for ${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[SET.page]||'A3'} paper, dimensions in mm — change any time in Settings</div>
