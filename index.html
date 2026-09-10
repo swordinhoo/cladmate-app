@@ -413,9 +413,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     /* engineering-blue accent ramp */
     --acc-deep:#084a8c; --acc:#0a5aa8; --acc-hi:#1668bd; --acc-ink:#ffffff; --acc-soft:#e3edf7;
     --focus:#1668bd;
+    /* Pro gold - darkened here so it still reads as text on white paper */
+    --pro:#8a6100; --pro-soft:#fdf3dc; --pro-ink:#ffffff;
 
     --good:#1c7a43; --warn:#7a5200; --danger:#b3261e; --danger-bg:#fdecea;
-    --note-bg:#fbf6e6; --note-line:#e3d4a4; --lock-bg:#e3edf7;
+    --note-bg:#fbf6e6; --note-line:#e3d4a4; --lock-bg:#fdf3dc;
     --zebra:#f5f7f9; --overlay:rgba(16,22,28,.48);
     --shadow:0 1px 2px rgba(16,22,28,.05),0 5px 16px -6px rgba(16,22,28,.12);
     --shadow-lg:0 12px 44px -10px rgba(16,22,28,.30);
@@ -467,12 +469,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --line:#243444; --line2:#33495d;
     --ink:#e3edf5; --sub:#8598a9;
 
-    /* accent ramp → HUD cyan */
-    --acc-deep:#0c8f8f; --acc:#26e0e0; --acc-hi:#5cf0f0; --acc-ink:#04191a; --acc-soft:rgba(38,224,224,.12);
-    --focus:#26e0e0;
+    /* Accent ramp → HUD BLUE, not cyan. Cyan means one thing in this app and
+       it is not "button": it is the CUT line, taught by the drawing legend on
+       every screen. While the accent was cyan too, the chrome was talking over
+       the drawing's own layer language. Blue is the one hue that clashes with
+       nothing in the CAD set (cyan cut, red seam, green dim, magenta fold,
+       yellow hidden) and it matches the light theme's accent, so the two
+       themes finally agree. */
+    --acc-deep:#1b6dc9; --acc:#3d9dff; --acc-hi:#6fb9ff; --acc-ink:#02121f; --acc-soft:rgba(61,157,255,.13);
+    --focus:#3d9dff;
+    /* Pro is the only thing that is gold, and it is gold everywhere: badge,
+       lock, buttons, chips. Same gold as the website. */
+    --pro:#fcb700; --pro-soft:rgba(252,183,0,.11); --pro-ink:#1b1200;
 
     --good:#2fd07a; --warn:#ffb020; --danger:#ff5d6c; --danger-bg:rgba(255,93,108,.13);
-    --note-bg:rgba(255,176,32,.09); --note-line:rgba(255,176,32,.30); --lock-bg:rgba(38,224,224,.10);
+    --note-bg:rgba(255,176,32,.09); --note-line:rgba(255,176,32,.30); --lock-bg:rgba(252,183,0,.10);
     --zebra:rgba(255,255,255,.022); --overlay:rgba(3,6,10,.66);
     --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.7);
     --shadow-lg:0 18px 50px -12px rgba(0,0,0,.8);
@@ -489,7 +500,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   /* ---- dark-only flourishes: glass + glow, so the light theme stays flat ---- */
   :root[data-theme="dark"] body{
     background:
-      radial-gradient(90% 60% at 82% -6%,rgba(38,224,224,.10),transparent 60%),
+      radial-gradient(90% 60% at 82% -6%,rgba(61,157,255,.11),transparent 60%),
       radial-gradient(80% 55% at 6% 104%,rgba(58,165,255,.08),transparent 60%),
       linear-gradient(180deg,#080c11,#05080c);}
   :root[data-theme="dark"] body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
@@ -497,7 +508,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     background-size:34px 34px;
     -webkit-mask-image:radial-gradient(120% 90% at 50% 8%,#000,transparent 78%);mask-image:radial-gradient(120% 90% at 50% 8%,#000,transparent 78%)}
   :root[data-theme="dark"] header{background:linear-gradient(180deg,rgba(7,10,14,.94),rgba(7,10,14,.60) 78%,rgba(7,10,14,.28));
-    border-bottom-color:transparent;box-shadow:inset 0 -1px 0 rgba(38,224,224,.20);backdrop-filter:blur(6px)}
+    border-bottom-color:transparent;box-shadow:inset 0 -1px 0 rgba(61,157,255,.20);backdrop-filter:blur(6px)}
   :root[data-theme="dark"] nav{border-top-color:var(--line2);box-shadow:0 -2px 30px -12px #000}
   :root[data-theme="dark"] .tile{background:linear-gradient(180deg,rgba(28,39,51,.5),rgba(16,23,31,.55))}
   :root[data-theme="dark"] .tile::before{box-shadow:0 0 12px var(--cat,var(--acc));opacity:.85}
@@ -514,7 +525,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     background:color-mix(in srgb,var(--cat,var(--acc)) 12%,transparent);
     border-color:color-mix(in srgb,var(--cat,var(--acc)) 35%,var(--line))}
   :root[data-theme="dark"] .vpills button:hover{color:#ffffff}
-  :root[data-theme="dark"] input:focus,:root[data-theme="dark"] select:focus{box-shadow:0 0 0 3px rgba(38,224,224,.25)}
+  :root[data-theme="dark"] input:focus,:root[data-theme="dark"] select:focus{box-shadow:0 0 0 3px rgba(61,157,255,.28)}
   :root[data-theme="dark"] .prob{color:#ffd9dc}
   :root[data-theme="dark"] .printwarn{color:#ffe0a3}
 
@@ -540,24 +551,46 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   /* ---- title bar: the graphite CAD frame over the light workspace ---- */
   header{position:sticky;top:0;z-index:30;background:linear-gradient(#262c32,#1f242a);
          border-bottom:1px solid var(--titlebar-line);
-         box-shadow:inset 0 -1px 0 rgba(33,222,222,.16);
+         box-shadow:inset 0 -1px 0 rgba(61,157,255,.18);
          padding:calc(8px + env(safe-area-inset-top)) 14px 8px;
          display:flex;align-items:center;gap:11px}
   header .logo{width:28px;height:28px;border-radius:5px;flex:none;background:#0f1317;
          border:1px solid #343c44;display:grid;place-items:center}
   header .logo svg{width:17px;height:17px}
+  /* min-width:0 lets the title column shrink instead of shoving the badges
+     off the end, and both lines are clamped to one. A subtitle that wrapped
+     to two or three lines made the header a different height on every screen,
+     so the whole app jumped as you moved about. */
+  header .hdtxt{min-width:0;flex:1}
   header h1{font-size:16px;margin:0;font-weight:600;font-family:var(--fd);font-stretch:87.5%;
-         letter-spacing:.03em;color:var(--titlebar-ink)}
+         letter-spacing:.03em;color:var(--titlebar-ink);
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   header .sub{font-family:var(--fm);font-size:9.5px;color:var(--titlebar-sub);margin-top:2px;
-         letter-spacing:.09em;text-transform:uppercase}
+         letter-spacing:.09em;text-transform:uppercase;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   header .ver{font-family:var(--fm);font-size:9px;font-weight:600;color:var(--titlebar-sub);
-         letter-spacing:.08em;margin-left:auto}
+         letter-spacing:.08em;margin-left:auto;flex:none}
+  /* Sunlight is the reason this is in the header and not buried in Settings:
+     the dark HUD is the hardest thing to read on a roof at noon, and nobody
+     stops to go three taps deep to fix it. */
+  .themetog{flex:none;width:28px;height:28px;border-radius:6px;margin-left:8px;
+        background:#2a3138;border:1px solid #3a434c;display:grid;place-items:center;padding:0}
+  .themetog svg{width:15px;height:15px;stroke:#c3ccd4;fill:none;stroke-width:1.7;stroke-linecap:round}
+  .themetog:hover{border-color:var(--acc)}
+  .themetog:hover svg{stroke:var(--acc)}
   .back{background:#2a3138;border:1px solid #3a434c;color:#dbe2e8;font-size:12.5px;
         font-family:var(--fd);font-stretch:87.5%;padding:7px 13px;border-radius:9px;font-weight:600;flex:none}
-  .back:hover{border-color:var(--ly-object);color:var(--ly-object)}
+  .back:hover{border-color:var(--acc);color:var(--acc)}
+  /* Free users get a way IN here, not a label. "FREE" stamped on the header
+     read like a description of the product; GO PRO is the same chip doing
+     something useful. */
+  /* the header bar is dark in BOTH themes, so this one keeps the bright gold
+     rather than the theme's - the light theme's gold is darkened for paper */
   .probadge{margin-left:8px;font-family:var(--fm);font-size:9.5px;font-weight:700;letter-spacing:.12em;
-        padding:4px 8px;border-radius:3px;border:1px solid #3a434c;color:#8b96a0;background:#171b1f}
-  .probadge.pro{border-color:#21dede;color:#21dede;background:rgba(33,222,222,.08)}
+        padding:4px 8px;border-radius:3px;border:1px solid #fcb700;color:#fcb700;
+        background:rgba(252,183,0,.11);flex:none;white-space:nowrap}
+  .probadge:hover{background:rgba(252,183,0,.24)}
+  .probadge.pro{border-color:#fcb700;color:#fcb700;background:rgba(252,183,0,.11)}
 
   main{flex:1;overflow-y:auto;padding:17px 16px;max-width:680px;margin:0 auto;width:100%;
        padding-bottom:calc(84px + env(safe-area-inset-bottom))}
@@ -590,6 +623,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .grp{margin:0 0 4px}
   details.grp>summary.grpsum{font-family:var(--fm);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--sub);margin:16px 1px 10px;display:flex;align-items:center;gap:9px;font-weight:700;cursor:pointer;list-style:none}
   details.grp>summary.grpsum::-webkit-details-marker{display:none}
+  /* ---- find a fitting ---- */
+  .findbar{display:flex;align-items:center;gap:9px;margin:0 0 14px;padding:0 12px;
+        background:var(--field);border:1px solid var(--line);border-radius:11px}
+  .findbar svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--sub);stroke-width:1.9;stroke-linecap:round}
+  .findbar input{flex:1;min-width:0;background:none;border:0;border-radius:0;padding:12px 0;
+        font-family:var(--fs);font-size:15px;font-weight:500;color:var(--ink);box-shadow:none!important}
+  .findbar input::-webkit-search-cancel-button{display:none}
+  .findbar:focus-within{border-color:var(--acc)}
+  .findx{flex:none;background:none;border:0;color:var(--sub);font-size:14px;padding:8px 2px;line-height:1}
+  .rechd{font-family:var(--fm);font-size:10.5px;font-weight:700;letter-spacing:.16em;
+        text-transform:uppercase;color:var(--sub);margin:2px 0 8px}
   details.grp>summary.grpsum::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--cat,var(--acc));box-shadow:0 0 0 3px color-mix(in srgb,var(--cat,var(--acc)) 18%,transparent);flex:none}
   details.grp>summary.grpsum::after{content:"\25B8";margin-left:auto;font-size:13px;line-height:1;color:var(--cat,var(--acc));transition:transform .15s}
   details.grp[open]>summary.grpsum::after{transform:rotate(90deg)}
@@ -797,7 +841,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .chip{font-family:var(--fm);font-size:11px;font-weight:600;
         background:var(--panel2);border:1px solid var(--chip-line);border-radius:3px;
         padding:4px 7px;color:var(--chip-ink);font-variant-numeric:tabular-nums slashed-zero}
-  .chip.gold{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
+  .chip.gold{border-color:var(--pro);color:var(--pro);background:var(--pro-soft)}
 
   #fitdiag.t3{touch-action:none;cursor:grab}
   #fitdiag.t3:active{cursor:grabbing}
@@ -864,8 +908,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         box-shadow:0 1px 2px rgba(16,22,28,.12),0 10px 22px -12px color-mix(in srgb,var(--acc) 80%,transparent)}
   .btn.primary:hover{background:linear-gradient(180deg,#2076cc,var(--acc-hi))}
   .btn.primary:active{box-shadow:inset 0 2px 3px rgba(0,0,0,.16)}
-  .btn.gold{background:var(--panel);color:var(--acc);border:1px solid var(--acc)}
-  .btn.gold:hover{background:var(--acc-soft)}
+  .btn.gold{background:var(--panel);color:var(--pro);border:1px solid var(--pro)}
+  .btn.gold:hover{background:var(--pro-soft)}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
   .btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line2);font-size:14px;font-weight:700;padding:12px 10px}
   .btn.ghost:hover{border-color:var(--acc);color:var(--acc)}
@@ -1034,6 +1078,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .fld:first-child .fhd{margin-top:0;padding-top:0}
   .fhd .n{color:var(--sub);font-weight:600;letter-spacing:.02em;text-transform:none;margin-left:7px}
   @media(min-width:700px){ .grid{grid-template-columns:1fr 1fr;gap:9px} }
+  /* On a desktop the fitting list is the one page worth spreading out - a
+     680px column of tiles wastes half a monitor. Everything else stays in the
+     reading column, because a 1000px line of hint text is worse, not better. */
+  @media(min-width:960px){
+    body[data-home] main{max-width:1000px}
+    body[data-home] .grid{grid-template-columns:repeat(3,1fr)}
+    body[data-home] .findbar{max-width:520px}
+  }
   /* narrow screens stack the DRAWING first but capped, so the first input is
      on screen without scrolling. The flip is CSS-only - the DOM keeps the
      controls first for tab order and screen readers. */
@@ -1066,6 +1118,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     .seamwheel.onpv .seamhint{display:none}
     .seamvis:empty{display:none}
   }
+  /* the version string is in Settings and on every printed sheet; on a narrow
+     phone it was stealing the room the fitting's own name needed */
+  @media(max-width:439px){ header .ver{display:none} }
   @media(max-width:479px){
     /* 16px is the iOS floor for INPUTS only - focus one below that and the
        whole page zooms. A select opens the native picker and never zooms, so
@@ -1116,8 +1171,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 <header>
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-  <div><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.59.1</span><span class="probadge" id="proBadge">FREE</span>
+  <div class="hdtxt"><h1 id="ttl">CladMate</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
+  <span class="ver">v4.60.0</span>
+  <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
+  <button class="probadge" id="proBadge">GO PRO</button>
 </header>
 <main><div class="page" id="app"></div></main>
 <nav id="nav">
@@ -4225,7 +4282,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    in the day the domain lands and the About card, the licence prompt and
    the printed footer all pick it up at once. No personal name and no
    personal address anywhere: this is a product, not a person. */
-const BRAND = { name:'CladMate', owner:'CladMate', site:'', email:'' };
+const BRAND = { name:'CladMate', owner:'STX Insulation Ltd', site:'stxinsulation.co.uk', email:'support@stxinsulation.co.uk' };
 
 /* ================= persistence ================= */
 const store = {
@@ -4240,7 +4297,7 @@ const LOCALE_PAGE=(()=>{ try{ return /-(US|CA|MX|PH)\b/i.test(navigator.language
 const INCH_PAGE=p=>p==='letter'||p==='legal'||p==='tabloid';
 let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:LOCALE_PAGE, swage:3, flange:15, nDiv:12, detail:false,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model', sizeMode:'pipeins',
-  lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10 }, store.get('cm_settings',{}));
+  lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10, shade3d:'solid' }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
 /* Canvas = how the DRAWINGS are shown: model space (AutoCAD layer colours
    on a dark canvas) or paper space (black on white, for bright sunlight).
@@ -4300,7 +4357,15 @@ function checkCode(c){ c=(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const app=document.getElementById('app'), backBtn=document.getElementById('backBtn');
 const ttl=document.getElementById('ttl'), subttl=document.getElementById('subttl'), proBadge=document.getElementById('proBadge');
 const PM=10, OV=20;
-function renderPro(){ proBadge.textContent=PRO?'PRO':'FREE'; proBadge.classList.toggle('pro',!!PRO); }
+function renderPro(){ proBadge.textContent=PRO?'PRO':'GO PRO'; proBadge.classList.toggle('pro',!!PRO);
+  proBadge.title=PRO?'CladMate Pro is active on this device':'Unlock every fitting, DXF and Jobs'; }
+proBadge.onclick=()=>{ if(PRO){ TAB='set'; CUR=null; document.getElementById('nav').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.tab==='set'));
+    const ind=document.getElementById('navind'); if(ind) ind.style.transform='translateX(200%)'; repage(route); }
+  else showUnlock(); };
+/* the header sun/moon: same switch as Settings > Appearance, one tap from
+   anywhere, because the moment you need it you are stood in the sun. */
+document.getElementById('themeTog').onclick=()=>{ SET.appearance = (SET.appearance==='light')?'dark':'light';
+  applyTheme(); saveSet(); toast(SET.appearance==='light'?'Light — easier in bright sun':'Dark — workshop HUD'); route(); };
 /* Renewal messaging, drawn fresh on every home render straight off the store -
    no flags to go stale. Silent for owner builds and perpetual v1 codes. */
 function licBannerHTML(){
@@ -4323,7 +4388,10 @@ function toast(m){ const t=document.createElement('div'); t.className='toast'; t
 function modal(html){ const bg=document.createElement('div'); bg.className='modal-bg'; bg.innerHTML=`<div class="modal">${html}</div>`;
   bg.close=()=>{ bg.classList.add('closing'); setTimeout(()=>bg.remove(),160); };
   bg.addEventListener('click',e=>{ if(e.target===bg) bg.close(); }); document.body.appendChild(bg); return bg; }
-function setView(t,s,back){ ttl.textContent=t; subttl.textContent=s; backBtn.classList.toggle('hide',!back); }
+/* every screen goes through here, so this is the one place that can be sure
+   the home-only wide layout is off again when you leave the home screen */
+function setView(t,s,back){ ttl.textContent=t; subttl.textContent=s;
+  delete document.body.dataset.home; backBtn.classList.toggle('hide',!back); }
 /* px = horizontal slide-in offset for direction-aware tab moves (0 = plain rise) */
 function repage(fn,px){ const el=app; el.style.setProperty('--px',(px||0)+'px');
   el.classList.remove('page'); void el.offsetWidth; el.classList.add('page'); fn(); }
@@ -4477,9 +4545,14 @@ const F={
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)'),num('segments','Segments'),FAST],
   build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage}),
+  /* A lobster bend is TWO patterns, not one: the half-height starter/finisher
+     that butts the straight pipe (cut 2) and the wavy middle gore (cut N-1).
+     The engine has always made both - the tile only ever offered the middle
+     one, so the ends had to be guessed at. Craig, 10 Sep. */
+  kit:s=>FP.lobsterKit({...s,jointAllow:SET.swage}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Middle gore — cut '+c.nMid],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Middle gore — cut '+c.nMid],
-  note:'Generate prints the MIDDLE GORE template — wavy both edges. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
+  note:'Two patterns make the bend: the STARTER / FINISHER gore (half height, flat edge butts the straight pipe, cut 2 off) and the MIDDLE gore (wavy both edges, cut N-1). Show all kit pieces to see both, or Generate to print the set. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)'),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position',hands:'AB'}],
@@ -4847,8 +4920,14 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
   holeA:holeOf(s.holeApipe,s.holeAx,s.holeAy),
   holeB:holeOf(s.holeBpipe,s.holeBx,s.holeBy)}); }
 // ORDER = every fitting that exists (keeps saved jobs reprintable);
-// GROUPS = what the home screen shows. Trunnion parked until the geometry is
-// bench-verified; tee reducer folded into the tee (angle 90 + small branch).
+// GROUPS = what the home screen shows. The trunnion IS offered - the tile named
+// "Trunnion" is teebend, the bend-AWARE one: it works the stub length round the
+// torus from the centre radius and the offset, and prints the hole to mark on
+// the bend as well as the wrap. The parked `trunnion` entry is the older model
+// that treats the bend as a plain straight tube; putting it on the grid would
+// give two tiles called Trunnion, which is the exact confusion the boxes were
+// pulled for. It stays in ORDER so old saved jobs still reprint. The tee
+// reducer stays folded into the tee (angle 90 + a small branch).
 // ORDER keeps every fitting that has ever shipped (so saved jobs still reprint),
 // including the boxes/endcap that were pulled off the home grid (23 Jul: shop
 // wanted the boxes gone - "too confusing" - keeping only the two watershed TOPS,
@@ -4882,7 +4961,8 @@ function unlocked(k){ return PRO || isFree(k); }
 function showUnlock(){
   const bg=modal(`<h3>CladMate Pro</h3>
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
-    <input id="licIn" placeholder="Licence code  CM-XXXX-XXXX or CM2-XXXX-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
+    <label style="display:block">Licence code</label>
+    <input id="licIn" placeholder="CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
     <div class="hint">Codes come with the paid version.${BRAND.email?` If you have bought it and lost your code, email <a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>.`:' If you have bought it and lost your code, get in touch wherever you bought it.'}</div>`);
   bg.querySelector('#licGo').onclick=()=>{
@@ -4913,8 +4993,45 @@ function route(){ if(CUR){ CUR(); return; } TAB==='fit'?home():TAB==='jobs'?jobs
    opening a fitting and coming back; a fresh launch starts all closed.
    (The old category chip strip is gone - it just repeated the group names.) */
 const HOMEOPEN=new Set();
+let HOMEQ='';
+/* Trade words, so the box finds things by what they are called on site rather
+   than by what the tile is titled. "Segmented bend" and "lobster back" are the
+   same fitting; nobody types "Bend on Bend" when they want a twister. */
+const SYN={ elbow:'two piece mitre cut bend 90 45 pipe',
+  lobster:'lobster back segmented gore multi piece bend radius',
+  bendonbend:'twister double bend offset s-bend swan neck two bends twist',
+  inctee:'tee branch saddle equal reducing set on 90 angled breeches',
+  teeoncone:'tee on cone branch on a reducer taper saddle',
+  teedome:'tee on dome branch on a dished head vessel nozzle',
+  teetanktop:'tee on tank top branch through a cone roof nozzle',
+  teebend:'trunnion support stub leg foot on a bend saddle',
+  reducer:'concentric reducer cone taper pipe size change',
+  flatback:'flat back reducer eccentric one side flat',
+  oblique:'oblique cone eccentric reducer offset taper',
+  anglecone:'angled cone taper on the skew',
+  sqround:'square to round transformer transition duct plenum',
+  rectround:'rectangular to round transformer transition duct',
+  obliqueround:'offset square to round transformer transition',
+  rasqround:'right angle square to round transformer transition',
+  oblxform:'oblique transformer offset transition duct',
+  roundtop:'watershed round top cap weather rain shed',
+  tanktop:'tank top cone roof vessel top segmented',
+  valveend:'valve end box cover watershed top',
+  dome:'dome head torispherical vessel end gores cap',
+  dishedend:'dished end shallow head vessel cap',
+  hemidome:'hemispherical dome half ball head vessel cap' };
+/* Recently used, oldest dropped. The home screen used to open on seven shut
+   drawers and nothing else - a man who cuts elbows all week had to go digging
+   for the elbow every single time. */
+let RECENT=store.get('cm_recent',[]).filter(k=>F[k]);
+function pushRecent(k){ if(!F[k]) return;
+  RECENT=[k].concat(RECENT.filter(x=>x!==k)).slice(0,4); store.set('cm_recent',RECENT); }
+/* stopPropagation: a mode pill lives inside its tile, and only one should fire */
+function bindGo(root){ root.querySelectorAll('[data-go]').forEach(e=>e.onclick=ev=>{ ev.stopPropagation();
+  const g=e.dataset.go; if(g!=='chart') pushRecent(g); repage(()=>{ g==='chart'?chart():form(g); }); }); }
 function home(){
-  setView('CladMate','Insulation cladding patterns',false);
+  setView('CladMate','Cladding patterns',false);
+  document.body.dataset.home='1';   // lets the tile grid spread out on a desktop
   let ti=0;
   /* every fitting that shares a variant selector also gets a pill on its tile,
      so no mode is reachable only from inside another fitting's form */
@@ -4925,19 +5042,47 @@ function home(){
   const CATCOL=['var(--fam-1)','var(--fam-2)','var(--fam-3)','var(--fam-4)','var(--fam-5)','var(--fam-6)'];
   const SECS=GROUPS.map((g,gi)=>({t:g.t,c:CATCOL[gi%CATCOL.length],body:()=>`<div class="grid">${g.k.map(tile).join('')}</div>`}));
   SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; 1D to 5D radii</div></div></div></div>`});
+  /* the home screen must never open on nothing. With nothing shut by hand,
+     open the family of whatever was used last - so a man who cuts elbows all
+     week lands on the bends - and the Bends on a fresh install. */
+  if(!HOMEOPEN.size){ const gi=RECENT.length?GROUPS.findIndex(g=>g.k.indexOf(RECENT[0])>=0):0;
+    HOMEOPEN.add(gi<0?0:gi); }
   const tiles=SECS.map((x,i)=>
       `<details class="grp" data-gi="${i}" style="--cat:${x.c}"${HOMEOPEN.has(i)?' open':''}><summary class="grpsum">${x.t}</summary>${x.body()}</details>`).join('');
-  app.innerHTML=`${licBannerHTML()}${tiles}
+  const recent=RECENT.length?`<div class="rechd">Recent</div><div class="grid" id="recGrid">${RECENT.map(tile).join('')}</div>`:'';
+  app.innerHTML=`${licBannerHTML()}
+    <div class="findbar"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.4 15.4 4.6 4.6"/></svg>
+      <input id="findIn" type="search" autocomplete="off" spellcheck="false" placeholder="Search fittings — lobster, cone, tee…" value="${HOMEQ.replace(/"/g,'&quot;')}">
+      <button id="findX" class="findx${HOMEQ?'':' hide'}" aria-label="Clear search">✕</button></div>
+    <div id="findRes"></div>
+    <div id="homeBody">${recent}${tiles}
     <div id="installWrap" class="hide" style="margin-top:16px"><button class="btn primary" id="installBtn">⬇ Install CladMate on this device</button></div>
-    ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}`;
+    ${PRO?'':`<div style="margin-top:16px"><button class="btn gold" id="upBtn">Unlock all fittings — Go Pro</button></div>`}</div>`;
+  /* search runs over the tile text AND the trade words above, so it finds a
+     twister from "swan neck" and a transformer from "plenum". */
+  const hay=k=>((F[k].name+' '+F[k].sub+' '+(SYN[k]||'')).toLowerCase());
+  const ALLK=GROUPS.flatMap(g=>g.k);
+  const findRes=document.getElementById('findRes'), homeBody=document.getElementById('homeBody');
+  const findIn=document.getElementById('findIn'), findX=document.getElementById('findX');
+  const runFind=()=>{ HOMEQ=findIn.value.trim();
+    findX.classList.toggle('hide',!HOMEQ);
+    if(!HOMEQ){ findRes.innerHTML=''; homeBody.hidden=false; return; }
+    const words=HOMEQ.toLowerCase().split(/\s+/).filter(Boolean);
+    const hits=ALLK.filter(k=>{ const h=hay(k); return words.every(w=>h.indexOf(w)>=0); });
+    homeBody.hidden=true;
+    findRes.innerHTML=hits.length
+      ? `<div class="rechd">${hits.length} match${hits.length===1?'':'es'}</div><div class="grid">${hits.map(tile).join('')}</div>`
+      : `<div class="card" style="text-align:center;color:var(--sub);font-size:13.5px">Nothing matches “${HOMEQ.replace(/</g,'&lt;')}”.<br>Try a shape word — bend, cone, tee, transformer, dome.</div>`;
+    bindGo(findRes); };
+  findIn.oninput=runFind;
+  findX.onclick=()=>{ findIn.value=''; runFind(); findIn.focus(); };
+  if(HOMEQ) runFind();
   /* cold boot: once per launch the tiles plot themselves in */
   if(!window._booted){ window._booted=true; document.body.classList.add('boot');
     setTimeout(()=>document.body.classList.remove('boot'),1000); }
   app.querySelectorAll('details.grp').forEach(d=>d.addEventListener('toggle',()=>{
     const i=+d.dataset.gi; if(d.open) HOMEOPEN.add(i); else HOMEOPEN.delete(i); }));
-  /* stopPropagation: a mode pill lives inside its tile, and only one should fire */
-  app.querySelectorAll('[data-go]').forEach(e=>e.onclick=ev=>{ ev.stopPropagation();
-    const g=e.dataset.go; repage(()=>{ g==='chart'?chart():form(g); }); });
+  bindGo(app);
   const ub=document.getElementById('upBtn'); if(ub) ub.onclick=showUnlock;
   if(window._installEvt){ const w=document.getElementById('installWrap'); w.classList.remove('hide');
     document.getElementById('installBtn').onclick=async()=>{ window._installEvt.prompt(); const r=await window._installEvt.userChoice; if(r.outcome==='accepted'){ toast('Installing - check your home screen.'); w.classList.add('hide'); window._installEvt=null; } }; }
@@ -5350,7 +5495,11 @@ function diagDouble(st){
    see the flat. Rolled out fitting by fitting; kinds not yet built keep
    their old 2D diagrams. */
 const T3VIEW={};                       // per-kind persistent {az,el,un}
-const T3N=28;                          // circumference facets per ring
+/* 40, not 28: flat-shaded metal shows its facets, and a 28-sided barrel put a
+   visible crease down the middle of the highlight. Only the tube builders use
+   this - the revolved hosts and heads set their own - so it costs a few dozen
+   polygons on a bend and nothing anywhere else. */
+const T3N=40;                          // circumference facets per ring
 
 /* TRUE STRIP DEVELOPMENT (t3 v2). The old flat mapping assumed straight-tube
    bands - right for elbows and lobsters, but it would call a cone a
@@ -5930,6 +6079,10 @@ const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback
   rasqround:t3sqround,oblxform:t3sqround,wsbox:t3wsbox,
   dome:t3dome,dishedend:t3dishedend,hemidome:t3hemidome};
 
+/* Which fittings actually carry a swage at every gore joint. Bends do - that
+   is what the Swage per joint setting feeds. A transformer, a dome gore or a
+   box fold does not, and drawing a bead on one would be inventing detail. */
+const SWAGEKIND={elbow:1,lobster:1,bendonbend:1};
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
   const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
@@ -5963,7 +6116,15 @@ function t3render(kind,s,w){
   const hx=c=>{const m=c.match(/#([0-9a-f]{6})/i); if(!m) return [26,30,34];
     return [parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)];};
   const dark=hx(LY.canvas).reduce((a,b)=>a+b,0)<380;
-  const lo=dark?40:120, hi=dark?185:225;
+  /* SOLID METAL vs SEE-THROUGH (Craig, 10 Sep). The old view painted every
+     joint ring, front and back, over the top of the shading - so you looked
+     straight through the fitting and could not tell which face you had. Solid
+     mode hides what the metal hides and lights it like rolled sheet: a dark
+     ground, a bright horizon flare where the barrel turns away, a cooler top.
+     Hidden detail that still matters - the seam round the back - stays, drawn
+     dashed, which is what a hidden line means everywhere else in this app. */
+  const SOLID3D=SET.shade3d!=='xray';
+  const lo=dark?(SOLID3D?26:40):(SOLID3D?112:120), hi=dark?(SOLID3D?214:185):(SOLID3D?244:225);
   const quads=[];
   const L=[0.42,-0.72,0.55];
   PIECES.forEach((G,gi)=>{
@@ -5975,10 +6136,27 @@ function t3render(kind,s,w){
       const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[d[0]-a[0],d[1]-a[1],d[2]-a[2]];
       let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
       const nl=Math.hypot(n[0],n[1],n[2])||1; n=[n[0]/nl,n[1]/nl,n[2]/nl];
-      let sh=Math.abs(n[0]*L[0]+n[1]*L[1]+n[2]*L[2]);
-      sh=0.35+0.65*sh;
-      if(j%2&&!G.fade) sh*=0.93;   // subtle two-tone per gore - but a smooth host
-                                   // has dozens of bands and it reads as false rings
+      let sh;
+      if(SOLID3D){
+        /* Metal does not take a diffuse shade, it REFLECTS. proj is a plain
+           rotation, so projecting the facet normal puts it in view space for
+           free; -nv.y is then how far the facet tips towards the sky. Ramp
+           that through ground -> horizon flare -> sky and a plain cylinder
+           comes out looking like a rolled barrel instead of a grey tube. */
+        const nv=proj(n), t=Math.max(0,Math.min(1,(-nv.y+1)/2));
+        sh=0.22+0.42*t
+          + 0.34*Math.exp(-Math.pow((t-0.66)/0.175,2))    // the horizon flare, wide
+          + 0.10*Math.exp(-Math.pow((t-0.98)/0.09,2));    // top light
+        /* the flare is deliberately broad: the barrel is only 28 facets round,
+           and a tight highlight lands inside one of them and reads as a hard
+           white stripe rather than a curved surface catching the light */
+        sh=Math.max(0,Math.min(1,sh));
+        if(G.fade) sh=0.30+0.35*sh;   // a context host stays dull, never shiny
+      } else {
+        sh=Math.abs(n[0]*L[0]+n[1]*L[1]+n[2]*L[2]);
+        sh=0.35+0.65*sh;
+        if(j%2&&!G.fade) sh*=0.93;   // subtle two-tone per gore - but a smooth host
+      }                              // has dozens of bands and it reads as false rings
       const g=Math.round(lo+(hi-lo)*sh);
       const q=[BV[gi][j][0][i],BV[gi][j][0][i+1],BV[gi][j][1][i+1],BV[gi][j][1][i]];
       /* stroke the facet in its OWN fill colour: SVG anti-aliases each polygon
@@ -6019,6 +6197,18 @@ function t3render(kind,s,w){
     all.push([c.x-R,c.y-R],[c.x+R,c.y+R]); }
   // joint ink on every band edge, then the seam edges on top
   const path=pts=>'<polyline points="'+pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')+'" fill="none" ';
+  /* Walk a projected polyline and draw it in runs of "you can see this" and
+     "this is round the back", so one line can say both. Pass back=null and the
+     hidden runs are simply not drawn - which is what solid metal does. */
+  const drawSeg=(row,nearFn,front,back)=>{ let i=0;
+    while(i<row.length-1){ const v=nearFn(row[i])&&nearFn(row[i+1]); let j=i+1;
+      while(j<row.length-1 && (nearFn(row[j])&&nearFn(row[j+1]))===v) j++;
+      const seg=row.slice(i,j+1);
+      if(seg.length>1 && (v?front:back)) parts.push(path(seg)+(v?front:back));
+      i=j; } };
+  // a ring's own mean depth splits it into its near half and its far half far
+  // more honestly than the whole piece's mean does on a bend
+  const ringMid=row=>{ let d=0; for(const q of row) d+=q.d; return d/(row.length||1); };
   BV.forEach((P,gi)=>{ const G=PIECES[gi], NN=G.rows3[0].length-1;
     if(G.fade){          // a host carries no seam and no gore joints - just its
       if(fadeAt>0.01){   // two rims, faint, going with it as it fades
@@ -6028,8 +6218,49 @@ function t3render(kind,s,w){
     /* joint ink marks where one piece of metal ENDS and the next begins. A
        ring that falls INSIDE a single piece is not a joint, and drawing it
        makes that piece read as two - see G.nojoint, set by the Twister. */
+    const JOINT='stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="'+(SOLID3D?0.8:0.55)+'"/>';
     P.forEach((pr,j)=>pr.forEach((row,k)=>{ if(G.nojoint&&G.nojoint[j+k]) return;
-      parts.push(path(row)+'stroke="'+LY.object+'" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"/>'); }));
+      if(!SOLID3D||un>0.35){ parts.push(path(row)+JOINT); return; }
+      const md=ringMid(row); drawSeg(row,q=>q.d>=md,JOINT,null); }));
+    /* ---- the swage on every segment of a bend -------------------------
+       Each gore joint is swaged: a bead rolled a few mm back from the edge of
+       the piece that goes INSIDE, and the next piece slips over it. Which of
+       the two is the inside one is not a choice, it is decided by the water.
+       The lap always sheds downhill, so at every joint the bead sits on the
+       LOWER piece and the upper one covers it - the same way roof tiles run.
+       That is worked out per joint from the model, so standing a bend up, or
+       turning the twister over, moves every bead with it.
+       Drawn at max(swage, 1.4% of the fitting): a true 3 mm bead on a 450 mm
+       bend is a third of a pixel, so below that it becomes a symbol, exactly
+       as the bead is drawn on a shop detail. */
+    if(SOLID3D && SWAGEKIND[kind] && (+SET.swage||0)>0 && !G.fade && un<0.9){
+      const nb=G.bands.length;
+      const RP=r=>(r<nb?BP[gi][r][0]:BP[gi][nb-1][1]);
+      const RZ=r=>{ const row=G.rows3[r]; let z=0; for(const q of row) z+=q[2]; return z/(row.length||1); };
+      let s0=1e9,s1=-1e9;
+      G.rows3.forEach(row=>row.forEach(q=>{ for(let c=0;c<3;c++){ if(q[c]<s0)s0=q[c]; if(q[c]>s1)s1=q[c]; } }));
+      const off=Math.max(+SET.swage||0,(s1-s0)*0.014), tz=(s1-s0)*1e-3;
+      const BEAD='stroke="#eef4f9" stroke-width="1.5" stroke-linejoin="round" opacity="'+(0.6*(1-un)).toFixed(2)+'"/>';
+      const SHADE='stroke="#0b1016" stroke-width="1" stroke-linejoin="round" opacity="'+(0.4*(1-un)).toFixed(2)+'"/>';
+      for(let r=0;r<=nb;r++){
+        if(G.nojoint&&G.nojoint[r]) continue;
+        /* a bend lying flat has both pieces at the same height and there is no
+           downhill: without a tie-break, float noise would pick a different
+           side at each joint and the beads would zig-zag. Level = fall back to
+           one consistent direction, so they still shingle. */
+        const nbr = r===0 ? 1 : r===nb ? nb-1
+          : (RZ(r+1) < RZ(r-1)-tz ? r+1 : r-1);
+        const A=RP(r), B=RP(nbr);
+        const line=k=>A.map((p,i)=>{ const q=B[i];
+          const d=Math.hypot(q[0]-p[0],q[1]-p[1],q[2]-p[2])||1;
+          const u=Math.min(0.45,off*k/d);
+          return proj([p[0]+(q[0]-p[0])*u,p[1]+(q[1]-p[1])*u,p[2]+(q[2]-p[2])*u]); });
+        const crown=line(1), heel=line(1.85);
+        const md=ringMid(crown), near=q=>q.d>=md;
+        drawSeg(heel,near,SHADE,null);
+        drawSeg(crown,near,BEAD,null);
+      }
+    }
     if(G.noseam) return;   // the tee body's join is not this edge - see t3tee
     /* SEAM, FRONT TOLD FROM BACK (Craig). One flat red line looks identical
        whether you are looking at the near face of the fitting or straight
@@ -7419,7 +7650,7 @@ function saveToJob(kind){
     const job={id:Date.now(), name:n, items:[]}; JOBS.unshift(job); add(job); };
 }
 function jobsPage(){
-  setView('Jobs','Saved fittings, ready to reprint',false);
+  setView('Jobs','Saved & ready to reprint',false);
   const sketch=cap=>`<div class="sketch"><svg viewBox="0 0 200 90" style="width:100%;height:auto">
     <rect x="8" y="8" width="184" height="64" rx="2" fill="none" stroke="var(--grid2)" stroke-width="1.5" stroke-dasharray="6 5"/>
     <path d="M26 58 Q60 40 100 52 Q140 64 174 30" fill="none" stroke="var(--ly-object)" stroke-width="1.4" stroke-dasharray="3 4" opacity=".55"/>
@@ -7492,35 +7723,30 @@ function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
 function settingsPage(){
   setView('Settings','Defaults & preferences',false);
   app.innerHTML=`
-   <details class="card" open><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Appearance</summary>
+   <details class="card" open><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Look &amp; preview</summary>
     <label>Theme</label><div class="seg" id="sAppear"><button data-v="dark" ${SET.appearance!=='light'?'class="on"':''}>Dark</button><button data-v="light" ${SET.appearance==='light'?'class="on"':''}>Light</button></div>
-    <div class="hint" style="text-align:left">Dark is the workshop HUD look. Light turns the whole app — and the drawing canvas — white, easier to read in bright sun on site. Templates always print black on white either way.</div></details>
+    <div class="hint" style="text-align:left;margin-bottom:8px">Dark is the workshop HUD look. Light turns the whole app — and the drawing canvas — white, easier to read in bright sun on site. The sun button in the header does the same thing from anywhere. Templates always print black on white either way.</div>
+    <label>3D fitting</label><div class="seg" id="sShade"><button data-v="solid" ${SET.shade3d!=='xray'?'class="on"':''}>Solid metal</button><button data-v="xray" ${SET.shade3d==='xray'?'class="on"':''}>See-through</button></div>
+    <div class="hint" style="text-align:left;margin-bottom:8px">Solid metal lights the fitting like rolled sheet and hides what is behind it — and on bends it draws the swage bead on every segment, sitting on the piece the next one laps over. See-through shows all the joint rings at once, front and back.</div>
+    <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
+    <div class="hint" style="text-align:left;margin-bottom:8px">Basic shows diameter and circumference. Detailed adds mitre angles, ordinates, area and sheet counts.</div>
+    <label>Ordinate divisions</label><div class="seg" id="sDiv"><button data-v="12" ${(SET.nDiv||12)==12?'class="on"':''}>12</button><button data-v="24" ${SET.nDiv==24?'class="on"':''}>24</button></div></details>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Cladding &amp; sizing</summary>
     <label>Sizing method</label><div class="seg" id="sSizeMode"><button data-v="pipeins" ${SET.sizeMode!=='diameter'?'class="on"':''}>Pipe + insulation</button><button data-v="diameter" ${SET.sizeMode==='diameter'?'class="on"':''}>Finished Ø</button></div>
     <div class="hint" style="text-align:left;margin-bottom:6px">Pipe + insulation works the cladding size out for you (pipe OD + 2 × insulation). Finished Ø lets you type the actual outside diameter straight in — for when the lagging isn't a standard build.</div>
-    <label>Insulation (mm)</label><input type="number" id="sIns" value="${SET.insulation}" ${SET.sizeMode==='diameter'?'disabled':''}></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Seams &amp; laps</summary>
+    <label>Insulation (mm)</label><input type="number" id="sIns" value="${SET.insulation}" ${SET.sizeMode==='diameter'?'disabled':''}>
     <div class="row"><div><label>Seam lap total (mm)</label><input type="number" id="sLap" value="${SET.lapTotal}"></div>
     <div><label>Hole pitch (mm)</label><input type="number" id="sHole" value="${SET.holePitch}"></div></div>
-    <div class="hint" style="text-align:left">The shop default for the seam lap — every fitting now shows its own Lap box you can override on the spot.</div></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Bends &amp; lobsters</summary>
-    <label>Swage per joint (mm)</label><input type="number" id="sSwage" value="${SET.swage}">
-    <div class="hint" style="text-align:left">Added at every bend, lobster and cone joint.</div></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Tees</summary>
-    <label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}">
-    <div class="hint" style="text-align:left">A flat lip rolled out on the branch saddle to rivet onto the main — used instead of a swage.</div></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Ordinates &amp; preview</summary>
-    <label>Ordinate divisions</label><div class="seg" id="sDiv"><button data-v="12" ${(SET.nDiv||12)==12?'class="on"':''}>12</button><button data-v="24" ${SET.nDiv==24?'class="on"':''}>24</button></div>
-    <label>Preview info</label><div class="seg" id="sDetail"><button data-v="0" ${SET.detail?'':'class="on"'}>Basic</button><button data-v="1" ${SET.detail?'class="on"':''}>Detailed</button></div>
-    <div class="hint" style="text-align:left">Basic shows diameter and circumference. Detailed adds mitre angles, ordinates, area and sheet counts.</div></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Printing</summary>
+    <div class="hint" style="text-align:left;margin-bottom:6px">The shop default for the seam lap — every fitting also shows its own Lap box you can override on the spot.</div>
+    <div class="row"><div><label>Swage per joint (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
+    <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
+    <div class="hint" style="text-align:left">Swage is added at every bend, lobster and cone joint. The tee flange is the flat lip rolled out on a branch saddle to rivet onto the main — used instead of a swage.</div></details>
+   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Printing &amp; sheets</summary>
     <label>Paper</label><div class="seg" id="sPage">${['a3','a4','letter','legal','tabloid'].map(p=>`<button data-v="${p}" ${SET.page===p?'class="on"':''}>${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[p]}</button>`).join('')}</div>
-    <div class="hint" style="text-align:left">Templates always print black on white. The screen colour follows Appearance at the top of Settings.</div></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Sheet size</summary>
+    <div class="hint" style="text-align:left;margin-bottom:8px">Templates always print black on white whatever the app theme is set to.</div>
     <label>Sheet size (mm)</label><div class="row" style="gap:6px"><input type="number" id="sSW" value="${SET.sheetW}"><input type="number" id="sSH" value="${SET.sheetH}"></div>
-    <div class="hint" style="text-align:left">Feeds the per-sheet count in the Detailed preview info — how many of a pattern nest on one sheet.</div></details>
-   <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Branding ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</summary>
-    <label>Company name on PDF templates</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></details>
+    <div class="hint" style="text-align:left;margin-bottom:8px">Feeds the per-sheet count in the Detailed preview info — how many of a pattern nest on one sheet.</div>
+    <label>Company name on templates ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></details>
    <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ CladMate Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
      :`<button class="btn gold" id="sUp">Unlock CladMate Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Backup</summary>
@@ -7530,7 +7756,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px" fill="none"><path d="M12 2.5 A16 16 0 0 1 21.5 21.5 L16.6 18.2 A10 10 0 0 0 12 8.4 Z" fill="#e6ebf0"/><path d="M12 2.5 A16 16 0 0 0 2.5 21.5 L7.4 18.2 A10 10 0 0 1 12 8.4 Z" fill="#e6ebf0" opacity="0.55"/><circle cx="12" cy="19.5" r="2.4" fill="#e6ebf0"/></svg></div>
-    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.59.1</span></div>
+    <div style="font-weight:800;font-size:16px">CladMate <span style="color:var(--sub);font-weight:600;font-size:12px">v4.60.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -7564,9 +7790,10 @@ function settingsPage(){
   document.getElementById('sDiv').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDiv').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.nDiv=+b.dataset.v; saveSet(); });
   document.getElementById('sAppear').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sAppear').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.appearance=b.dataset.v; applyTheme(); saveSet(); route(); });
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
+  document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:'CladMate',ver:'4.59.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:'CladMate',ver:'4.60.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='CladMate_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
