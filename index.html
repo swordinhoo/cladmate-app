@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.64.4</span>
+  <span class="ver">v4.65.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -1358,6 +1358,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapEach, xHi = circ + lapEach;
     const mid = (kind === 'mid');
+    /* A B C D - WHERE THE BEND SITS (Craig, 11 Sep 26). Every joint locks the
+       upper piece's MALE swage over the lower piece's FEMALE, so which wavy
+       edge is which follows from which end of the bend is uphill. The cut does
+       not change - male and female take the same allowance, the full swage
+       figure on each edge - the MARKING does. On A and B the top of this sheet
+       faces DOWNHILL, so the half-gore as printed is the finisher; C and D are
+       turned over. verify/sanity-abcd.js reads that off the app's own 3D.
+       Only when the fitting passes its position: the double bend's gores are
+       drawn here too and are left exactly as they were. */
+    const W = /^[ABCD]$/.test(p.watershed || '') ? p.watershed : null;
+    const topUp = W === 'C' || W === 'D';
+    const JA = p.jointAllow || 0;
+    const sexTop = topUp ? 'FEMALE' : 'MALE', sexBot = topUp ? 'MALE' : 'FEMALE';
 
     if (mid) {
       const top = [], bot = [];
@@ -1365,6 +1378,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim.push({ style: 'cut', pts: top.concat([[xHi, -hAt(phiAt(xHi))]], bot.slice().reverse(), [top[0]]) });
       prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
       [0, circ].forEach(xf => { const h = hAt(phiAt(xf)); prim.push({ style: 'fold', pts: [[xf, -h], [xf, h]] }); });
+      if (W && JA > 0) {   // the swage lines, on the true mitre, each named for its edge
+        const tl = [], bl = [];
+        for (let i = 0; i <= steps; i++) { const x = xLo + (xHi - xLo) * i / steps; const h = hAt(phiAt(x)) - JA; tl.push([x, h]); bl.push([x, -h]); }
+        prim.push({ style: 'swage', pts: tl, note: sexTop + ' SWAGE ' + JA });
+        prim.push({ style: 'swage', pts: bl, note: sexBot + ' SWAGE ' + JA });
+      }
       [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), t = h - p.holeEndGap, b = -(h - p.holeEndGap), span = t - b;
         const nH = _nH(span, p.holePitch);
         for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
@@ -1375,6 +1394,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim.push({ style: 'cut', pts: [[xLo, 0]].concat(top, [[xHi, 0]], [[xLo, 0]]) });
       prim.push({ style: 'fold', pts: [[xLo, 0], [xHi, 0]] });   // flat flange edge (butts the straight pipe)
       [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, hAt(phiAt(xf))]] }));
+      if (W && JA > 0) {
+        const tl = [];
+        for (let i = 0; i <= steps; i++) { const x = xLo + (xHi - xLo) * i / steps; tl.push([x, hAt(phiAt(x)) - JA]); }
+        prim.push({ style: 'swage', pts: tl, note: sexTop + ' SWAGE ' + JA });
+      }
       [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b;
         const nH = _nH(span, p.holePitch);
         for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
@@ -1393,7 +1417,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         mid
           ? `MIDDLE gore - wavy both edges, cut ${nMid} off.  Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  seam ${p.seamFromThroat}° from throat`
           : `STARTER / FINISHER gore - flat edge butts the straight pipe, cut 2 off.  Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  seam ${p.seamFromThroat}° from throat`
-      ],
+      ].concat(!W ? [] : mid
+          ? [`Type ${W}: top edge ${sexTop} swage, bottom edge ${sexBot}.  Marked face out.`]
+          : [topUp ? `As marked: the STARTER (bottom, fitted first) - wavy edge FEMALE.  Finisher: turn it over, MALE.`
+                   : `As marked: the FINISHER (top, fitted last) - wavy edge MALE.  Starter: turn it over, FEMALE.`]),
       calc: { g: g * 180 / Math.PI, A, C, circ, cladOD, segments: N, nMid, o12: ordTable(12), o24: ordTable(24) },
       prim, holes, ticks, bbox: bboxOf(prim),
       cutNote: mid ? `CUT ${nMid} OFF (middle gores)` : `CUT 2 OFF (starter + finisher · half gores)`
@@ -1920,11 +1947,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapEach, xHi = circ + lapEach, top = [], topT = [];
     for (let i = 0; i <= steps; i++) { const x = xLo + (xHi-xLo)*i/steps; top.push([x, yTop(phiAt(x)) + swE]); topT.push([x, yTop(phiAt(x))]); }
-    prim.push({ style: 'cut', pts: [[xLo,-swE]].concat(top, [[xHi,-swE]], [[xLo,-swE]]) });
-    if (swE > 0) { prim.push({ style: 'swage', pts: topT, note: 'SWAGE ' + swE });
-                   prim.push({ style: 'swage', pts: [[xLo,0],[xHi,0]], note: 'SWAGE ' + swE }); }
+    /* The flat end that meets the straight is PLAIN (Craig, 11 Sep 26): the
+       swage allowance goes on the mitre edge only. It used to be added below
+       the flat end as well, with a swage line along it. */
+    prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
+    /* A B C D: the mitre locks the upper piece's MALE over the lower's FEMALE.
+       As printed this is the TOP piece on A and B - its mitre faces downhill -
+       and the BOTTOM piece on C and D. See the lobster gore above. */
+    const W = /^[ABCD]$/.test(p.watershed || '') ? p.watershed : null;
+    const sexE = (W === 'C' || W === 'D') ? 'FEMALE' : 'MALE';
+    if (swE > 0) prim.push({ style: 'swage', pts: topT, note: (W ? sexE + ' ' : '') + 'SWAGE ' + swE });
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
-    [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,-swE],[xf, yTop(phiAt(xf)) + swE]] }));
+    [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, yTop(phiAt(xf)) + swE]] }));
     [0, circ].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, h=yTop(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     return { kind:'elbow', title:`${p.bendDeg}° Mitred Elbow  -  1:1 Template`,
@@ -1933,7 +1967,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
               : `Pipe ${p.pipeOD} mm + insulation ${p.insulation} mm  =>  cladding Ø ${cladOD.toFixed(0)} mm`,
             `Circumference ${circ.toFixed(1)} mm   ·   with lap (${p.lapTotal} mm):  ${(circ + p.lapTotal).toFixed(1)} mm`,
             `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha*180/Math.PI).toFixed(1)}°`,
-            `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.swage||0} mm  min length ${minLen} mm  CUT ${pieces} OFF`],
+            `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.swage||0} mm  min length ${minLen} mm  CUT ${pieces} OFF`]
+            .concat(!W ? [] : [sexE === 'MALE' ? 'As marked: the TOP piece - mitre MALE.  Bottom piece: turn it over, FEMALE.'
+                                                : 'As marked: the BOTTOM piece - mitre FEMALE.  Top piece: turn it over, MALE.']),
       calc:{cladOD, alpha:alpha*180/Math.PI, A, circ, pieces},
       info:{ name:`${p.bendDeg}° Mitred Elbow`,
              lines:[ (p.insulation||0)===0 ? `Cladding Ø ${cladOD.toFixed(0)} mm`
@@ -4559,20 +4595,20 @@ const F={
   stats:c=>['Clad '+c.bigOD.toFixed(0)+'→'+c.smallOD.toFixed(0)+' mm']},
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)',0.1),num('segments','Segments'),FAST],
-  build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage}),
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)',0.1),num('segments','Segments'),{type:'abcd',k:'bendHand',label:'Bend type — where it sits'},FAST],
+  build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage,watershed:s.bendHand||'A'}),
   /* A lobster bend is TWO patterns, not one: the half-height starter/finisher
      that butts the straight pipe (cut 2) and the wavy middle gore (cut N-1).
      The engine has always made both - the tile only ever offered the middle
      one, so the ends had to be guessed at. Craig, 10 Sep. */
-  kit:s=>FP.lobsterKit({...s,jointAllow:SET.swage}),
+  kit:s=>FP.lobsterKit({...s,jointAllow:SET.swage,watershed:s.bendHand||'A'}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Middle gore — cut '+c.nMid],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Middle gore — cut '+c.nMid],
   note:'Two patterns make the bend: the STARTER / FINISHER gore (half height, flat edge butts the straight pipe, cut 2 off) and the MIDDLE gore (wavy both edges, cut N-1). Show all kit pieces to see both, or Generate to print the set. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),{type:'seam',k:'seamFromThroat',label:'Fastener / seam position'}],
-  build:s=>FP.elbow({...s,pieces:2,swage:SET.swage}),
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),{type:'abcd',k:'bendHand',label:'Bend type — where it sits'},{type:'seam',k:'seamFromThroat',label:'Fastener / seam position'}],
+  build:s=>FP.elbow({...s,pieces:2,swage:SET.swage,watershed:s.bendHand||'A'}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
  flatelbow:{name:'Flat-sided Elbow',sub:'D-section · 2-piece',icon:I.elbow,free:true,
@@ -5587,6 +5623,23 @@ function t3stations(rows3){
   return {rows3, bands};
 }
 
+/* WHERE THE BEND SITS - the A B C D system (Craig, 11 Sep 26). One bend, four
+   positions, each watershed in the position it is in: A stands like a top-left
+   corner - mouth facing right, leg down; B is A turned round (about the
+   upright), C is A turned over (about the level), D is both. As struck a bend
+   rises from its first ring up +Z and turns towards +X; a quarter turn about
+   the eye's line (Y) stands it as A with that first ring at the TOP - the end
+   the printed half-gore and elbow piece are (verify/sanity-abcd.js). Seam: B
+   and C carry it mirrored, as the engine cuts them, so point 4 is at the front
+   in all four. Proper rotations only - the development cannot notice, and the
+   swage beads, which follow true height, land on the right piece every time. */
+const T3TURN={A:q=>q, B:q=>[-q[0],-q[1],q[2]], C:q=>[q[0],-q[1],-q[2]], D:q=>[-q[0],q[1],-q[2]]};
+function t3place(geo,s){
+  const turn=T3TURN[s.bendHand]||T3TURN.A;
+  geo.rows3.forEach(r=>r.forEach(q=>{ const p=turn([q[2],q[1],-q[0]]); q[0]=p[0]; q[1]=p[1]; q[2]=p[2]; }));
+  return geo;
+}
+
 function t3elbow(s){
   const r=(+s.pipeOD+2*(+s.insulation||0))/2;
   const A=Math.max(5,Math.min(90,+s.bendDeg||90))*Math.PI/180;
@@ -5594,7 +5647,7 @@ function t3elbow(s){
   const seam=(((+s.seamFromThroat||0)*mir)%360+360)%360*Math.PI/180;
   const Lc=Math.max(+s.minLen||25,r*0.5)+r*Math.tan(A/2);
   const tan=t=>[Math.sin(t),0,Math.cos(t)], rad=t=>[Math.cos(t),0,-Math.sin(t)];
-  const side=[0,mir,0], n=tan(A/2);
+  const side=[0,1,0], n=tan(A/2);   // B/C are turned into place (t3place), not mirrored
   const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const ring=(axisT,along)=>{ const a=tan(axisT),rd=rad(axisT),row=[];
     for(let i=0;i<=T3N;i++){ const ps=seam+2*Math.PI*i/T3N;
@@ -5622,7 +5675,7 @@ function t3lobster(s){
   const mir=(s.bendHand==='B'||s.bendHand==='C')?-1:1;
   const seam=(((+s.seamFromThroat||0)*mir)%360+360)%360*Math.PI/180;
   const rowAt=t=>{ const c=[CR*(1-Math.cos(t)),0,CR*Math.sin(t)];
-    const rd=[Math.cos(t),0,-Math.sin(t)], sd=[0,mir,0], row=[];
+    const rd=[Math.cos(t),0,-Math.sin(t)], sd=[0,1,0], row=[];   // turned, not mirrored (t3place)
     for(let i=0;i<=T3N;i++){ const ps=seam+2*Math.PI*i/T3N;
       row.push([c[0]+r*(rd[0]*Math.cos(ps)+sd[0]*Math.sin(ps)),
                 c[1]+r*(rd[1]*Math.cos(ps)+sd[1]*Math.sin(ps)),
@@ -6124,7 +6177,7 @@ function t3dome(s){
 const t3dishedend=s=>t3dome(Object.assign({},s,{__H:(+s.dia||3500)*(1-Math.sqrt(3)/2)}));
 const t3hemidome=s=>t3dome(Object.assign({},s,{__H:(+s.dia||2500)/2}));
 
-const T3B={elbow:t3elbow,lobster:t3lobster,reducer:t3reducer,flatback:t3flatback,
+const T3B={elbow:s=>t3place(t3elbow(s),s),lobster:s=>t3place(t3lobster(s),s),reducer:t3reducer,flatback:t3flatback,
   oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
   valveend:t3valveend,tanktop:t3tanktop,inctee:t3tee,teereducer:t3tee,
   teeoncone:t3teeoncone,teedome:t3teedome,teetanktop:t3teetanktop,
@@ -7574,6 +7627,20 @@ function fieldHTML(f,s){
     return `<label>${f.label}</label><select data-pipe="${f.k}">${f.none?`<option value="0" ${none?'selected':''}>No hole</option>`:''}${FP.PIPE_CHART.map(p=>`<option value="${p.od}" ${(p.od==cur&&!isc)?'selected':''}>${p.inch}" · DN${p.dn} · ${p.od}mm</option>`).join('')}<option value="custom" ${isc?'selected':''}>Custom…</option></select><div data-cuswrap="${f.k}" class="${isc?'':'hide'}"><input type="number" inputmode="decimal" data-cus="${f.k}" value="${cur}" step="0.1" style="margin-top:8px"></div>`; }
   if(f.type==='seg') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
+  if(f.type==='abcd'){ const cur=/^[ABCD]$/.test(s[f.k]||'')?s[f.k]:'A';
+    /* A B C D - WHERE THE BEND SITS, drawn from Craig's own picture (11 Sep):
+       one bend in four positions round a centre, rain from above. A stands
+       like a top-left corner - mouth right, leg down; B is it turned round, C
+       turned over, D both. The one you tap decides which edge of every gore is
+       rolled MALE and which FEMALE; the seam is then free on the wheel. */
+    const Ro=44, Ri=27, pt=(R,a)=>(20+R*Math.cos(a)).toFixed(1)+' '+(20+R*Math.sin(a)).toFixed(1);
+    const a0=Math.PI, a1=1.5*Math.PI;
+    const bend='M'+pt(Ro,a0)+' A'+Ro+' '+Ro+' 0 0 1 '+pt(Ro,a1)+' L'+pt(Ri,a1)+' A'+Ri+' '+Ri+' 0 0 0 '+pt(Ri,a0)+' Z';
+    const joints=[1,2].map(k=>{ const a=a0+(a1-a0)*k/3; return 'M'+pt(Ri,a)+' L'+pt(Ro,a); }).join(' ');
+    const cell=([L,x,y,sc])=>{ const on=cur===L;
+      return `<g data-abcd="${L}" style="cursor:pointer"><rect class="abcdbg" x="${x-38}" y="${y-38}" width="76" height="76" rx="7" fill="#2f7bd6" fill-opacity="${on?0.22:0}"/><g transform="translate(${x} ${y}) scale(${sc})"><path class="abcdbend" d="${bend}" fill="${on?'#2f7bd6':LY.faint}"/><path d="${joints}" stroke="${LY.canvas}" stroke-width="1.6" fill="none"/></g><text x="${x<90?17:163}" y="${y<120?52:192}" font-size="15" font-weight="800" fill="${LY.text}" text-anchor="middle" font-family="var(--fd)">${L}</text></g>`; };
+    const rain=`<g transform="translate(90 18)"><g fill="${LY.faint}"><circle cx="-10" cy="0" r="7"/><circle cx="0" cy="-4" r="9"/><circle cx="10" cy="0" r="6.5"/><rect x="-10" y="0" width="20" height="7"/></g><g stroke="#4fb3ff" stroke-width="2" stroke-linecap="round"><line x1="-7" y1="11" x2="-9" y2="16"/><line x1="0" y1="11" x2="-2" y2="16"/><line x1="7" y1="11" x2="5" y2="16"/></g></g>`;
+    return `<label>${f.label}</label><div style="display:flex;justify-content:center"><svg data-abcdsvg="1" viewBox="0 0 180 200" style="width:180px;max-width:100%;height:auto;background:${LY.canvas};border:1px solid var(--line);border-radius:6px">${rain}${[['A',50,78,'1 1'],['B',130,78,'-1 1'],['C',50,158,'1 -1'],['D',130,158,'-1 -1']].map(cell).join('')}</svg></div><div class="hint" style="margin-top:4px;text-align:center">Tap the bend as it sits on site. The seam is then free on the wheel.</div>`; }
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
@@ -7612,18 +7679,15 @@ function form(kind, presetParams){
   const fit=F[kind];
   if(presetParams) states[kind]=Object.assign({},presetParams,{__touched:true});
   const s=states[kind];
-  // C/D retired from the UI - same bend, seam mirrored. Old saves normalise.
-  if(s.bendHand==='C') s.bendHand='B'; else if(s.bendHand==='D') s.bendHand='A';
+  /* A B C D is back on the bends that print by it - the lobster and the
+     mitred elbow (Craig, 11 Sep: "it changes the template"). A saved letter
+     stands as saved there. Elsewhere C/D still fold to B/A as they always
+     have, and the flat-sided bends, whose engines never read the letter, stay
+     on A. */
+  const abcdFit=fit.fields.some(f=>f.type==='abcd');
+  if(!abcdFit){ if(s.bendHand==='C') s.bendHand='B'; else if(s.bendHand==='D') s.bendHand='A'; }
   if(s.bendHand2==='C') s.bendHand2='B'; else if(s.bendHand2==='D') s.bendHand2='A';
-  /* A|B retired from the seam wheel too (Craig, 11 Sep). On the lobster and
-     the elbow the engine cut a B at the seam MIRRORED (360 - seam), so an old B
-     job reopens as A with the seam at the mirrored point and prints exactly the
-     same metal. The flat-sided bends never read the hand at all - B only ever
-     changed their picture - so there it simply becomes A. The double bend keeps
-     both its hands: there they decide same-way against S-bend. */
-  if(s.bendHand==='B'&&(kind==='lobster'||kind==='elbow')){
-    s.seamFromThroat=(360-(+s.seamFromThroat||0))%360; s.bendHand='A'; }
-  else if(s.bendHand==='B'&&(kind==='flatlobster'||kind==='flatelbow')) s.bendHand='A';
+  if(s.bendHand==='B'&&(kind==='flatlobster'||kind==='flatelbow')) s.bendHand='A';
   // per-fitting old-save normalise (valve end: overall boxD -> straight boxRun)
   if(fit.migrate) fit.migrate(s);
   const touch=()=>{ s.__touched=true; };
@@ -7779,6 +7843,14 @@ function form(kind, presetParams){
           h.setAttribute('r','11'); h.setAttribute('class','seamhalo');
           dot.parentNode.appendChild(h); setTimeout(()=>h.remove(),420); } });
       upd(); } }
+  { const ab=app.querySelector('[data-abcdsvg]');
+    if(ab) ab.querySelectorAll('[data-abcd]').forEach(g=>g.onclick=()=>{ touch(); s.bendHand=g.dataset.abcd;
+      ab.querySelectorAll('[data-abcd]').forEach(c=>{ const on=c.dataset.abcd===s.bendHand;
+        c.querySelector('.abcdbg').setAttribute('fill-opacity',on?'0.22':'0');
+        c.querySelector('.abcdbend').setAttribute('fill',on?'#2f7bd6':LY.faint); });
+      /* show it sitting that way, square on - the picture it was picked from */
+      const vw3=T3VIEW[kind]; if(vw3){ vw3.az=0; vw3.el=0; vw3.sq=1; }
+      refresh(); }); }
   { const sw=app.querySelector('[data-splitsvg]');
     if(sw) sw.querySelectorAll('[data-sdot]').forEach(g=>g.onclick=()=>{ touch(); s.splitRot=+g.dataset.sdot;
       sw.querySelectorAll('.sdot').forEach(d=>{ const on=+d.dataset.sn===(((+s.splitRot||0)%12)+12)%12;
@@ -8182,9 +8254,9 @@ function settingsPage(){
     <div class="row"><div><label>Seam lap total (mm)</label><input type="number" id="sLap" value="${SET.lapTotal}"></div>
     <div><label>Hole pitch (mm)</label><input type="number" id="sHole" value="${SET.holePitch}"></div></div>
     <div class="hint" style="text-align:left;margin-bottom:6px">The shop default for the seam lap — every fitting also shows its own Lap box you can override on the spot.</div>
-    <div class="row"><div><label>Swage per joint (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
+    <div class="row"><div><label>Swage per edge (mm)</label><input type="number" id="sSwage" value="${SET.swage}"></div>
     <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
-    <div class="hint" style="text-align:left">Swage is added at every bend, lobster and cone joint. The tee flange is the flat lip rolled out on a branch saddle to rivet onto the main — used instead of a swage.</div></details>
+    <div class="hint" style="text-align:left">Swage is the allowance added to each swaged edge - male and female alike - at every bend, lobster and cone joint. The flat ends that meet the straight stay plain. The tee flange is the flat lip rolled out on a branch saddle to rivet onto the main — used instead of a swage.</div></details>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Printing &amp; sheets</summary>
     <label>Paper</label><div class="seg" id="sPage">${['a3','a4','letter','legal','tabloid'].map(p=>`<button data-v="${p}" ${SET.page===p?'class="on"':''}>${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[p]}</button>`).join('')}</div>
     <div class="hint" style="text-align:left;margin-bottom:8px">Templates always print black on white whatever the app theme is set to.</div>
@@ -8200,7 +8272,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.64.4</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8237,7 +8309,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.64.4',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.65.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
