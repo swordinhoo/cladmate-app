@@ -444,7 +444,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --fam-1:#2f7bd6; --fam-2:#129aa6; --fam-3:#d08a12; --fam-4:#7b5be0; --fam-5:#1f9b57; --fam-6:#d1495b; --fam-ref:#5b6b7a;
 
     /* legacy names still referenced in markup */
-    --card:var(--panel); --field:#ffffff; --seg-bg:#e2e8ed; --seg-on:#ffffff;
+    --card:var(--panel); --field:#ffffff; --seg-bg:#e2e8ed; --seg-on:#ffffff; --inp:#ffffff; --inp-ink:var(--ink);
     --chip-ink:#39424b; --chip-line:#cdd4da; --icfill:#eef2f6;
     --gold:var(--acc); --gold-dk:var(--acc-hi); --accent:var(--acc); --paper:var(--canvas);
   }
@@ -492,7 +492,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     --fam-1:#26e0e0; --fam-2:#3aa5ff; --fam-3:#ffb020; --fam-4:#b98bff; --fam-5:#2fd07a; --fam-6:#ff5d6c; --fam-ref:#8aa0b2;
 
     /* legacy aliases */
-    --card:var(--panel); --field:#0e151d; --seg-bg:#0b1016; --seg-on:#18232f;
+    --card:var(--panel); --field:#0e151d; --seg-bg:#0b1016; --seg-on:#18232f; --inp:#ffffff; --inp-ink:#0f1720;
     --chip-ink:#c7d6e2; --chip-line:#243444; --icfill:#0e151d;
     --gold:var(--acc); --gold-dk:var(--acc-hi); --accent:var(--acc); --paper:var(--canvas);
   }
@@ -714,12 +714,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   /* ---- panels + controls ---- */
   .card{background:var(--panel);border:1px solid var(--line);border-radius:15px;
         box-shadow:0 1px 2px rgba(16,22,28,.05),0 6px 16px -10px rgba(16,22,28,.16);
-        padding:14px;margin-bottom:12px}
+        padding:11px;margin-bottom:9px}
   label{display:block;font-family:var(--fm);font-size:11.5px;font-weight:800;text-transform:uppercase;
-        letter-spacing:.06em;color:var(--ink);margin:14px 0 6px}
+        letter-spacing:.06em;color:var(--ink);margin:9px 0 4px}
   .card>label:first-child{margin-top:0}
-  input,select{width:100%;font-size:18px;font-weight:700;font-family:var(--fm);padding:12px 12px;
-        border:1px solid var(--line2);border-radius:10px;background:var(--field);color:var(--ink);
+  /* value boxes are WHITE with dark figures in both themes (Craig, 11 Sep 26) */
+  input,select{width:100%;font-size:18px;font-weight:700;font-family:var(--fm);padding:9px 10px;
+        border:1px solid var(--line2);border-radius:10px;background:var(--inp);color:var(--inp-ink);
         font-variant-numeric:tabular-nums slashed-zero}
   input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(10,90,168,.22)}
   button:focus-visible,.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -890,6 +891,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .seg.mini button{padding:7px 4px;font-size:12.5px}
   .seamvis{display:flex;gap:9px;align-items:center;justify-content:center}
   .seamvis .seamwheel{flex:0 0 44%;max-width:158px;height:auto}
+  .abcdpick{width:120px;max-width:34%;height:auto;flex:0 0 auto;background:var(--canvas);border:1px solid var(--line);border-radius:6px}
   .seamvis #fitdiag{flex:1;display:flex;align-items:center;justify-content:center;min-width:0}
   .seamvis #fitdiag svg{width:100%!important;max-width:210px;height:auto}
   .seamdot{transition:r .16s cubic-bezier(.34,1.56,.5,1),fill .16s ease;
@@ -1071,6 +1073,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
   /* ---- fitting workspace: controls left, drawing right ---- */
   .fld{min-width:0}
+  /* two to a row on a phone too - one number per full-width row dragged the
+     form out (Craig, 11 Sep 26) */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+  .grid2 .full{grid-column:1 / -1}
   /* form section divider - the Double Bend was one flat soup of 11 fields and
      Craig ruled it must read as Bend 1 / Bend 2 / the joining bits (28 Aug) */
   .fhd{font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
@@ -1104,7 +1110,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
        template and in the kit pieces, so the phone keeps the drawing and the
        inputs and nothing else. Desktop has the room, so it keeps it. */
     #pvstat{display:none}
-    .pvwrap{height:33vh;min-height:190px}
+    .pvwrap{height:40vh;min-height:230px}
+    /* the settings echo is in Settings; the phone keeps the inputs */
+    .card>.grid2+.hint{display:none}
+    .diagcard{padding:6px}
+    .diagcard #fitdiag svg{max-height:170px}
     #pv{max-height:none;height:100%;box-sizing:border-box}
     /* the seam wheel rides IN the corner of the drawing, so you watch the seam
        move on the fitting as you tap the clock instead of scrolling to find it */
@@ -1116,6 +1126,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     /* the centre hint does not survive being shrunk to a 108px corner -
        it collides with the clock numbers and is unreadable either way */
     .seamwheel.onpv .seamhint{display:none}
+    /* A B C D rides beside the wheel on the drawing */
+    .abcdpick.onpv{position:absolute;left:104px;bottom:6px;width:80px;height:auto;z-index:4;background:none;border:0;
+        filter:drop-shadow(0 0 2px var(--canvas)) drop-shadow(0 1px 3px rgba(0,0,0,.55))}
     .seamvis:empty{display:none}
   }
   /* the version string is in Settings and on every printed sheet; on a narrow
@@ -1172,7 +1185,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.65.4</span>
+  <span class="ver">v4.65.5</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -6271,12 +6284,16 @@ function t3render(kind,s,w){
   const fcx=(bx0+bx1)/2, fcy=(by0+by1)/2;
   // each band owns its vertices, so the unwrap visibly splits the fitting
   // into its gores and lands them as the stacked cut sheet
-  const morph=(p,f)=>[p[0]+((f[0]-fcx)-p[0])*un, p[1]*(1-un), p[2]+((f[1]-fcy)-p[2])*un];
+  // spin about the fitting's own middle, as the WebGL view does - the flat is unaffected
+  let lo3=[1e9,1e9,1e9], hi3=[-1e9,-1e9,-1e9];
+  PIECES.forEach(G=>{ if(G.fade) return; G.rows3.forEach(row=>row.forEach(q=>{ for(let k=0;k<3;k++){ if(q[k]<lo3[k])lo3[k]=q[k]; if(q[k]>hi3[k])hi3[k]=q[k]; } })); });
+  const C3=lo3[0]<=hi3[0]?[0,1,2].map(k=>(lo3[k]+hi3[k])/2):[0,0,0], cen=p=>[p[0]-C3[0],p[1]-C3[1],p[2]-C3[2]];
+  const morph=(p0,f)=>{ const p=cen(p0); return [p[0]+((f[0]-fcx)-p[0])*un, p[1]*(1-un), p[2]+((f[1]-fcy)-p[2])*un]; };
   /* a HOST piece (the reducer a branch lands on, the bend under a trunnion)
      has no pattern of its own here - it is there so you can see what the
      branch sits on. It shrinks away to nothing as the branch lays flat
      rather than pretending to develop, and keeps the framing honest. */
-  const fadeAt=Math.max(0,1-un*1.7), fadeM=p=>[p[0]*fadeAt,p[1]*fadeAt,p[2]*fadeAt];
+  const fadeAt=Math.max(0,1-un*1.7), fadeM=p0=>{ const p=cen(p0); return [p[0]*fadeAt,p[1]*fadeAt,p[2]*fadeAt]; };
   const BP=PIECES.map(G=>G.bands.map(([FA,FB],j)=>[
     G.rows3[j].map((p,i)=>G.fade?fadeM(p):morph(p,FA[i])),
     G.rows3[j+1].map((p,i)=>G.fade?fadeM(p):morph(p,FB[i])) ]));
@@ -6601,9 +6618,18 @@ const T3GL = {
 
     /* one scale for the whole thing, off the 3D extent, so a fitting does not
        appear to change size when it peels */
+    /* SPIN IT ABOUT ITS OWN MIDDLE (Craig, 11 Sep 26: "pinned on one end").
+       Every builder strikes its fitting from its first ring at the origin, so
+       turning about the origin swung the whole thing round one end and the
+       frame had to allow for the swing. The rolled shape is centred on its own
+       box; the flat already is (fcx/fcy), and it lands exactly where it did. */
+    let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    PIECES.forEach(G => { if (G.fade) return; G.rows3.forEach(row => row.forEach(q => {
+      for (let k = 0; k < 3; k++) { if (q[k] < lo[k]) lo[k] = q[k]; if (q[k] > hi[k]) hi[k] = q[k]; } })); });
+    const C3 = lo[0] <= hi[0] ? [0, 1, 2].map(k => (lo[k] + hi[k]) / 2) : [0, 0, 0];
     let m = 1;
     PIECES.forEach(G => G.rows3.forEach(row => row.forEach(q => {
-      m = Math.max(m, Math.abs(q[0]), Math.abs(q[1]), Math.abs(q[2])); })));
+      m = Math.max(m, Math.abs(q[0] - C3[0]), Math.abs(q[1] - C3[1]), Math.abs(q[2] - C3[2])); })));
     PIECES.forEach(G => { if (G.fade) return; G.bands.forEach(b => b.forEach(row => row.forEach(q => {
       m = Math.max(m, Math.abs(q[0] - fcx), Math.abs(q[1] - fcy)); }))); });
     const K = 1 / m;
@@ -6623,11 +6649,11 @@ const T3GL = {
         const [FA, FB] = G.bands[j], R0 = G.rows3[j], R1 = G.rows3[j + 1];
         // per-band vertices: the joints stay crisp instead of smearing across
         for (let i = 0; i <= NN; i++) {
-          p3.push(R0[i][0] * K, R0[i][1] * K, R0[i][2] * K);
+          p3.push((R0[i][0] - C3[0]) * K, (R0[i][1] - C3[1]) * K, (R0[i][2] - C3[2]) * K);
           pF.push((FA[i][0] - fcx) * K, 0, (FA[i][1] - fcy) * K);
         }
         for (let i = 0; i <= NN; i++) {
-          p3.push(R1[i][0] * K, R1[i][1] * K, R1[i][2] * K);
+          p3.push((R1[i][0] - C3[0]) * K, (R1[i][1] - C3[1]) * K, (R1[i][2] - C3[2]) * K);
           pF.push((FB[i][0] - fcx) * K, 0, (FB[i][1] - fcy) * K);
         }
         for (let i = 0; i < NN; i++) {
@@ -7678,12 +7704,15 @@ function placeSeamWheel(){
   const wheel=app.querySelector('[data-seamsvg]'); if(!wheel) return;
   const phone=!matchMedia('(min-width:880px)').matches;
   const pw=app.querySelector('.pvwrap'), vis=app.querySelector('.seamvis');
-  if(phone){ if(pw&&wheel.parentElement!==pw){ wheel.classList.add('onpv'); pw.appendChild(wheel); } }
-  else if(vis&&wheel.parentElement!==vis){ wheel.classList.remove('onpv'); vis.insertBefore(wheel,vis.firstChild); }
+  const pick=app.querySelector('[data-abcdsvg]');   // A B C D goes wherever the wheel goes
+  if(phone){ if(pw&&wheel.parentElement!==pw){ wheel.classList.add('onpv'); pw.appendChild(wheel); }
+    if(pick&&pw&&pick.parentElement!==pw){ pick.classList.add('onpv'); pw.appendChild(pick); } }
+  else { if(vis&&wheel.parentElement!==vis){ wheel.classList.remove('onpv'); vis.insertBefore(wheel,vis.firstChild); }
+    if(pick&&vis&&pick.parentElement!==vis){ pick.classList.remove('onpv'); wheel.after(pick); } }
   if(!_wheelHook){ _wheelHook=1; addEventListener('resize',()=>placeSeamWheel()); }
 }
 
-function fieldHTML(f,s){
+function fieldHTML(f,s,after){
   if(f.type==='hd') return `<div class="fhd">${f.label}${f.sub?`<span class="n">${f.sub}</span>`:''}</div>`;
   if(f.type==='num'){ const inp=`<input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
     if(f.neg) return `<label>${f.label}</label><div class="negrow">${inp}<button type="button" class="negbtn" data-negk="${f.k}" title="Flip direction">±</button></div>`;
@@ -7709,7 +7738,7 @@ function fieldHTML(f,s){
     const cell=([L,x,y,sc])=>{ const on=cur===L;
       return `<g data-abcd="${L}" style="cursor:pointer"><rect class="abcdbg" x="${x-38}" y="${y-38}" width="76" height="76" rx="7" fill="#2f7bd6" fill-opacity="${on?0.22:0}"/><g transform="translate(${x} ${y}) scale(${sc})"><path class="abcdbend" d="${bend}" fill="${on?'#2f7bd6':LY.faint}"/><path d="${joints}" stroke="${LY.canvas}" stroke-width="1.6" fill="none"/></g><text x="${x<90?17:163}" y="${y<120?52:192}" font-size="15" font-weight="800" fill="${LY.text}" text-anchor="middle" font-family="var(--fd)">${L}</text></g>`; };
     const rain=`<g transform="translate(90 18)"><g fill="${LY.faint}"><circle cx="-10" cy="0" r="7"/><circle cx="0" cy="-4" r="9"/><circle cx="10" cy="0" r="6.5"/><rect x="-10" y="0" width="20" height="7"/></g><g stroke="#4fb3ff" stroke-width="2" stroke-linecap="round"><line x1="-7" y1="11" x2="-9" y2="16"/><line x1="0" y1="11" x2="-2" y2="16"/><line x1="7" y1="11" x2="5" y2="16"/></g></g>`;
-    return `<label>${f.label}</label><div style="display:flex;justify-content:center"><svg data-abcdsvg="1" viewBox="0 0 180 200" style="width:180px;max-width:100%;height:auto;background:${LY.canvas};border:1px solid var(--line);border-radius:6px">${rain}${[['A',50,78,'1 1'],['B',130,78,'-1 1'],['C',50,158,'1 -1'],['D',130,158,'-1 -1']].map(cell).join('')}</svg></div><div class="hint" style="margin-top:4px;text-align:center">Tap the bend as it sits on site. The seam is then free on the wheel.</div>`; }
+    return `<svg data-abcdsvg="1" class="abcdpick" viewBox="0 0 180 200" role="group" aria-label="${f.label}">${rain}${[['A',50,78,'1 1'],['B',130,78,'-1 1'],['C',50,158,'1 -1'],['D',130,158,'-1 -1']].map(cell).join('')}</svg>`; }
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
@@ -7720,7 +7749,7 @@ function fieldHTML(f,s){
        where the red seam lands, so the twelve points say it on their own. */
     const centre = `<text class="seamhint" x="80" y="84" font-size="9.5" fill="${LY.faint}" text-anchor="middle">1 = throat · 7 = back</text>`;
     return `<div class="seamctl">
-      <div class="seamvis"><svg data-seamsvg="1" viewBox="0 0 160 160" class="seamwheel"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/>${dots}${centre}</svg><div id="fitdiag"></div></div>
+      <div class="seamvis"><svg data-seamsvg="1" viewBox="0 0 160 160" class="seamwheel"><circle cx="80" cy="80" r="55" fill="none" stroke="${LY.faint}" stroke-width="2.5"/>${dots}${centre}</svg>${after||''}<div id="fitdiag"></div></div>
     </div>`; }
   if(f.type==='splitwheel'){ const cur=(((+s[f.k]||0)%12)+12)%12;
     let dots='';
@@ -7768,7 +7797,7 @@ function form(kind, presetParams){
   const blanks=[];              // labels of any box left empty, refilled each readAll()
   const cradFields=fit.fields.filter(f=>f.type==='crad');
   setView(fit.name, kind==='squarebox'&&s.seamMode==='plan' ? 'Seam planner · you place the seams' : fit.sub, true);
-  const seamF=fit.fields.find(f=>f.type==='seam');
+  const seamF=fit.fields.find(f=>f.type==='seam'), abcdF=fit.fields.find(f=>f.type==='abcd');
   const pvF=fit.fields.filter(f=>f.onpv&&(!f.when||f.when(s)));
   const pvCtlHtml=pvF.length
     ? '<div class="pvctls">'+pvF.map(f=>'<div>'+fieldHTML(f,s)+'</div>').join('')
@@ -7807,12 +7836,12 @@ function form(kind, presetParams){
   const VARG=varGroupOf(kind);
   if(VARG) html+=`<div class="card varcard"><label>${VARG.label}</label><div class="seg" data-varsel="1">${VARG.opts.map(o=>`<button data-vk="${o.k}" ${o.k===kind?'class="on"':''}>${o.label}</button>`).join('')}</div></div>`;
   html+=`<div class="card"><div class="grid2">`;
-  html+=fit.fields.filter(f=>f.type!=='seam').filter(f=>!f.onpv).filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
+  html+=fit.fields.filter(f=>f.type!=='seam'&&f.type!=='abcd').filter(f=>!f.onpv).filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
     const full=(f.type!=='num'&&f.type!=='pipe');
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
   html+=`</div><div class="hint" style="margin-top:8px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
   const hand2Html='';   // bend 2's hand lives on the drawing now - see pvCtlHtml
-  if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s)}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
+  if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s,abcdF?fieldHTML(abcdF,s):'')}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else if(!boxHero) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">You can size it up and check the preview for free. Pro unlocks the printable PDF, DXF and Jobs.</div>`;
   else html+=`<div class="genwrap"><div class="prob" id="probbox" hidden></div>
@@ -8340,7 +8369,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.4</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.5</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8377,7 +8406,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.65.4',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.65.5',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
