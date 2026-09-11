@@ -1126,10 +1126,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     /* the centre hint does not survive being shrunk to a 108px corner -
        it collides with the clock numbers and is unreadable either way */
     .seamwheel.onpv .seamhint{display:none}
-    /* A B C D rides beside the wheel on the drawing */
-    .abcdpick.onpv{position:absolute;left:104px;bottom:6px;width:80px;height:auto;z-index:4;background:none;border:0;
+    /* A B C D rides on the right of the drawing, the wheel on the left (Craig) */
+    .abcdpick.onpv{position:absolute;right:6px;top:8px;width:84px;height:auto;z-index:4;background:none;border:0;
         filter:drop-shadow(0 0 2px var(--canvas)) drop-shadow(0 1px 3px rgba(0,0,0,.55))}
     .seamvis:empty{display:none}
+    /* once the wheel and the picker are on the drawing the card is empty */
+    .diagcard:has(> .seamctl > .seamvis:empty){display:none}
   }
   /* the version string is in Settings and on every printed sheet; on a narrow
      phone it was stealing the room the fitting's own name needed */
@@ -1185,7 +1187,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.65.5</span>
+  <span class="ver">v4.65.6</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -7841,8 +7843,11 @@ function form(kind, presetParams){
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
   html+=`</div><div class="hint" style="margin-top:8px">Swage ${SET.swage} · lap ${SET.lapTotal} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
   const hand2Html='';   // bend 2's hand lives on the drawing now - see pvCtlHtml
-  if(seamF) html+=`<div class="card diagcard">${fieldHTML(seamF,s,abcdF?fieldHTML(abcdF,s):'')}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
-  else if(!boxHero) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
+  /* the old 2D schematic under the form: gone wherever the fitting has a 3D
+     view - the live 3D shows the same thing, bigger (Craig, 11 Sep 26) */
+  const noDiag=h=>T3B[kind]?h.replace('<div id="fitdiag"></div>',''):h;
+  if(seamF) html+=`<div class="card diagcard">${noDiag(fieldHTML(seamF,s,abcdF?fieldHTML(abcdF,s):''))}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
+  else if(!boxHero&&!T3B[kind]) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
   if(locked) html+=`<button class="btn gold" id="lockBtn">🔒 Unlock this fitting — Go Pro</button><div class="hint">You can size it up and check the preview for free. Pro unlocks the printable PDF, DXF and Jobs.</div>`;
   else html+=`<div class="genwrap"><div class="prob" id="probbox" hidden></div>
       <button class="btn primary" id="genBtn">Generate printable PDF</button>
@@ -8136,7 +8141,9 @@ function form(kind, presetParams){
        true-scale 3D, orbit with a drag, seam on show while the sizes go in -
        and UNWRAP peels that same pane open and lands on the real printable
        pattern. The small schematic beside the seam wheel stays 2D. */
-    if(fd&&T3B[kind]){
+    /* the 3D pane's wiring runs for every fitting with a 3D - it used to hang
+       off the old 2D schematic, and went when that did (4.65.6) */
+    if(T3B[kind]){
       const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0,mode:'fit'});
       const pvEl=document.getElementById('pv');
       const label=()=>{ const b=document.getElementById('t3uw'); if(!b) return;
@@ -8144,7 +8151,7 @@ function form(kind, presetParams){
       const rd=()=>{ if(vw.mode!=='pat'&&activePc==null&&pvEl){
           t3mount(pvEl,kind,eff(),Math.max(300,Math.min(560,pvEl.clientWidth-24))); }
         label(); };
-      const kick=()=>{ if(!fd._raf) fd._raf=requestAnimationFrame(()=>{fd._raf=0;rd();}); };
+      const kick=()=>{ if(!form._t3raf) form._t3raf=requestAnimationFrame(()=>{form._t3raf=0;rd();}); };
       /* SQUARE ON: ease the orbit back to dead-ahead (az 0, el 0), which
          projects the fitting as a straight elevation - the 3D squared up and
          read as a flat drawing. Timer-driven like the unwrap, because rAF
@@ -8179,7 +8186,7 @@ function form(kind, presetParams){
       }
       const uw=app.querySelector('#t3uw');
       if(uw) uw.onclick=()=>{
-        clearTimeout(fd._uwto||0);
+        clearTimeout(form._uwto||0);
         /* Craig, 10 Sep: unwrap, tap another kit piece, and the pattern could
            not be re-wrapped. Tapping a kit piece sets activePc to promote that
            ONE piece into the viewport, and rd() refuses to draw the 3D while it
@@ -8195,13 +8202,13 @@ function form(kind, presetParams){
           const t0=performance.now();
           const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
             vw.un=1-ease(p); rd();
-            if(p<1) fd._uwto=setTimeout(step,16); else { vw.un=0; rd(); } };
+            if(p<1) form._uwto=setTimeout(step,16); else { vw.un=0; rd(); } };
           step();
         } else {                                   // fitting -> peel open -> real pattern
           const t0=performance.now();
           const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
             vw.un=ease(p); rd();
-            if(p<1) fd._uwto=setTimeout(step,16);
+            if(p<1) form._uwto=setTimeout(step,16);
             else { vw.mode='pat'; vw.un=1; PVZoom.reset(); refresh(); } };
           step();
         }
@@ -8369,7 +8376,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.5</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.6</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8406,7 +8413,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.65.5',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.65.6',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
