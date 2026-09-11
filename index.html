@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.65.3</span>
+  <span class="ver">v4.65.4</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4690,7 +4690,7 @@ const F={
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Recess '+c.recessDepth.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   note:'A lobster-back bend with one face pressed flat on the back. Generate prints the full 1:1 D-section gores - the round part keeps the segment wave, the flat develops to a level panel between two crease folds. Middle gore is wavy both edges (cut N-1); the starter/finisher gore butts the straight pipe (cut 2). The flat runs along the back of the whole bend.'},
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
-  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
+  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,direction:'opposite',twist:0,orientation:'vertical',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
     hd('Bend 1','fitted first — everything measures off this one'),
     num('bendDeg1','Angle (°)',0.1),num('segments1','Segments'),{type:'crad',k:'centreRadius1',label:'Centre radius'},
@@ -4698,14 +4698,11 @@ const F={
     num('bendDeg2','Angle (°)',0.1),num('segments2','Segments'),{type:'crad',k:'centreRadius2',label:'Centre radius'},
     hd('Joining them up'),
     num('midLen','Weld to weld (mm)'),
-    /* these four say how the fitting SITS rather than what size it is, so
-       they ride on the drawing (onpv) where you can watch it move. Bend 1's
-       hand comes OUT of the seam wheel centre (noHand) so both hands sit
-       together - they are the pair people mix up. */
-    Object.assign(sego('bendHand','Bend 1',[{v:'A',label:'A'},{v:'B',label:'B'}]),{onpv:1}),
-    Object.assign(sego('bendHand2','Bend 2',[{v:'A',label:'A'},{v:'B',label:'B'}]),{onpv:1}),
+    /* how it SITS is just the twist, on the drawing where you can watch it move.
+       No A/B types and no horizontal/vertical (Craig, 11 Sep 26: "we can swing
+       the bend wherever we want and put the seam wherever we want") - twist
+       swings bend 2 round, the wheel puts the fastener anywhere, the pane spins. */
     Object.assign(num('twist','Twist (°) · ± flips'),{neg:1,onpv:1}),
-    Object.assign(sego('orientation','Hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),{onpv:1,reflow:1}),   // reflow: the seam wheel shows the fastener move (onSet)
     {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',noHand:true}],
   build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
   kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage});
@@ -4728,12 +4725,9 @@ const F={
     if(s.segments2>1) out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'mid',seam2,'End Bend Middle Gores','Full gore, wavy both edges. Cut '+(s.segments2-1)+' off. Seam already rolled for the S/twist - it lines up with the first bend when fitted.'));
     out.push(gore(s.segments2,s.centreRadius2,s.bendDeg2,'end',seam2,'End Bend Finisher','Half gore that butts the straight pipe. Cut 1 off. Seam already rolled for the S/twist.'));
     return out; },
-  /* clicking Horizontal lays it on its side with the fastener on the back of
-     the bend - point 7, the long outside (Craig, 11 Sep 26) */
-  onSet:(s,k)=>{ if(k==='orientation'&&s.orientation==='horizontal') s.seamFromThroat=180; },
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'The Twister - cut 1'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'The Twister - cut 1'],
-  note:'Pick the FIRST and SECOND bend types and the diagram draws the fitting as it hangs — A with A (or B with B) runs the same way, A with B makes an S. Vertical stands it up with bend 1 at the bottom (fitted first); Horizontal lays it on its side and puts the fastener on the back. Prints in fitting order: first bend (starter + middles), the TWISTER, end bend (middles + finisher). Twist rolls bend 2 out of plane. The end-bend seam is auto-rolled so the seam line runs true along the whole fitting.'},
+  note:'Twist swings bend 2 round - 0 is an S, 180 turns both the same way. Prints in fitting order: first bend (starter + middles), the TWISTER, end bend (middles + finisher). Twist rolls bend 2 out of plane. The end-bend seam is auto-rolled so the seam line runs true along the whole fitting.'},
  sqround:{name:'Square to Round',sub:'Transition · concentric',icon:I.str,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,side:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('side','Base side (mm)'),num('height','Height (mm)'),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
@@ -5068,17 +5062,21 @@ function varGroupOf(kind){ const g=VARIANTS.find(v=>v.members.some(m=>m[0]===kin
 function dirOf(s){ const sense=h=>(h==='B'||h==='C')?1:0;
   if(!s.bendHand2) return s.direction||'opposite';
   return sense(s.bendHand||'A')===sense(s.bendHand2)?'same':'opposite'; }
-/* 4.65.2 saved a double bend as a letter plus a direction; the screen is back
-   to its two hands (Craig, 11 Sep 26). Such a save is read back to the hands
-   that cut the SAME metal: the letter keeps its class (C->B, D->A - the engine
-   reads only B/C-or-not) and bend 2's hand is whichever gives the saved
-   direction. Seam and twist are never touched. verify/sanity-abcd.js holds
-   every 4.65.2 save to the sheets 4.65.2 printed. */
-function restoreDouble(s){
-  if(s.bendHand==='C') s.bendHand='B'; else if(s.bendHand==='D') s.bendHand='A';
-  if(!s.bendHand2){ const same=s.direction==='same', b1=(s.bendHand==='B');
-    s.bendHand2=same?(b1?'B':'A'):(b1?'A':'B'); }
-  delete s.direction; delete s.dblv;
+/* The double bend has no A/B types and no horizontal/vertical any more (Craig,
+   11 Sep 26). Every saved job - two hands (4.65.1 and before, 4.65.3) or a
+   letter and a direction (4.65.2) - is re-said as the plain seam and twist
+   that cut the SAME metal: the engine only ever used the hand to mirror seam
+   and twist, and the direction to add half a turn to the twist. Doing it twice
+   changes nothing. verify/sanity-abcd.js holds every kind of save to the
+   sheets the version that made it printed. */
+function simplifyDouble(s){
+  const mirror=(s.bendHand==='B'||s.bendHand==='C'), dir=dirOf(s);
+  const seam=+s.seamFromThroat||0, tw=+s.twist||0;
+  const twE=(mirror?-tw:tw)+(dir==='same'?-180:0);
+  s.seamFromThroat=(((mirror?360-seam:seam)%360)+360)%360;
+  s.twist=(((twE%360)+540)%360)-180;
+  s.bendHand='A'; s.direction='opposite'; s.orientation='vertical';
+  delete s.bendHand2; delete s.dblv;
   return s; }
 const states={};
 function freshState(k){ const s=Object.assign({},F[k].defaults);
@@ -5913,7 +5911,7 @@ function t3bendonbend(s){
      top tipped away from you. The pane can still spin it all the way round.
      Proper rotations only - the development cannot notice. */
   geo.rows3.forEach(r=>r.forEach(q=>{ const x=q[0]; q[0]=-q[2]; q[2]=x; }));
-  if(s.orientation!=='vertical') geo.rows3.forEach(r=>r.forEach(q=>{ const y=q[1]; q[1]=-q[2]; q[2]=y; }));
+  if(s.orientation==='horizontal') geo.rows3.forEach(r=>r.forEach(q=>{ const y=q[1]; q[1]=-q[2]; q[2]=y; }));   // only an old, unopened save
   return geo;
 }
 
@@ -7759,7 +7757,7 @@ function form(kind, presetParams){
   if(!abcdFit){ if(s.bendHand==='C') s.bendHand='B'; else if(s.bendHand==='D') s.bendHand='A'; }
   if(s.bendHand2==='C') s.bendHand2='B'; else if(s.bendHand2==='D') s.bendHand2='A';
   if(s.bendHand==='B'&&(kind==='flatlobster'||kind==='flatelbow')) s.bendHand='A';
-  if(kind==='bendonbend') restoreDouble(s);
+  if(kind==='bendonbend') simplifyDouble(s);
   // per-fitting old-save normalise (valve end: overall boxD -> straight boxRun)
   if(fit.migrate) fit.migrate(s);
   const touch=()=>{ s.__touched=true; };
@@ -7774,7 +7772,7 @@ function form(kind, presetParams){
   const pvF=fit.fields.filter(f=>f.onpv&&(!f.when||f.when(s)));
   const pvCtlHtml=pvF.length
     ? '<div class="pvctls">'+pvF.map(f=>'<div>'+fieldHTML(f,s)+'</div>').join('')
-      +(kind==='bendonbend'?'<div class="pvhint" id="dbdir"></div>':'')+'</div>'
+      +'</div>'
     : '';
   const BOXHERO={roundbox:1,squarebox:1,valvebox:1,flangebox:1,wsbox:1};
   const boxHero=!!BOXHERO[kind];
@@ -8197,9 +8195,7 @@ function form(kind, presetParams){
     if(ds){ const dir=dirOf(s), sm=(+s.seamFromThroat||0), tw2=(+s.twist||0), d2=(dir==='same'?0:180)+tw2;
       const s2=(((sm-d2)%360)+360)%360;
       const ptTxt=v=>{ const n=v/30+1; return Math.abs(n-Math.round(n))<0.01?('point '+Math.round(n)):(v.toFixed(0)+'° from throat'); };
-      ds.innerHTML='Seam runs: <b>first bend '+ptTxt(sm)+'</b> &nbsp;→&nbsp; twister carries it through &nbsp;→&nbsp; <b>end bend '+ptTxt(s2)+'</b> (auto-rolled for the '+(dir==='same'?'same-way bend':'S')+(tw2?' + '+tw2+'° twist':'')+')';
-      const dd=document.getElementById('dbdir');
-      if(dd) dd.innerHTML='Bend <b>'+(s.bendHand||'A')+'</b> into bend <b>'+(s.bendHand2||'B')+'</b> = <b>'+(dir==='same'?'same-way bend':'S-bend')+'</b>'+(tw2?' with '+tw2+'° twist':''); }
+      ds.innerHTML='Seam runs: <b>first bend '+ptTxt(sm)+'</b> &nbsp;→&nbsp; twister carries it through &nbsp;→&nbsp; <b>end bend '+ptTxt(s2)+'</b> (auto-rolled for the '+(dir==='same'?'same-way bend':'S')+(tw2?' + '+tw2+'° twist':'')+')'; }
     const basic=!SET.detail && fit.mini;
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
@@ -8344,7 +8340,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.3</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.4</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8381,7 +8377,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.65.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.65.4',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
