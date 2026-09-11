@@ -1172,7 +1172,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.65.1</span>
+  <span class="ver">v4.65.2</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4690,7 +4690,7 @@ const F={
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Recess '+c.recessDepth.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   note:'A lobster-back bend with one face pressed flat on the back. Generate prints the full 1:1 D-section gores - the round part keeps the segment wave, the flat develops to a level panel between two crease folds. Middle gore is wavy both edges (cut N-1); the starter/finisher gore butts the straight pipe (cut 2). The flat runs along the back of the whole bend.'},
  bendonbend:{name:'Double Bend',sub:'Bend onto bend · twist',icon:I.swan,
-  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,bendHand2:'B',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
+  defaults:{midLen:0,pipeOD:168.3,insulation:25,bendDeg1:90,segments1:4,centreRadius1:229,bendDeg2:90,segments2:4,centreRadius2:229,direction:'opposite',twist:0,orientation:'horizontal',jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,bendHand:'A',nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),
     hd('Bend 1','fitted first — everything measures off this one'),
     num('bendDeg1','Angle (°)',0.1),num('segments1','Segments'),{type:'crad',k:'centreRadius1',label:'Centre radius'},
@@ -4699,13 +4699,15 @@ const F={
     hd('Joining them up'),
     num('midLen','Weld to weld (mm)'),
     /* these four say how the fitting SITS rather than what size it is, so
-       they ride on the drawing (onpv) where you can watch it move. Bend 1's
-       hand comes OUT of the seam wheel centre (noHand) so both hands sit
-       together - they are the pair people mix up. */
-    Object.assign(sego('bendHand','Bend 1',[{v:'A',label:'A'},{v:'B',label:'B'}]),{onpv:1}),
-    Object.assign(sego('bendHand2','Bend 2',[{v:'A',label:'A'},{v:'B',label:'B'}]),{onpv:1}),
+       they ride on the drawing (onpv) where you can watch it move. Only bend 1
+       takes an A B C D letter - "that's the one that sets everything off"
+       (Craig, 11 Sep 26) - and only the two that can sit the way it hangs:
+       across, A (from below) or C (from above); up, D (from the left) or C
+       (from the right). Bend 2 just turns the same way or makes an S. */
+    {type:'abcd',k:'bendHand',label:'Bend 1',onpv:1,dbl:1},
+    Object.assign(sego('direction','Bend 2',[{v:'same',label:'Same way'},{v:'opposite',label:'S-bend'}]),{onpv:1}),
     Object.assign(num('twist','Twist (°) · ± flips'),{neg:1,onpv:1}),
-    Object.assign(sego('orientation','Hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),{onpv:1}),
+    Object.assign(sego('orientation','Hangs',[{v:'horizontal',label:'Horizontal'},{v:'vertical',label:'Vertical'}]),{onpv:1,reflow:1}),   // reflow: bend 1's letters follow
     {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',noHand:true}],
   build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
   kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage});
@@ -4730,7 +4732,7 @@ const F={
     return out; },
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'The Twister - cut 1'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Datum '+c.L0.toFixed(0)+'mm','Lengths '+c.oT.join(','),'The Twister - cut 1'],
-  note:'Pick the FIRST and SECOND bend types and the diagram draws the fitting as it hangs — A with A (or B with B) runs the same way, A with B makes an S. Prints in fitting order: first bend (starter + middles), the TWISTER, end bend (middles + finisher). Twist rolls bend 2 out of plane. The end-bend seam is auto-rolled so the seam line runs true along the whole fitting.'},
+  note:'Pick where bend 1 sits - A or C on a run across, D or C on a run up - and whether bend 2 turns the same way or makes an S, and the drawing shows the fitting as it hangs. We work from the bottom up, and from the left: bend 1 is fitted first. Prints in fitting order: first bend (starter + middles), the TWISTER, end bend (middles + finisher). Twist rolls bend 2 out of plane. The end-bend seam is auto-rolled so the seam line runs true along the whole fitting.'},
  sqround:{name:'Square to Round',sub:'Transition · concentric',icon:I.str,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,side:300,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('side','Base side (mm)'),num('height','Height (mm)'),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
@@ -5065,6 +5067,20 @@ function varGroupOf(kind){ const g=VARIANTS.find(v=>v.members.some(m=>m[0]===kin
 function dirOf(s){ const sense=h=>(h==='B'||h==='C')?1:0;
   if(!s.bendHand2) return s.direction||'opposite';
   return sense(s.bendHand||'A')===sense(s.bendHand2)?'same':'opposite'; }
+/* The double bend takes an A B C D letter for bend 1 only (Craig, 11 Sep 26),
+   and only the two that can sit the way it hangs. Old saves carried a second
+   hand: the direction it implied is kept exactly, and a letter that cannot sit
+   that way moves to the one that cuts the SAME metal - the engine reads only
+   the class (A/D straight, B/C seam and twist mirrored), so B becomes C and a
+   D on a run across becomes A. verify/sanity-abcd.js holds every old save to
+   byte-identical sheets. */
+function dblLetters(s){ return s.orientation==='vertical'?['C','D']:['A','C']; }
+function normDouble(s){
+  if(s.bendHand2){ s.direction=dirOf(s); delete s.bendHand2; }
+  if(s.direction!=='same') s.direction='opposite';
+  const cls=(s.bendHand==='B'||s.bendHand==='C');
+  if(!dblLetters(s).includes(s.bendHand)) s.bendHand=cls?'C':(s.orientation==='vertical'?'D':'A');
+  return s; }
 const states={};
 function freshState(k){ const s=Object.assign({},F[k].defaults);
   ['insulation','lapTotal','holePitch'].forEach(key=>{ if(key in s && SET[key]!=null) s[key]=SET[key]; }); return s; }
@@ -5516,6 +5532,14 @@ function diagDouble(st){
     const b1=cen(S.slice(1,n1+2)), b2=cen(S.slice(S.length-2-n2,S.length-1));
     if(vert){ if(b1[1]<b2[1]){ fX=-1; fY=-1; } }                   // y runs DOWN the page
     else if(b1[0]>b2[0]){ fX=-1; fZ=-1; vd=mul(vd,-1); } }
+  /* ...and the pipe comes into bend 1 from the side its letter says: across,
+     A from below and C from above; up, D from the left and C from the right.
+     Turned again if not - over about the level, or round about the upright -
+     both of which also swap what is in front. */
+  { const cls=(st.bendHand==='B'||st.bendHand==='C');
+    const c0=proj(S[0].c).p, c1=proj(S[1].c).p;           // the straight coming in, and bend 1's first ring
+    if(vert){ if((c0[0]<c1[0])===cls){ fX=-fX; fZ=-fZ; vd=mul(vd,-1); } }
+    else if((c0[1]>c1[1])===cls){ fY=-fY; fZ=-fZ; vd=mul(vd,-1); } }
   S.forEach(s=>{ let e1=nrm(sub(s.th,mul(s.u,dot(s.th,s.u)))); const e2=nrm(crs(s.u,e1));
     s.ring=[]; s.rz=[]; s.e1=e1; s.e2=e2;
     for(let k=0;k<NS;k++){ const al=2*Math.PI*k/NS;
@@ -5834,7 +5858,7 @@ function t3bendonbend(s){
   let seam=(((+s.seamFromThroat||0)*mir)%360+360)%360;
   let twist=(+s.twist||0)*mir;
   const sense=h=>(h==='B'||h==='C')?1:0;
-  const opp=sense(s.bendHand||'A')!==sense(s.bendHand2||'B');
+  const opp=s.bendHand2?sense(s.bendHand||'A')!==sense(s.bendHand2):(s.direction!=='same');   // old saves carry a second hand, new ones a direction
   const twistR=twist*Math.PI/180;
   const th2=((opp?180:0)+twist)*Math.PI/180, seamR=seam*Math.PI/180, seam2R=seamR-th2;
   const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k];
@@ -5891,10 +5915,9 @@ function t3bendonbend(s){
      the drawing shows another. 90 degrees about Y swaps which leg stands up -
      a proper rotation, so the development is untouched, and applied after the
      stations are struck so the flat cannot notice. */
-  // hand B/C IS the mirror-image fitting: one flip of the finished assembly,
-  // so nothing can disagree with anything else. The flat is unaffected -
-  // t3stations works from lengths, and a mirror preserves every one.
-  if(mir<0) geo.rows3.forEach(r=>r.forEach(q=>{ q[1]=-q[1]; }));
+  // B/C used to be drawn as the MIRROR-image fitting; since 11 Sep they are
+  // turned into place instead (below) - the seam and twist above are already
+  // mirrored for them, exactly as the engine cuts them.
   /* WORKED FROM THE BOTTOM UP, AND FROM THE LEFT (Craig, 11 Sep): bend 1 is
      the one fitted first, so it sits at the BOTTOM when the fitting hangs
      vertical and on the LEFT when it runs horizontal. As struck, bend 1 is at
@@ -5906,6 +5929,13 @@ function t3bendonbend(s){
     geo.rows3.forEach(r=>r.forEach(q=>{ const x=q[0]; q[0]=-q[2]; q[2]=x; }));
   else
     geo.rows3.forEach(r=>r.forEach(q=>{ q[0]=-q[0]; q[1]=-q[1]; }));
+  /* A B C D for bend 1: two of the four can sit each way it hangs - A (from
+     below) or C (from above) when it runs across, D (from the left) or C (from
+     the right) when it runs up. C is the other one TURNED - over about the
+     level, or round about the upright - never mirrored, so bend 1 stays at the
+     bottom / on the left and the seam, mirrored for C, comes round to the front. */
+  if(s.bendHand==='B'||s.bendHand==='C'){ const vert=s.orientation==='vertical';
+    geo.rows3.forEach(r=>r.forEach(q=>{ if(vert){ q[0]=-q[0]; q[1]=-q[1]; } else { q[1]=-q[1]; q[2]=-q[2]; } })); }
   return geo;
 }
 
@@ -7700,10 +7730,11 @@ function fieldHTML(f,s){
     const a0=Math.PI, a1=1.5*Math.PI;
     const bend='M'+pt(Ro,a0)+' A'+Ro+' '+Ro+' 0 0 1 '+pt(Ro,a1)+' L'+pt(Ri,a1)+' A'+Ri+' '+Ri+' 0 0 0 '+pt(Ri,a0)+' Z';
     const joints=[1,2].map(k=>{ const a=a0+(a1-a0)*k/3; return 'M'+pt(Ri,a)+' L'+pt(Ro,a); }).join(' ');
+    const live=L=>!f.dbl||dblLetters(s).includes(L);   // the double bend: only the two that can sit the way it hangs
     const cell=([L,x,y,sc])=>{ const on=cur===L;
-      return `<g data-abcd="${L}" style="cursor:pointer"><rect class="abcdbg" x="${x-38}" y="${y-38}" width="76" height="76" rx="7" fill="#2f7bd6" fill-opacity="${on?0.22:0}"/><g transform="translate(${x} ${y}) scale(${sc})"><path class="abcdbend" d="${bend}" fill="${on?'#2f7bd6':LY.faint}"/><path d="${joints}" stroke="${LY.canvas}" stroke-width="1.6" fill="none"/></g><text x="${x<90?17:163}" y="${y<120?52:192}" font-size="15" font-weight="800" fill="${LY.text}" text-anchor="middle" font-family="var(--fd)">${L}</text></g>`; };
+      return `<g${live(L)?` data-abcd="${L}" style="cursor:pointer"`:' opacity="0.22"'}><rect class="abcdbg" x="${x-38}" y="${y-38}" width="76" height="76" rx="7" fill="#2f7bd6" fill-opacity="${on?0.22:0}"/><g transform="translate(${x} ${y}) scale(${sc})"><path class="abcdbend" d="${bend}" fill="${on?'#2f7bd6':LY.faint}"/><path d="${joints}" stroke="${LY.canvas}" stroke-width="1.6" fill="none"/></g><text x="${x<90?17:163}" y="${y<120?52:192}" font-size="15" font-weight="800" fill="${LY.text}" text-anchor="middle" font-family="var(--fd)">${L}</text></g>`; };
     const rain=`<g transform="translate(90 18)"><g fill="${LY.faint}"><circle cx="-10" cy="0" r="7"/><circle cx="0" cy="-4" r="9"/><circle cx="10" cy="0" r="6.5"/><rect x="-10" y="0" width="20" height="7"/></g><g stroke="#4fb3ff" stroke-width="2" stroke-linecap="round"><line x1="-7" y1="11" x2="-9" y2="16"/><line x1="0" y1="11" x2="-2" y2="16"/><line x1="7" y1="11" x2="5" y2="16"/></g></g>`;
-    return `<label>${f.label}</label><div style="display:flex;justify-content:center"><svg data-abcdsvg="1" viewBox="0 0 180 200" style="width:180px;max-width:100%;height:auto;background:${LY.canvas};border:1px solid var(--line);border-radius:6px">${rain}${[['A',50,78,'1 1'],['B',130,78,'-1 1'],['C',50,158,'1 -1'],['D',130,158,'-1 -1']].map(cell).join('')}</svg></div><div class="hint" style="margin-top:4px;text-align:center">Tap the bend as it sits on site. The seam is then free on the wheel.</div>`; }
+    return `<label>${f.label}</label><div style="display:flex;justify-content:center"><svg data-abcdsvg="1" viewBox="0 0 180 200" style="width:${f.dbl?104:180}px;max-width:100%;height:auto;background:${LY.canvas};border:1px solid var(--line);border-radius:6px">${rain}${[['A',50,78,'1 1'],['B',130,78,'-1 1'],['C',50,158,'1 -1'],['D',130,158,'-1 -1']].map(cell).join('')}</svg></div>${f.dbl?'':'<div class="hint" style="margin-top:4px;text-align:center">Tap the bend as it sits on site. The seam is then free on the wheel.</div>'}`; }
   if(f.type==='seam'){ const cur=s[f.k]!=null?s[f.k]:180;
     let dots='';
     for(let n=1;n<=12;n++){ const phi=(n-1)*30*Math.PI/180;
@@ -7751,6 +7782,7 @@ function form(kind, presetParams){
   if(!abcdFit){ if(s.bendHand==='C') s.bendHand='B'; else if(s.bendHand==='D') s.bendHand='A'; }
   if(s.bendHand2==='C') s.bendHand2='B'; else if(s.bendHand2==='D') s.bendHand2='A';
   if(s.bendHand==='B'&&(kind==='flatlobster'||kind==='flatelbow')) s.bendHand='A';
+  if(kind==='bendonbend') normDouble(s);
   // per-fitting old-save normalise (valve end: overall boxD -> straight boxRun)
   if(fit.migrate) fit.migrate(s);
   const touch=()=>{ s.__touched=true; };
@@ -8190,7 +8222,7 @@ function form(kind, presetParams){
       const ptTxt=v=>{ const n=v/30+1; return Math.abs(n-Math.round(n))<0.01?('point '+Math.round(n)):(v.toFixed(0)+'° from throat'); };
       ds.innerHTML='Seam runs: <b>first bend '+ptTxt(sm)+'</b> &nbsp;→&nbsp; twister carries it through &nbsp;→&nbsp; <b>end bend '+ptTxt(s2)+'</b> (auto-rolled for the '+(dir==='same'?'same-way bend':'S')+(tw2?' + '+tw2+'° twist':'')+')';
       const dd=document.getElementById('dbdir');
-      if(dd) dd.innerHTML='Bend <b>'+(s.bendHand||'A')+'</b> into bend <b>'+(s.bendHand2||'B')+'</b> = <b>'+(dir==='same'?'same-way bend':'S-bend')+'</b>'+(tw2?' with '+tw2+'° twist':''); }
+      if(dd) dd.innerHTML='Bend 1 <b>'+(s.bendHand||'A')+'</b> · '+(s.orientation==='vertical'?'bottom up':'from the left')+' · <b>'+(dir==='same'?'same-way bend':'S-bend')+'</b>'+(tw2?' with '+tw2+'° twist':''); }
     const basic=!SET.detail && fit.mini;
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
@@ -8335,7 +8367,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:6px;margin:2px auto 10px;background:var(--brand-dk);display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#e6ebf0"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.1</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8372,7 +8404,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.65.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.65.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
