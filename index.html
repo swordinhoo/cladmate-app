@@ -1187,7 +1187,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><svg viewBox="0 0 24 24" style="color:#16110a"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.65.8</span>
+  <span class="ver">v4.65.9</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -2428,7 +2428,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      halves each time the divisions double: hundredths of a mm on a domestic
      size, about 0.15 mm on a 500 mm reducing tee. The metal takes that up.
   */
-  function europeanTee(p) {
+  /* The one-piece tee's geometry, in ONE place. The printed sheet
+     (europeanTee) and the 3D model (europeanTeeNet, which the app's t3 view
+     feeds on) both come through here, so the picture on the glass and the
+     metal on the bench cannot drift apart. NW is the resolution: the pattern
+     asks for 120 and must keep asking for 120, because that is what its
+     fingerprint in the cut lock was struck at. */
+  function _euroTeeGeom(p, NW) {
     const g = _branchGeom(Object.assign({}, p, { angle: 90 }));   // sizing + the "branch bigger than main" guard
     const rm = g.R, rb = g.r;
     const H = +p.branchHeight || 0, L = (+p.mainLength || 0) / 2;
@@ -2438,9 +2444,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (L < rb + 5) throw new Error('The main is too short for that branch - it needs at least '
       + (2 * (rb + 5)).toFixed(0) + ' mm end to end.');
 
-    const NW = 120;                                   // outline resolution per wing
-    const ND = _nd(p.nDiv, 12);                       // marking-out rulings per wing
-    const lapEach = (p.lapTotal || 0) / 2;
     const h = Math.PI * rm / 2;                       // half the unrolled arc
     const slant = Math.hypot(L, rm - rb, H);          // the cheek's sloping edge
     const cheekH = Math.sqrt(Math.max(0, slant * slant - L * L));
@@ -2470,10 +2473,85 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         fa.push(pa);
         fb.push(meet(pa, d3(a1, b1), fb[i], d3(b0, b1)));
       }
-      return { fa, fb };
+      return { fa, fb, tAt };
     }
     const W = {};
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) W[sx + ',' + sy] = wing(sx, sy);
+    return { g: g, rm: rm, rb: rb, H: H, L: L, h: h, cheekH: cheekH,
+      A: A, B: B, d3: d3, d2: d2, W: W, NW: NW };
+  }
+
+  /* The same fitting as a set of surfaces, each with its 3D rows AND the flat
+     rows they develop to, in the ONE net frame the printed sheet uses. The 3D
+     view morphs vertex to vertex between the two, so with these it unrolls as
+     the single connected sheet it actually is, instead of into loose pieces.
+
+     Surfaces: the half cylinder, the two cheeks, and FOUR wings - each
+     shoulder split down its middle ruling, because that ruling is the seam and
+     the sheet is cut there. `seam` marks the wing edge that is the real seam;
+     everything else is a boundary the metal simply carries on across. */
+  function europeanTeeNet(p, divisions) {
+    const NW = Math.max(6, Math.min(160, Math.round(+divisions || 40)));
+    const G = _euroTeeGeom(p, NW);
+    const rm = G.rm, rb = G.rb, L = G.L, H = G.H, h = G.h, cheekH = G.cheekH;
+    const out = [];
+
+    // the bottom half of the main: unrolls to the middle band, exactly
+    const e0 = [], e1 = [], f0 = [], f1 = [];
+    for (let i = 0; i <= NW; i++) {
+      const th = Math.PI + Math.PI * i / NW, y = rm * Math.cos(th), z = rm * Math.sin(th);
+      const arc = -h + Math.PI * rm * i / NW;         // arc length across the band
+      e0.push([-L, y, z]); e1.push([L, y, z]);
+      f0.push([-L, arc]); f1.push([L, arc]);
+    }
+    out.push({ what: 'band', rows3: [e0, e1], flat: [f0, f1], seam: -1 });
+
+    /* Each cheek is a flat triangle, so it is meshed between its two SLOPING
+       edges rather than from its base into the apex. Running a row of points
+       into a single point leaves a fan of zero-area quads at the tip, and a
+       zero-area quad has no normal to shade by - which is exactly what put
+       that ring of shading artefacts across the cheek. Stopping a hair short
+       of the apex keeps every quad real. */
+    for (const sy of [-1, 1]) {
+      const r0 = [], r1 = [], g0 = [], g1 = [];
+      const apex3 = [0, sy * rb, H], apexF = [0, sy * (h + cheekH)];
+      for (let i = 0; i <= NW; i++) {
+        const u = (i / NW) * 0.998;
+        const b3L = [-L, sy * rm, 0], b3R = [L, sy * rm, 0];
+        const bFL = [-L, sy * h], bFR = [L, sy * h];
+        r0.push([b3L[0] + (apex3[0] - b3L[0]) * u, b3L[1] + (apex3[1] - b3L[1]) * u, b3L[2] + (apex3[2] - b3L[2]) * u]);
+        r1.push([b3R[0] + (apex3[0] - b3R[0]) * u, b3R[1] + (apex3[1] - b3R[1]) * u, b3R[2] + (apex3[2] - b3R[2]) * u]);
+        g0.push([bFL[0] + (apexF[0] - bFL[0]) * u, bFL[1] + (apexF[1] - bFL[1]) * u]);
+        g1.push([bFR[0] + (apexF[0] - bFR[0]) * u, bFR[1] + (apexF[1] - bFR[1]) * u]);
+      }
+      out.push({ what: 'cheek', rows3: [r0, r1], flat: [g0, g1], seam: -1 });
+    }
+
+    /* The four wings. Rows run along the ruling, from the main's end circle up
+       to the branch circle. Columns are walked from the SEAM outwards to the
+       cheek edge, deliberately: the 3D view inks column 0 of every piece as
+       its seam, so the seam has to be column 0 or the red line lands on the
+       cheek boundary and the real joint goes unmarked. */
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const w = G.W[sx + ',' + sy], ra = [], rb2 = [], fa = [], fb = [];
+      for (let i = NW; i >= 0; i--) {
+        const t = w.tAt(i);
+        ra.push(G.A(sx, t)); rb2.push(G.B(sx, t));
+        fa.push(w.fa[i]); fb.push(w.fb[i]);
+      }
+      out.push({ what: 'wing', rows3: [ra, rb2], flat: [fa, fb], seam: 0 });
+    }
+    return { surfaces: out, rectW: 2 * L, rectH: Math.PI * rm, cheekH: cheekH,
+      mainOD: G.g.mainOD, brOD: G.g.brOD };
+  }
+
+  function europeanTee(p) {
+    const NW = 120;                                   // outline resolution per wing - see _euroTeeGeom
+    const GG = _euroTeeGeom(p, NW);
+    const g = GG.g, rm = GG.rm, rb = GG.rb, H = GG.H, L = GG.L, h = GG.h, cheekH = GG.cheekH;
+    const A = GG.A, B = GG.B, d3 = GG.d3, d2 = GG.d2, W = GG.W;
+    const ND = _nd(p.nDiv, 12);                       // marking-out rulings per wing
+    const lapEach = (p.lapTotal || 0) / 2;
 
     const prim = [], holes = [], ticks = [];
     const unit = v => { const m = Math.hypot(v[0], v[1]) || 1; return [v[0] / m, v[1] / m]; };
@@ -4530,7 +4608,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     s += `</svg>`; return s;
   }
 
-  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, witchesHat, teeBendStub, teeBendHole, teeOnCone, teeOnDome, teeOnTankTop, yBranch, yBranchKit, squareToRound, elbow, elbowKit, flatElbow, flatLobster, flatLobsterKit, branchOnCylinder, branchHole, europeanTee, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, tankTopKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
+  const FP = { PIPE_CHART, PAGES, reducer, lobster, lobsterKit, offsetReducer, angledCone, witchesHat, teeBendStub, teeBendHole, teeOnCone, teeOnDome, teeOnTankTop, yBranch, yBranchKit, squareToRound, elbow, elbowKit, flatElbow, flatLobster, flatLobsterKit, branchOnCylinder, branchHole, europeanTee, europeanTeeNet, trunnionOnBend, bendOnBend, swanNeck, boxKit, endCapKit, watershedBoxKit, pmSquareBoxKit, pmValveBoxKit, pmFlangeBoxKit, pmValveEndKit, pmRoundTopKit, domeKit, tankTopKit, roundBoxKit, squareBoxKit, dBoxKit, patternArea, materialStats, toDXF, makePDF, makeKitPDF, svgPreview, setCanvas };
   if (typeof module !== 'undefined' && module.exports) module.exports = FP;
   root.FP = FP;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -6113,33 +6191,101 @@ function t3parts(list){
    saddle is INKED on the metal where you would scribe it and the pane hands
    over to the real 1:1 hole template. Mark it, then cut it - which is how it
    goes on the bench anyway. */
-/* One-piece European tee: half the main, two flat cheeks, two shoulders. The
-   cheeks use the roundtop trick - a base row against a repeated apex - so a
-   triangle rides the same station machinery as everything else. Each surface
-   develops as its own strip, which is right for the unwrap animation but is
-   NOT the printed net: that comes off FP.europeanTee as one connected sheet. */
+/* One-piece European tee.
+
+   Self-contained, like every other builder here, and it has to be: this whole
+   block is lifted out of ui.html twice over - by verify/sanity-t3.js, which
+   runs the builders with no engine at all, and by the website's
+   gen-site-data.js, which ships it as a standalone module. Reaching for FP
+   here breaks both. So the development below is a second copy of the engine's,
+   and verify/sanity-eurotee.js measures the two against each other on every
+   run: the moment they disagree by more than facet error, the gate fails.
+
+   Three things this gets right that the first attempt did not (Craig, 12 Sep
+   26 - "doesnt render very well ... unwraps in multiple pieces which is a bit
+   shit as it should simply rollout"):
+
+   ONE SHEET. The bands carry the coordinates of the real net, in one frame, so
+   the unwrap lands as the sheet that gets printed. Deliberately not
+   t3stations (which develops each band alone and stacks it with a gap) nor
+   t3parts (which shoves each piece sideways) - both are right for a gored
+   bend, which really is separate strips, and wrong for one piece of metal.
+
+   NO DEAD QUADS. Each flat cheek is meshed between its two SLOPING edges, not
+   from its base into the apex. Running a row of points into a single point
+   leaves a fan of zero-area quads at the tip; a zero-area quad has no normal,
+   the shader divides by it, and every sliver takes a random shade - which is
+   the ring of artefacts that was sitting across the cheek.
+
+   SEAMS WHERE THE SEAMS ARE. Each shoulder is split down its middle ruling,
+   because that ruling is the seam and the sheet is cut there. Columns are
+   walked from the seam outwards, because the renderer inks column 0 of every
+   piece as its seam - so the band and the cheeks, whose edges are no such
+   thing, say noseam and nojoint and let the metal read as continuous. */
 function t3eurotee(s){
+  // the engine sizes cladding as pipe + 2*(insulation + gap) - _od() in
+  // engine.js - so the model is struck the same way, or the picture would show
+  // metal the pattern does not cut. The other t3 builders here add the gap once
+  // and disagree with the engine on it; nobody can reach that yet, cladGap has
+  // no control in Settings, but it is a trap sitting there.
   const ins=+s.insulation||0, cg=+s.cladGap||0;
-  const mainOD=(+s.mainPipeOD||219.1)+2*ins+cg;
-  const brOD=Math.min((+s.branchPipeOD||219.1)+2*ins+cg, mainOD);
+  const mainOD=(+s.mainPipeOD||219.1)+2*(ins+cg);
+  const brOD=Math.min((+s.branchPipeOD||219.1)+2*(ins+cg), mainOD);
   const rm=mainOD/2, rb=brOD/2;
   const L=Math.max(2*(rb+5), +s.mainLength||600)/2;
   const H=Math.max(rm+5, +s.branchHeight||250);
+  const N=T3N;
+  const h=Math.PI*rm/2;                                  // half the unrolled arc
+  const cheekH=Math.sqrt(Math.max(0, Math.hypot(L, rm-rb, H)**2 - L*L));
+  const A=(sx,t)=>[sx*L, rm*Math.sin(t), rm*Math.cos(t)];
+  const B=(sx,t)=>[sx*rb*Math.cos(t), rb*Math.sin(t), H];
+  const d3=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
   const parts=[];
-  const e0=[], e1=[];                                   // the bottom half of the main
-  for(let i=0;i<=T3N;i++){ const th=Math.PI+Math.PI*i/T3N, y=rm*Math.cos(th), z=rm*Math.sin(th);
-    e0.push([-L,y,z]); e1.push([L,y,z]); }
-  parts.push(t3stations([e0,e1]));
-  for(const sy of [-1,1]){                              // the flat cheeks
-    const base=[], apex=[];
-    for(let i=0;i<=T3N;i++){ base.push([-L+2*L*i/T3N, sy*rm, 0]); apex.push([0, sy*rb, H]); }
-    parts.push(t3stations([base,apex])); }
-  for(const sx of [-1,1]){                              // the shoulders
-    const ra=[], rb2=[];
-    for(let i=0;i<=T3N;i++){ const t=-Math.PI/2+Math.PI*i/T3N;
-      ra.push([sx*L, rm*Math.sin(t), rm*Math.cos(t)]); rb2.push([sx*rb*Math.cos(t), rb*Math.sin(t), H]); }
-    parts.push(t3stations([ra,rb2])); }
-  return t3parts(parts);
+
+  // the bottom half of the main: unrolls to the middle band, exactly
+  const e0=[],e1=[],f0=[],f1=[];
+  for(let i=0;i<=N;i++){ const th=Math.PI+Math.PI*i/N, y=rm*Math.cos(th), z=rm*Math.sin(th);
+    const arc=-h+Math.PI*rm*i/N;
+    e0.push([-L,y,z]); e1.push([L,y,z]); f0.push([-L,arc]); f1.push([L,arc]); }
+  parts.push({rows3:[e0,e1], bands:[[f0,f1]], noseam:1, nojoint:[1,1]});
+
+  // the cheeks, meshed slope to slope, stopping a hair short of the apex
+  for(const sy of [-1,1]){
+    const r0=[],r1=[],g0=[],g1=[];
+    const ap=[0,sy*rb,H], apF=[0,sy*(h+cheekH)];
+    const bL=[-L,sy*rm,0], bR=[L,sy*rm,0], fL=[-L,sy*h], fR=[L,sy*h];
+    for(let i=0;i<=N;i++){ const u=(i/N)*0.998;
+      r0.push([bL[0]+(ap[0]-bL[0])*u, bL[1]+(ap[1]-bL[1])*u, bL[2]+(ap[2]-bL[2])*u]);
+      r1.push([bR[0]+(ap[0]-bR[0])*u, bR[1]+(ap[1]-bR[1])*u, bR[2]+(ap[2]-bR[2])*u]);
+      g0.push([fL[0]+(apF[0]-fL[0])*u, fL[1]+(apF[1]-fL[1])*u]);
+      g1.push([fR[0]+(apF[0]-fR[0])*u, fR[1]+(apF[1]-fR[1])*u]); }
+    parts.push({rows3:[r0,r1], bands:[[g0,g1]], noseam:1, nojoint:[1,1]});
+  }
+
+  /* the four wings, each walked out from its cheek edge triangle by triangle
+     with every true length kept - the compass construction, in numbers */
+  for(const sx of [-1,1]) for(const sy of [-1,1]){
+    const tAt=i=>sy*(Math.PI/2)*(1-i/N);
+    const fa=[[sx*L, sy*h]], fb=[[0, sy*(h+cheekH)]];
+    const want=-sx*sy;
+    const meet=(P,rp,Q,rq)=>{
+      const dx=Q[0]-P[0], dy=Q[1]-P[1], d=Math.hypot(dx,dy)||1e-9;
+      const a=(rp*rp-rq*rq+d*d)/(2*d), k=Math.sqrt(Math.max(0,rp*rp-a*a));
+      const s1=[P[0]+a*dx/d+k*dy/d, P[1]+a*dy/d-k*dx/d];
+      const s2=[P[0]+a*dx/d-k*dy/d, P[1]+a*dy/d+k*dx/d];
+      return Math.sign(dx*(s1[1]-P[1])-dy*(s1[0]-P[0]))===want ? s1 : s2; };
+    for(let i=0;i<N;i++){
+      const a0=A(sx,tAt(i)), b0=B(sx,tAt(i)), a1=A(sx,tAt(i+1)), b1=B(sx,tAt(i+1));
+      const pa=meet(fa[i], d3(a0,a1), fb[i], d3(b0,a1));
+      fa.push(pa);
+      fb.push(meet(pa, d3(a1,b1), fb[i], d3(b0,b1))); }
+    // seam first: the renderer inks column 0 as the seam
+    const ra=[],rw=[],wa=[],wb=[];
+    for(let i=N;i>=0;i--){ const t=tAt(i);
+      ra.push(A(sx,t)); rw.push(B(sx,t)); wa.push(fa[i]); wb.push(fb[i]); }
+    parts.push({rows3:[ra,rw], bands:[[wa,wb]]});
+  }
+  return {parts:parts};
 }
 
 function t3tee(s){
@@ -8561,7 +8707,7 @@ function settingsPage(){
    <div class="card" style="text-align:center">
     <div style="width:52px;height:52px;border-radius:11px;margin:2px auto 10px;background:#f5b301;display:grid;place-items:center">
       <svg viewBox="0 0 24 24" style="width:38px;height:38px;color:#16110a"><g transform="translate(12 17.12) scale(0.04194)"><path d="M-134.93 -240.77A276 276 0 0 1 -269.35 -60.21L-117.11 -26.18A120 120 0 0 0 -58.67 -104.68Z" fill="currentColor"/><path d="M112.55 -252.01A276 276 0 0 1 -112.55 -252.01L-48.94 -109.57A120 120 0 0 0 48.94 -109.57Z" fill="currentColor"/><path d="M269.35 -60.21A276 276 0 0 1 134.93 -240.77L58.67 -104.68A120 120 0 0 0 117.11 -26.18Z" fill="currentColor"/><path d="M0.87 4.92L119.05 -15.91L117.31 -25.76L-0.87 -4.92Z" fill="currentColor"/><path d="M0.87 -4.92L-117.31 -25.76L-119.05 -15.91L-0.87 4.92Z" fill="currentColor"/><path d="M-32 0a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="currentColor"/></g></svg></div>
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.8</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.65.9</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -8598,7 +8744,7 @@ function settingsPage(){
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.65.8',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.65.9',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
