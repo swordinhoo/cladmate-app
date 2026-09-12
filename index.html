@@ -723,7 +723,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         border:1px solid var(--line2);border-radius:10px;background:var(--inp);color:var(--inp-ink);
         font-variant-numeric:tabular-nums slashed-zero}
   input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(10,90,168,.22)}
-  button:focus-visible,.tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  button:focus-visible,.tile:focus-visible,.jobrow:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 
   .seg{display:flex;gap:0;background:var(--panel);padding:0;border-radius:10px;
@@ -816,6 +816,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     .pvctl button{width:44px;height:44px}
     .lgc{min-height:40px;padding:8px 12px}
     .pvpill{min-height:32px;padding:6px 12px}
+    .pvctls input,.pvctls .negbtn{min-height:40px}   /* the ± flip was ~26px tall (12 Sep 26, #23) */
   }
   /* the Plotter Pass: one-shot draw-in when a fitting (or kit piece) opens.
      Lives inside no-preference so reduced motion NEVER hides linework. */
@@ -947,11 +948,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         font-weight:800;letter-spacing:.05em;margin-bottom:4px}
   .printwarn span{display:block;font-size:12.5px;font-weight:600;line-height:1.5}
   /* Generate 'plots' the sheet before it saves */
-  .btn.primary{position:relative;overflow:hidden}
-  .btn.primary.plotting{color:transparent;pointer-events:none}
-  .btn.primary.plotting::before{content:"PLOTTING…";position:absolute;inset:0;display:grid;place-items:center;
+  .btn.primary,#shareBtn{position:relative;overflow:hidden}
+  .btn.plotting{color:transparent;pointer-events:none}
+  .btn.plotting::before{content:"PLOTTING…";position:absolute;inset:0;display:grid;place-items:center;
         color:var(--acc-ink);font-family:var(--fm);font-size:12px;font-weight:700;letter-spacing:.18em}
-  .btn.primary.plotting::after{content:"";position:absolute;top:0;bottom:0;left:0;width:38%;opacity:0;
+  .btn.ghost.plotting::before{color:var(--ink)}   /* Share plots too now (12 Sep 26, #61) */
+  .btn.plotting::after{content:"";position:absolute;top:0;bottom:0;left:0;width:38%;opacity:0;
         background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
         animation:plotsweep .45s linear 2}
   @keyframes plotsweep{0%{opacity:1;transform:translateX(-110%)}100%{opacity:1;transform:translateX(320%)}}
@@ -1007,6 +1009,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         border-radius:4px;font-weight:700;font-size:15px;font-family:var(--fm)}
   .qty span{min-width:24px;text-align:center;font-weight:700;font-size:13px;font-family:var(--fm);color:var(--acc)}
   .qty ~ .x{margin-left:6px}
+  /* glove-sized note/remove buttons on touch - must sit after the 32px rule above (review 12 Sep 26, #21) */
+  @media(pointer:coarse){ .jobrow .x{width:44px;height:44px} }
 
   /* ---- overlays ---- */
   .modal-bg{position:fixed;inset:0;background:var(--overlay);z-index:50;display:grid;place-items:center;
@@ -1127,7 +1131,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
        it collides with the clock numbers and is unreadable either way */
     .seamwheel.onpv .seamhint{display:none}
     /* A B C D rides on the right of the drawing, the wheel on the left (Craig) */
-    .abcdpick.onpv{position:absolute;right:6px;top:8px;width:84px;height:auto;z-index:4;background:none;border:0;
+    /* 96px: the four 76-unit cells of the 180-wide picker come out at 40px,
+       gloved-thumb size; at 84px they were 35 (12 Sep 26, #22) */
+    .abcdpick.onpv{position:absolute;right:6px;top:8px;width:96px;height:auto;z-index:4;background:none;border:0;
         filter:drop-shadow(0 0 2px var(--canvas)) drop-shadow(0 1px 3px rgba(0,0,0,.55))}
     .seamvis:empty{display:none}
     /* once the wheel and the picker are on the drawing the card is empty */
@@ -1137,12 +1143,31 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      phone it was stealing the room the fitting's own name needed */
   @media(max-width:439px){ header .ver{display:none} }
   @media(max-width:479px){
-    /* 16px is the iOS floor for INPUTS only - focus one below that and the
-       whole page zooms. A select opens the native picker and never zooms, so
-       it can go smaller, which is what stops the long centre-radius option
-       being clipped on a 375. */
-    input{font-size:16px!important}
-    select{font-size:14.5px!important}
+    /* 16px is the iOS floor for inputs AND selects - focus either below it and
+       Safari zooms the whole page. The select used to drop to 14.5px to stop
+       the pipe label clipping in a half-width box; that zoomed the page and
+       STILL clipped - "6\" · DN150 · 168.3mm" does not fit 153px at any size
+       worth reading. So on a phone the pipe box takes the whole row and both
+       stay at 16. The centre-radius option already sits in a full-width box. */
+    input,select{font-size:16px!important}
+    .grid2 .fld:has(>select[data-pipe]){grid-column:1/-1}
+    /* the on-drawing Twist box: .pvctls input{13px!important} out-specifies
+       the bare input rule above, so focusing it zoomed the page (12 Sep 26,
+       #23). 80px wide because "-180.0" at 16px does not fit 68. */
+    .pvctls input{font-size:16px!important;padding:8px;width:80px}
+  }
+  /* Gloved thumbs (Craig). Anything a fitter taps mid-job is 40px or better on
+     a touch screen; a mouse keeps the compact sizes, which is what
+     pointer:coarse is for. Measured on a 375 before this: SQUARE ON 25px tall,
+     Share/DXF/Job 34, Back 30, the theme button 28, GO PRO 21. */
+  @media(pointer:coarse){
+    .pvviews button{min-height:40px;padding:8px 12px;font-size:10.5px}
+    .genwrap .btn.ghost{min-height:44px}
+    .back{min-height:38px;padding:7px 14px}
+    .themetog{width:38px;height:38px}
+    .themetog svg{width:18px;height:18px}
+    .probadge{min-height:38px;padding:6px 11px;font-size:10px;display:inline-flex;align-items:center}
+    .kitbar{min-height:40px}
   }
 
   .printline{margin-top:8px;font-size:11px;line-height:1.4;color:#5c3d00;
@@ -1246,7 +1271,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     { inch: '10',  dn: 250, od: 273.1, nom: 254,   lr: 381,  sr: 254 },
     { inch: '12',  dn: 300, od: 323.9, nom: 304.8, lr: 457,  sr: 305 },
     { inch: '14',  dn: 350, od: 355.6, nom: 355.6, lr: 533,  sr: 356 },
-    { inch: '16',  dn: 400, od: 406.6, nom: 406.4, lr: 610,  sr: 406 },
+    { inch: '16',  dn: 400, od: 406.4, nom: 406.4, lr: 610,  sr: 406 },   // 406.4 per ASME B36.10 / BS EN 10220 (was 406.6 - review finding 7, 12 Sep 26)
     { inch: '18',  dn: 450, od: 457,   nom: 457.2, lr: 686,  sr: 457 },
     { inch: '20',  dn: 500, od: 508,   nom: 508,   lr: 762,  sr: 508 },
     { inch: '24',  dn: 600, od: 610,   nom: 609.6, lr: 914,  sr: 610 }
@@ -1363,6 +1388,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const g = (p.bendDeg * Math.PI / 180) / (2 * N);            // mitre half-angle
     const A = r * Math.tan(g);
     const C = p.centreRadius * g + (p.jointAllow || 0);         // half-gore mean length
+    /* A centre radius inside the cladding radius makes the throat ordinate
+       negative and the gore prints as a bow-tie that crosses itself - DN150
+       with 100 mm of insulation on the 1D button did exactly that, silently.
+       The double bend already refuses this; now the lobster does. Review
+       finding 2, 12 Sep 26. */
+    if (C - A < 5) throw new Error('Centre radius ' + p.centreRadius + ' mm is inside the cladding radius '
+      + r.toFixed(0) + ' mm - the throat pinches out. Use a bigger radius or more segments.');
     const circ = Math.PI * cladOD;
     const lapEach = p.lapTotal / 2;
     const ND = _nd(p.nDiv, 12);
@@ -1732,7 +1764,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const rT = (R - Rk) * Rc / (Rc - Rk);      // crown/knuckle join radius
     if (a + rb > rT) throw new Error('The tee runs onto the knuckle. Move it toward the centre - the crown ends at ' + rT.toFixed(0) + ' mm out.');
     const surf = r => Math.sqrt(Rc*Rc - r*r);
-    const rMin = Math.max(0, a - rb), s0 = surf(rMin);
+    /* The nearest point of the branch circle to the dome axis is |a - rb| out,
+       whether or not the circle encloses the centre. Clamping to 0 when it
+       straddled put the shortest generator longer than the typed min length.
+       Review finding 5, 12 Sep 26. */
+    const rMin = Math.abs(a - rb), s0 = surf(rMin);
     const hAt = psi => { const r = Math.hypot(a + rb*Math.cos(psi), rb*Math.sin(psi));
       return L + s0 - surf(r); };            // psi=pi = toward the centre = shortest
     const circ = Math.PI*brOD, lapEach = p.lapTotal/2, ND = _nd(p.nDiv, 12);
@@ -2122,11 +2158,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 
     const prim = [], holes = [], ticks = [];
     const top = pts.map(q => [q[0], q[1] + swE]);
-    prim.push({ style: 'cut', pts: [[xLo, -swE]].concat(top, [[xHi, -swE]], [[xLo, -swE]]) });
-    if (swE > 0) { prim.push({ style: 'swage', pts: pts.slice(), note: 'SWAGE ' + swE });
-                   prim.push({ style: 'swage', pts: [[xLo, 0], [xHi, 0]], note: 'SWAGE ' + swE }); }
+    /* The flat end that meets the straight is PLAIN - the swage allowance goes
+       on the mitre edge only. The round elbow was changed on 11 Sep 26 (Craig's
+       rule); this variant was missed, and printed swE of extra metal under the
+       plain end with a SWAGE mark on it. Review finding 1, 12 Sep 26. */
+    prim.push({ style: 'cut', pts: [[xLo, 0]].concat(top, [[xHi, 0]], [[xLo, 0]]) });
+    if (swE > 0) prim.push({ style: 'swage', pts: pts.slice(), note: 'SWAGE ' + swE });
     prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
-    [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, -swE], [xs, topAt(xs) + swE]] }));   // seam edges
+    [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, 0], [xs, topAt(xs) + swE]] }));   // seam edges
     [foldA, foldB].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, topAt(xf)]] }));        // crease folds of the flat
     [0, girth].forEach(xl => { const h = topAt(xl), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
     for (let k = 0; k <= ND; k++) { const x = k * girth / ND, h = topAt(x); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
@@ -2172,6 +2211,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const g = (p.bendDeg * Math.PI / 180) / (2 * N);     // mitre half-angle
     const A = r * Math.tan(g);
     const C = p.centreRadius * g + (p.jointAllow || 0);   // half-gore mean length
+    if (C - A < 5) throw new Error('Centre radius ' + p.centreRadius + ' mm is inside the cladding radius '
+      + r.toFixed(0) + ' mm - the throat pinches out. Use a bigger radius or more segments.');   // see _lobGore
     const lapEach = p.lapTotal / 2;
     const ND = _nd(p.nDiv, 12);
     const mid = (kind === 'mid');
@@ -4168,20 +4209,82 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   // ================= DXF EXPORT ============================================
+  /* 12 Sep 26, review finding 46: this used to be a bare HEADER + ENTITIES
+     with no $ACADVER, which a reader takes as R12 - and R12 has no
+     LWPOLYLINE. Lenient importers shrugged; a strict one could refuse the
+     file and the Pro user had nothing to cut from. It is now a complete
+     minimal R2000 (AC1015) drawing: a handle on everything, the tables
+     AutoCAD insists on, the layers actually used defined by name, model and
+     paper space blocks, the root dictionary, and the AcDbEntity /
+     AcDbPolyline / AcDbCircle subclass markers on every entity. Every
+     coordinate, layer name and hole radius is byte-for-byte what it was.
+     Checked here only by a strict tag walk in Node - open one in the shop's
+     CAM package before trusting it on the table. */
+  const DXF_ACI = { CUT: 1, MITRE: 1, FOLD: 6, FLANGE: 30, SWAGE: 4, LAP: 5, REF: 8, HOLES: 3 };
   function toDXF(pat) {
     const L = [];
     const push = (...v) => L.push(...v);
-    push(0,'SECTION',2,'HEADER',9,'$INSUNITS',70,4,0,'ENDSEC');
-    push(0,'SECTION',2,'ENTITIES');
     const layer = st => LAY(st).dxf;
+    // fixed handles 1..2F belong to the tables and blocks below; everything
+    // else takes the next one, and $HANDSEED is written once we know the last
+    let seed = 0x30;
+    const hx = () => (seed++).toString(16).toUpperCase();
+    const MS = '1F';                                   // *Model_Space block record
+    const used = [];
+    pat.prim.forEach(pr => { const l = layer(pr.style); if (pr.pts.length >= 2 && !used.includes(l)) used.push(l); });
+    if (pat.holes.length && !used.includes('HOLES')) used.push('HOLES');
+
+    const E = [];                                      // entities, built first so the seed is final
+    const pe = (...v) => E.push(...v);
     pat.prim.forEach(pr => {
       const pts = pr.pts; if (pts.length < 2) return;
       const closed = pts.length > 2 && Math.hypot(pts[0][0]-pts[pts.length-1][0], pts[0][1]-pts[pts.length-1][1]) < 1e-6;
       const n = closed ? pts.length - 1 : pts.length;
-      push(0,'LWPOLYLINE',8,layer(pr.style),90,n,70,closed?1:0);
-      for (let i = 0; i < n; i++) push(10,pts[i][0].toFixed(3),20,pts[i][1].toFixed(3));
+      pe(0,'LWPOLYLINE',5,hx(),330,MS,100,'AcDbEntity',8,layer(pr.style),100,'AcDbPolyline',90,n,70,closed?1:0);
+      for (let i = 0; i < n; i++) pe(10,pts[i][0].toFixed(3),20,pts[i][1].toFixed(3));
     });
-    pat.holes.forEach(h => push(0,'CIRCLE',8,'HOLES',10,h[0].toFixed(3),20,h[1].toFixed(3),40,'2.0'));
+    pat.holes.forEach(h => pe(0,'CIRCLE',5,hx(),330,MS,100,'AcDbEntity',8,'HOLES',100,'AcDbCircle',10,h[0].toFixed(3),20,h[1].toFixed(3),30,'0.0',40,'2.0'));
+    const layerRecs = [];
+    used.forEach(l => layerRecs.push(0,'LAYER',5,hx(),330,'2',100,'AcDbSymbolTableRecord',100,'AcDbLayerTableRecord',2,l,70,0,62,DXF_ACI[l] || 7,6,'Continuous'));
+
+    push(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1015',9,'$HANDSEED',5,seed.toString(16).toUpperCase(),9,'$INSUNITS',70,4,0,'ENDSEC');
+    push(0,'SECTION',2,'CLASSES',0,'ENDSEC');
+    push(0,'SECTION',2,'TABLES');
+    push(0,'TABLE',2,'VPORT',5,'8',330,'0',100,'AcDbSymbolTable',70,0,0,'ENDTAB');
+    push(0,'TABLE',2,'LTYPE',5,'5',330,'0',100,'AcDbSymbolTable',70,3);
+    [['14','ByBlock',''],['15','ByLayer',''],['16','Continuous','Solid line']].forEach(([h,name,desc]) =>
+      push(0,'LTYPE',5,h,330,'5',100,'AcDbSymbolTableRecord',100,'AcDbLinetypeTableRecord',2,name,70,0,3,desc,72,65,73,0,40,'0.0'));
+    push(0,'ENDTAB');
+    push(0,'TABLE',2,'LAYER',5,'2',330,'0',100,'AcDbSymbolTable',70,used.length + 1);
+    push(0,'LAYER',5,'10',330,'2',100,'AcDbSymbolTableRecord',100,'AcDbLayerTableRecord',2,'0',70,0,62,7,6,'Continuous');
+    push(...layerRecs);
+    push(0,'ENDTAB');
+    push(0,'TABLE',2,'STYLE',5,'3',330,'0',100,'AcDbSymbolTable',70,1);
+    push(0,'STYLE',5,'11',330,'3',100,'AcDbSymbolTableRecord',100,'AcDbTextStyleTableRecord',2,'Standard',70,0,40,'0.0',41,'1.0',50,'0.0',71,0,42,'2.5',3,'txt',4,'');
+    push(0,'ENDTAB');
+    push(0,'TABLE',2,'VIEW',5,'6',330,'0',100,'AcDbSymbolTable',70,0,0,'ENDTAB');
+    push(0,'TABLE',2,'UCS',5,'7',330,'0',100,'AcDbSymbolTable',70,0,0,'ENDTAB');
+    push(0,'TABLE',2,'APPID',5,'9',330,'0',100,'AcDbSymbolTable',70,1);
+    push(0,'APPID',5,'12',330,'9',100,'AcDbSymbolTableRecord',100,'AcDbRegAppTableRecord',2,'ACAD',70,0);
+    push(0,'ENDTAB');
+    push(0,'TABLE',2,'DIMSTYLE',5,'A',330,'0',100,'AcDbSymbolTable',70,0,100,'AcDbDimStyleTable',71,0,0,'ENDTAB');
+    push(0,'TABLE',2,'BLOCK_RECORD',5,'1',330,'0',100,'AcDbSymbolTable',70,2);
+    push(0,'BLOCK_RECORD',5,MS,330,'1',100,'AcDbSymbolTableRecord',100,'AcDbBlockTableRecord',2,'*Model_Space');
+    push(0,'BLOCK_RECORD',5,'1B',330,'1',100,'AcDbSymbolTableRecord',100,'AcDbBlockTableRecord',2,'*Paper_Space');
+    push(0,'ENDTAB');
+    push(0,'ENDSEC');
+    push(0,'SECTION',2,'BLOCKS');
+    push(0,'BLOCK',5,'20',330,MS,100,'AcDbEntity',8,'0',100,'AcDbBlockBegin',2,'*Model_Space',70,0,10,'0.0',20,'0.0',30,'0.0',3,'*Model_Space',1,'');
+    push(0,'ENDBLK',5,'21',330,MS,100,'AcDbEntity',8,'0',100,'AcDbBlockEnd');
+    push(0,'BLOCK',5,'1C',330,'1B',100,'AcDbEntity',8,'0',67,1,100,'AcDbBlockBegin',2,'*Paper_Space',70,0,10,'0.0',20,'0.0',30,'0.0',3,'*Paper_Space',1,'');
+    push(0,'ENDBLK',5,'1D',330,'1B',100,'AcDbEntity',8,'0',67,1,100,'AcDbBlockEnd');
+    push(0,'ENDSEC');
+    push(0,'SECTION',2,'ENTITIES');
+    push(...E);
+    push(0,'ENDSEC');
+    push(0,'SECTION',2,'OBJECTS');
+    push(0,'DICTIONARY',5,'C',330,'0',100,'AcDbDictionary',281,1,3,'ACAD_GROUP',350,'D');
+    push(0,'DICTIONARY',5,'D',330,'C',100,'AcDbDictionary',281,1);
     push(0,'ENDSEC',0,'EOF');
     return L.join('\n');
   }
@@ -4299,13 +4402,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const nx = x => x - bb.x0, ny = y => y - bb.y0;
     const orient = W > H ? 'landscape' : 'portrait';
     if (!first) doc.addPage([W, H], orient);
-    drawCover(doc, pattern, { W, H, nCols, nRows, pw, ph, nx, ny, brand: opts.brand, inches: plan.inches });
+    drawCover(doc, pattern, { W, H, nCols, nRows, pw, ph, uw, uh, sx, sy, nx, ny, brand: opts.brand, inches: plan.inches });
     // worked out once for the whole set, not once per sheet - the panel prints
     // on exactly one tile and the others need to know to leave it alone
     const infoAt = _placeInfo(doc, pattern, plan);
     for (let row = 0; row < nRows; row++) for (let col = 0; col < nCols; col++) {
       doc.addPage([W, H], orient);
-      drawTile(doc, pattern, { W, H, uw, uh, sx, sy, col, row, nCols, nRows, PM, OV, nx, ny, infoAt, inches: plan.inches });
+      drawTile(doc, pattern, { W, H, uw, uh, sx, sy, col, row, nCols, nRows, PM, OV, nx, ny, bb, infoAt, inches: plan.inches });
     }
     return infoAt;
   }
@@ -4330,9 +4433,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.text(pat.title, 14, 16);
     if (o.brand) { doc.setFontSize(9); doc.setTextColor(90); doc.text(String(o.brand), o.W - 14, 12, { align: 'right' }); doc.setTextColor(0); }
     doc.setFontSize(7); doc.setTextColor(150); doc.text(CREDIT, o.W - 14, o.H - 6, { align: 'right' }); doc.setTextColor(0);
+    /* 12 Sep 26, review finding 44: the key is an opaque white patch drawn
+       AFTER this text, top right, and jsPDF neither wraps nor clips - so a
+       long line (a job note, the watershed lid's build hints, a 12-ordinate
+       row on A4) lost its tail under the key or ran off the page. Wrap every
+       line to the room left of the key; the ruler and map follow it down. */
+    const keyW = keyBoxSize(doc, pat).w, textW = o.W - 28 - (keyW ? keyW + 4 : 0), LH = 4.4;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    let y = 26; pat.meta.forEach(l => { doc.text(l, 14, y); y += 5.5; });
-    if (pat.calc.o12) { doc.setFont('helvetica', 'bold'); doc.text('Ordinates 12-div (mm): ', 14, y + 2); doc.setFont('helvetica', 'normal'); doc.text(pat.calc.o12.map((v, i) => (i + 1) + ':' + v).join('  '), 14, y + 7); y += 12; }
+    const wrap = (txt, y0) => { const ls = doc.splitTextToSize(String(txt), textW); ls.forEach((ln, i) => doc.text(ln, 14, y0 + i * LH)); return (ls.length - 1) * LH; };
+    let y = 26; pat.meta.forEach(l => { y += wrap(l, y) + 5.5; });
+    if (pat.calc.o12) { doc.setFont('helvetica', 'bold'); doc.text('Ordinates 12-div (mm): ', 14, y + 2); doc.setFont('helvetica', 'normal'); y += wrap(pat.calc.o12.map((v, i) => (i + 1) + ':' + v).join('  '), y + 7) + 12; }
 
     // calibration ruler
     const ry = y + 8;
@@ -4363,12 +4473,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('SHEET MAP', 14, mapTop - 2);
     const mx = 14, my = mapTop;
     doc.setDrawColor(150); doc.setLineWidth(0.2);
-    for (let c = 0; c < o.nCols; c++) for (let r = 0; r < o.nRows; r++) {
-      doc.rect(mx + c / o.nCols * mw, my + r / o.nRows * mh, mw / o.nCols, mh / o.nRows);
-      doc.setFontSize(7); doc.setTextColor(150);
-      doc.text('C' + (c + 1) + '-R' + (r + 1), mx + (c + 0.5) / o.nCols * mw, my + (r + 0.5) / o.nRows * mh, { align: 'center' });
-    }
     const s = mw / o.pw;
+    /* 12 Sep 26, review finding 10: each cell is the slice drawTile really
+       prints - stepped by sx/sy, uw/uh big, clipped to the pattern - with R1
+       at the BOTTOM, because the tiles count rows upward ("tape up -> R2").
+       The old map split the outline into equal cells top-down, so on any
+       two-row set it named the wrong half and put every column join in the
+       wrong place. */
+    for (let c = 0; c < o.nCols; c++) for (let r = 0; r < o.nRows; r++) {
+      const cw = Math.min(o.uw, o.pw - c * o.sx) * s, ch = Math.min(o.uh, o.ph - r * o.sy) * s;
+      const cx = mx + c * o.sx * s, cy = my + mh - r * o.sy * s - ch;
+      doc.rect(cx, cy, cw, ch);
+      doc.setFontSize(7); doc.setTextColor(150);
+      doc.text('C' + (c + 1) + '-R' + (r + 1), cx + cw / 2, cy + ch / 2, { align: 'center' });
+    }
     doc.setDrawColor(0); doc.setLineWidth(0.3);
     pat.prim.filter(p => p.style === 'cut').forEach(pr => {
       for (let i = 1; i < pr.pts.length; i++) {
@@ -4413,15 +4531,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      used by this pattern are listed, so a plain elbow does not carry a line
      about flanges. White knockout behind it so it stays readable if it lands
      over the drawing. */
-  function drawKey(doc, pat, box) {
+  /* Measured apart from the drawing (the infoBoxSize pattern) because the
+     cover has to know how wide the key is BEFORE it lays text out beside it
+     - 12 Sep 26, review finding 44. w of 0 means there is no key. */
+  function keyBoxSize(doc, pat) {
     const used = LORDER.filter(k => pat.prim.some(pr => pr.style === k));
     if (pat.holes && pat.holes.length) used.push('_hole');
-    if (!used.length) return;
     const rowH = 4.0, samp = 9, gap = 2.5, padX = 3, padY = 3;
+    if (!used.length) return { used, w: 0, h: 0, rowH, samp, gap, padX, padY };
     doc.setFont('helvetica', 'bold'); doc.setFontSize(5.6);
     let tw = doc.getTextWidth('KEY');
     used.forEach(k => { const t = k === '_hole' ? 'RIVET HOLE' : LAY(k).label; tw = Math.max(tw, doc.getTextWidth(t)); });
-    const boxW = padX*2 + samp + gap + tw, boxH = padY*2 + rowH*(used.length + 1);
+    return { used, w: padX*2 + samp + gap + tw, h: padY*2 + rowH*(used.length + 1), rowH, samp, gap, padX, padY };
+  }
+  function drawKey(doc, pat, box) {
+    const m = keyBoxSize(doc, pat), used = m.used;
+    if (!used.length) return;
+    const { rowH, samp, gap, padX, padY } = m, boxW = m.w, boxH = m.h;
     /* The key is an opaque white patch. Drop it on top of the pattern and it
        hides linework - the one thing a template must never do. So the caller
        hands over the whole printable rectangle and a scorer, and the key goes
@@ -4449,10 +4575,61 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     doc.setFont('helvetica', 'normal'); doc.setTextColor(0); doc.setLineDashPattern([], 0);
   }
 
+  /* 12 Sep 26, review finding 45: the pattern's bottom-left corner lands
+     exactly on the tile's bottom-left corner, so a check bar fixed there
+     printed INSIDE the metal on every C1-R1 - a solid black line 5 mm up
+     from the cut edge, through the seam fold. Now the bar tries the four
+     corners of the printable area in turn (bottom-left first, so a sheet
+     that was fine prints exactly as before), keeps out of the overlap bands,
+     the header and the info panel, and takes the first corner with nothing
+     drawn under it. No clear corner means no bar on that sheet - the cover's
+     100 mm bar is still there. Returns the bar's start point on the page. */
+  function _scaleCheckSpot(pat, o, clipY, ckW) {
+    const ovR = o.col < o.nCols - 1 ? o.OV : 0, ovT = o.row < o.nRows - 1 ? o.OV : 0;
+    const yBot = o.H - o.PM - 5, yTop = clipY + Math.max(17, ovT + 5);
+    const xL = o.PM + 3, xR = o.PM + o.uw - ovR - 3 - ckW;
+    const cands = xR > xL + ckW ? [[xL, yBot], [xR, yBot], [xR, yTop], [xL, yTop]] : [[xL, yBot], [xL, yTop]];
+    const px2x = px => px - o.PM + o.col * o.sx + o.bb.x0;
+    const py2y = py => o.H - o.PM + o.row * o.sy - py + o.bb.y0;
+    // Liang-Barsky: does the segment A-B cross the pattern-space box?
+    const segIn = (A, B, x0, y0, x1, y1) => {
+      let t0 = 0, t1 = 1; const dx = B[0]-A[0], dy = B[1]-A[1];
+      const p = [-dx, dx, -dy, dy], q = [A[0]-x0, x1-A[0], A[1]-y0, y1-A[1]];
+      for (let k = 0; k < 4; k++) {
+        if (p[k] === 0) { if (q[k] < 0) return false; continue; }
+        const r = q[k] / p[k];
+        if (p[k] < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+        else { if (r < t0) return false; if (r < t1) t1 = r; }
+      }
+      return true;
+    };
+    const busy = (x0, y0, x1, y1) => {
+      for (const pr of pat.prim) for (let i = 1; i < pr.pts.length; i++) if (segIn(pr.pts[i-1], pr.pts[i], x0, y0, x1, y1)) return true;
+      for (const h of pat.holes) if (h[0] > x0 - 4 && h[0] < x1 + 4 && h[1] > y0 - 4 && h[1] < y1 + 4) return true;
+      for (const t of pat.ticks) if (t.x > x0 - 6 && t.x < x1 + 6 && t.y + 2 > y0 - 3 && t.y + 2 < y1 + 3) return true;
+      return false;
+    };
+    const ia = pat.info && o.infoAt && o.infoAt.col === o.col && o.infoAt.row === o.row ? o.infoAt : null;
+    for (const [x, y] of cands) {
+      if (x < o.PM || x + ckW > o.PM + o.uw + 0.01 || y - 4 < clipY || y + 4 > clipY + o.uh) continue;
+      if (ia && x + ckW + 1 > ia.x - ia.w/2 && x - 1 < ia.x + ia.w/2 && y + 4 > ia.y - ia.h/2 && y - 4 < ia.y + ia.h/2) continue;
+      if (busy(px2x(x - 1), py2y(y + 4), px2x(x + ckW + 1), py2y(y - 4))) continue;
+      return { x, y };
+    }
+    return null;
+  }
+
   function drawTile(doc, pat, o) {
     const X = x => o.PM - o.col * o.sx + o.nx(x);
     const Y = y => o.H - o.PM + o.row * o.sy - o.ny(y);   // y-down flip
     const clipY = o.H - o.PM - o.uh;
+    // per-sheet scale check - 50 mm, or 2 inches (50.8) when the paper is US.
+    // Sized and placed up front so the note repeater knows where to keep off.
+    const ckL = o.inches ? 50.8 : 50, ckT = o.inches ? '2 in check' : '50 mm check';
+    const f0 = doc.getFont(); doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+    const ckW = ckL + 2 + doc.getTextWidth(ckT);
+    doc.setFont(f0.fontName, f0.fontStyle);
+    const ck = _scaleCheckSpot(pat, o, clipY, ckW);
 
     doc.saveGraphicsState();
     doc.rect(o.PM, clipY, o.uw, o.uh, null); doc.clip(); doc.discardPath();
@@ -4509,7 +4686,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
              the bottom left. A note printed across either just gives you two
              strings of text on top of each other and neither can be read. Skip
              this repeat and let the next one along the run carry the word. */
-          const onFurniture = ty < clipY + 13 || (tx < o.PM + 100 && ty > o.H - o.PM - 12);
+          const onFurniture = ty < clipY + 13 || (ck && tx > ck.x - 3 && tx < ck.x + ckW + 30 && ty > ck.y - 7 && ty < ck.y + 7);
           if (!onFurniture) doc.text(pr.note, tx, ty, { angle: ang });
           next += STEP;
         }
@@ -4535,12 +4712,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (o.col < o.nCols - 1) hint.push('tape right -> C' + (o.col+2) + '-R' + (o.row+1));
     if (o.row < o.nRows - 1) hint.push('tape up -> C' + (o.col+1) + '-R' + (o.row+2));
     if (hint.length) doc.text(hint.join('   |   '), o.PM + 2, clipY + 11);
-    // per-sheet scale check - 50 mm, or 2 inches (50.8) when the paper is US
-    doc.setDrawColor(0); doc.setLineWidth(0.3);
-    const ckL = o.inches ? 50.8 : 50, ckT = o.inches ? '2 in check' : '50 mm check';
-    const sy2 = o.H - o.PM - 5;
-    doc.line(o.PM + 3, sy2, o.PM + 3 + ckL, sy2); doc.line(o.PM + 3, sy2 - 2, o.PM + 3, sy2 + 2); doc.line(o.PM + 3 + ckL, sy2 - 2, o.PM + 3 + ckL, sy2 + 2);
-    doc.setTextColor(0); doc.setFontSize(7); doc.text(ckT, o.PM + 5 + ckL, sy2 + 1);
+    if (ck) {   // the scale check, wherever _scaleCheckSpot found clear paper
+      doc.setDrawColor(0); doc.setLineWidth(0.3);
+      doc.line(ck.x, ck.y, ck.x + ckL, ck.y); doc.line(ck.x, ck.y - 2, ck.x, ck.y + 2); doc.line(ck.x + ckL, ck.y - 2, ck.x + ckL, ck.y + 2);
+      doc.setTextColor(0); doc.setFontSize(7); doc.text(ckT, ck.x + 2 + ckL, ck.y + 1);
+    }
 
     /* The info panel prints ONCE across the whole set, on the sheet and at
        the spot _placeInfo found in the clear. It is NOT dropped on the middle
@@ -4653,6 +4829,13 @@ let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:LOCALE_
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model', sizeMode:'pipeins',
   lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10, shade3d:'solid' }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
+/* One table of sane ranges for the numbers that feed every fitting. The
+   Settings form clamps against it as you type; a restored backup is clamped
+   against it on the way in, falling back to the value it is replacing when
+   the file holds junk (review 12 Sep 26, #48). */
+const SET_LIMITS={ insulation:[0,500], lapTotal:[0,200], holePitch:[5,500], swage:[0,50], flange:[0,100], sheetW:[200,5000], sheetH:[200,5000] };
+function clampSet(prev){ for(const k in SET_LIMITS){ const [lo,hi]=SET_LIMITS[k], v=parseFloat(SET[k]);
+  SET[k]=isFinite(v)?Math.min(hi,Math.max(lo,v)):(prev||SET)[k]; } }
 /* Canvas = how the DRAWINGS are shown: model space (AutoCAD layer colours
    on a dark canvas) or paper space (black on white, for bright sunlight).
    The application chrome stays light either way, and printed templates are
@@ -4742,6 +4925,11 @@ function toast(m){ const t=document.createElement('div'); t.className='toast'; t
 function modal(html){ const bg=document.createElement('div'); bg.className='modal-bg'; bg.innerHTML=`<div class="modal">${html}</div>`;
   bg.close=()=>{ bg.classList.add('closing'); setTimeout(()=>bg.remove(),160); };
   bg.addEventListener('click',e=>{ if(e.target===bg) bg.close(); }); document.body.appendChild(bg); return bg; }
+/* Anything a person typed - or a restored backup carried - goes through here
+   before it lands in innerHTML or an attribute. A job called "DN150 <2m" used
+   to swallow the rest of its row, and a company name with a quote in it came
+   back truncated in Settings and was then saved short (review 12 Sep 26, #13/#36/#47). */
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 /* every screen goes through here, so this is the one place that can be sure
    the home-only wide layout is off again when you leave the home screen */
 function setView(t,s,back){ ttl.textContent=t; subttl.textContent=s;
@@ -4915,7 +5103,7 @@ const F={
   kit:s=>FP.elbowKit({...s,pieces:2,swage:SET.swage,watershed:s.bendHand||'A'}),   // bottom + top piece, each marked face out
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
- flatelbow:{name:'Flat-sided Elbow',sub:'D-section · 2-piece',icon:I.elbow,free:true,
+ flatelbow:{name:'Flat-sided Elbow',sub:'D-section · 2-piece',icon:I.elbow,
   defaults:{pipeOD:168.3,insulation:25,recessDepth:40,recessAt:'back',bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),FAST],
   build:s=>FP.flatElbow({...s,pieces:2,swage:SET.swage}),
@@ -4975,14 +5163,14 @@ const F={
   build:s=>{const q=Object.assign({},s,{name:'Square to Round'});if(s.side!=null){q.sqW=s.side;q.sqD=s.side;}return FP.squareToRound(q);},
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
-  note:'Square base, round on centre. An equal square-to-round is just the round Ø typed into the side box. Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
+  note:'Square base, round on centre. An equal square-to-round is just the round Ø typed into the side box. The seam runs down the middle of the face you pick (Front, Right, Back or Left), so both lap edges land on flat metal, never up a corner fold.'},
  rectround:{name:'Rectangle to Round',sub:'Transition · concentric',icon:I.rtr,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:400,sqD:250,height:200,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
   build:s=>FP.squareToRound(Object.assign({},s,{name:'Rectangle to Round'})),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'H '+c.H],
-  note:'Rectangular base, round on centre. Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
+  note:'Rectangular base, round on centre. The seam runs down the middle of the face you pick (Front, Right, Back or Left), so both lap edges land on flat metal, never up a corner fold.'},
  obliqueround:{name:'Oblique to Round',sub:'Offset transition',icon:I.otr,
   defaults:{seamFromThroat:90,swage:3,pipeOD:168.3,insulation:25,sqW:300,sqD:250,height:250,offsetX:60,lapTotal:40,holePitch:60,holeEndGap:20},
   fields:[pipe('pipeOD','Round end pipe'),num('insulation','Insulation (mm)'),num('sqW','Base width (mm)'),num('sqD','Base depth (mm)'),num('height','Height (mm)'),Object.assign(num('offsetX','Top offset (mm)'),{neg:1}),{type:'segopt',k:'seamFromThroat',label:'Seam down the middle of',opts:[{v:90,label:'Front'},{v:0,label:'Right'},{v:270,label:'Back'},{v:180,label:'Left'}]}],
@@ -5003,7 +5191,7 @@ const F={
   build:s=>FP.squareToRound(Object.assign({},s,{name:'Oblique Transformer'})),
   mini:c=>['Round Ø '+c.roundOD.toFixed(0),'Circ '+(Math.PI*c.roundOD).toFixed(0),'Base '+c.w+'×'+c.dpt],
   stats:c=>['Round Ø'+c.roundOD.toFixed(0),'Base '+c.w+'×'+c.dpt,'Offset '+c.ox+' / '+c.oy],
-  note:'The fully general transformer — rectangle base, round end anywhere over it: width offset slides it along, depth offset across, both take minus. Matched exactly against the old program\'s quarter chord table. Seam position runs round the circle: points 1, 4, 7, 10 land on the corners; in between puts the seam mid-face.'},
+  note:'The fully general transformer — rectangle base, round end anywhere over it: width offset slides it along, depth offset across, both take minus. Matched exactly against the old program\'s quarter chord table. The seam runs down the middle of the face you pick (Front, Right, Back or Left), so both lap edges land on flat metal, never up a corner fold.'},
  flatback:{name:'Flat Back Cone',sub:'Eccentric reducer',icon:I.econe,
   defaults:{swage:3,seamFromThroat:90,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,lapTotal:50,holePitch:40,holeEndGap:20},
   fields:[pipe('bigPipeOD','Big end pipe'),pipe('smallPipeOD','Small end pipe'),num('insulation','Insulation (mm)'),num('height','Height (mm)'),{type:'seam',k:'seamFromThroat',label:'Seam position',noHand:true}],
@@ -5022,8 +5210,8 @@ const F={
   build:s=>FP.angledCone(s),
   mini:c=>['Ø '+c.bigOD.toFixed(0)+' → '+c.smallOD.toFixed(0),'Tilt '+c.angle+'°'],
   stats:c=>['Big Ø'+c.bigOD.toFixed(0),'Small Ø'+c.smallOD.toFixed(0),'Tilt '+c.angle+'°','H '+c.H+' · throw '+c.X],
-  note:'Taper onto a pipe that leaves at an angle: the small end sits in a plane tilted by the angle you set, its centre at the height and throw you give (throw is toward the throat — the short side). Seam defaults to the throat. Geometry verified against published trade tables to 0.05 mm.'},
- witcheshat:{name:'Witches Hat',sub:'Cone to a point',icon:I.cone,free:true,
+  note:'Taper onto a pipe that leaves at an angle: the small end sits in a plane tilted by the angle you set, its centre at the height and throw you give (throw is toward the throat — the short side). Seam defaults to the side (point 4); point 1 is the throat, the short side. Geometry verified against published trade tables to 0.05 mm.'},
+ witcheshat:{name:'Witches Hat',sub:'Cone to a point',icon:I.cone,
   defaults:{pipeOD:400,insulation:25,height:400,swage:3,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('pipeOD','Base diameter'),num('insulation','Insulation (mm)'),num('height','Height (mm)')],
   build:s=>FP.witchesHat(Object.assign({},s,{swage:SET.swage})),
@@ -5072,7 +5260,7 @@ const F={
   kit:s=>[FP.teeBendStub(s), FP.teeBendHole(s)],
   mini:c=>['Stub Ø '+c.stubOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 1 off'],
   stats:c=>['Stub Ø'+c.stubOD.toFixed(0),'Bend Ø'+c.mainOD.toFixed(0)+' · R '+c.R,'Ordinates '+c.hMin.toFixed(0)+'–'+c.hMax.toFixed(0)],
-  note:'The trunnion / tee that runs IN LINE with one leg of a bend and lands on the bend back — offset 0 means dead in line with the riser. Length is from the stub top down to the MAIN leg centreline (how trunnions are called off drawings). Seam defaults to the short side, facing inside the bend. Generate prints BOTH the stub wrap AND the hole to mark on the bend cladding, with the S setout check on the header. Geometry verified against published trade tables to 0.05 mm — but offer the first one up before cutting a batch.'},
+  note:'The trunnion / tee that runs IN LINE with one leg of a bend and lands on the bend back — offset 0 means dead in line with the riser. Length is from the stub top down to the MAIN leg centreline (how trunnions are called off drawings). Seam defaults to the side (point 4); point 1 is the short side, facing inside the bend. Generate prints BOTH the stub wrap AND the hole to mark on the bend cladding, with the S setout check on the header. Geometry verified against published trade tables to 0.05 mm — but offer the first one up before cutting a batch.'},
  teeoncone:{name:'Tee on Reducer',sub:'Branch into a cone',icon:I.tcone,
   defaults:{seamFromThroat:90,coneMode:'con',bigPipeOD:323.9,smallPipeOD:168.3,insulation:25,height:300,branchPipeOD:88.9,branchZ:120,minLen:100,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[sego('coneMode','Reducer type',[{v:'con',label:'Concentric'},{v:'flatback',label:'Flat back'}]),
@@ -5336,7 +5524,7 @@ function unlocked(k){ return PRO || isFree(k); }
 /* ================= pro / unlock ================= */
 function showUnlock(){
   const bg=modal(`<h3>${BRAND.name} Pro</h3>
-    <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Cut list, weights &amp; sheet counts</li></ul>
+    <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Area and sheet-fit on every pattern</li></ul>
     <label style="display:block">Licence code</label>
     <input id="licIn" placeholder="CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
@@ -5404,10 +5592,15 @@ let RECENT=store.get('cm_recent',[]).filter(k=>F[k]);
 function pushRecent(k){ if(!F[k]) return;
   RECENT=[k].concat(RECENT.filter(x=>x!==k)).slice(0,4); store.set('cm_recent',RECENT); }
 /* stopPropagation: a mode pill lives inside its tile, and only one should fire */
-function bindGo(root){ root.querySelectorAll('[data-go]').forEach(e=>e.onclick=ev=>{ ev.stopPropagation();
-  const g=e.dataset.go; if(g!=='chart') pushRecent(g); repage(()=>{ g==='chart'?chart():form(g); }); }); }
+function bindGo(root){ root.querySelectorAll('[data-go]').forEach(e=>{ e.onclick=ev=>{ ev.stopPropagation();
+  const g=e.dataset.go; if(g!=='chart') pushRecent(g); repage(()=>{ g==='chart'?chart():form(g); }); };
+  /* Enter/Space on a focused tile opens it - the tiles are divs, so without
+     this a keyboard or screen-reader user could reach only the mode pills
+     (12 Sep 26, #24). Only the tile itself: a pill's own Enter stays its own. */
+  e.onkeydown=ev=>{ if(ev.target===e&&(ev.key==='Enter'||ev.key===' ')){ ev.preventDefault(); e.onclick(ev); } }; }); }
 function home(){
   setView(BRAND.name,'Cladding patterns',false);
+  stopFormAnims();
   document.body.dataset.home='1';   // lets the tile grid spread out on a desktop
   let ti=0;
   /* every fitting that shares a variant selector also gets a pill on its tile,
@@ -5415,10 +5608,10 @@ function home(){
   const pills=k=>{ const g=varGroupOf(k); if(!g) return '';
     const o=g.opts.filter(x=>x.k!==k); if(!o.length) return '';
     return `<div class="vpills">${o.map(x=>`<button data-go="${x.k}">${x.label}</button>`).join('')}</div>`; };
-  const tile=k=>`<div class="tile" data-go="${k}" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}<div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div>${pills(k)}</div></div>`;
+  const tile=k=>`<div class="tile" data-go="${k}" role="button" tabindex="0" style="--d:${Math.min(ti++*35,360)}ms">${unlocked(k)?'':'<span class="lock">🔒</span>'}<div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${F[k].sub}</div>${pills(k)}</div></div>`;
   const CATCOL=['var(--fam-1)','var(--fam-2)','var(--fam-3)','var(--fam-4)','var(--fam-5)','var(--fam-6)'];
   const SECS=GROUPS.map((g,gi)=>({t:g.t,c:CATCOL[gi%CATCOL.length],body:()=>`<div class="grid">${g.k.map(tile).join('')}</div>`}));
-  SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; 1D to 5D radii</div></div></div></div>`});
+  SECS.push({t:'Reference',c:'var(--fam-ref)',body:()=>`<div class="grid"><div class="tile full" data-go="chart" role="button" tabindex="0" style="--d:${Math.min(ti++*35,360)}ms"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN &middot; OD &middot; 1D to 5D radii</div></div></div></div>`});
   /* the home screen must never open on nothing. With nothing shut by hand,
      open the family of whatever was used last - so a man who cuts elbows all
      week lands on the bends - and the Bends on a fresh install. */
@@ -5472,13 +5665,13 @@ function chart(){
     +D_SERIES.map(m=>{ const v=crRadius(p,m); return `<td>${v==null?'–':v}</td>`; }).join('')
     +`</tr>`).join('');
   app.innerHTML=`<div class="card"><label>Diameter ⇄ circumference</label>
-    <div class="row"><div><label>Ø (mm)</label><input type="number" inputmode="decimal" id="dcD" placeholder="219.1"></div>
-    <div><label>Circumference (mm)</label><input type="number" inputmode="decimal" id="dcC" placeholder="688.4"></div></div>
-    <div class="hint" style="text-align:left">Type either one — the other follows. Girth with your seam lap (${SET.lapTotal} mm): <b id="dcL">–</b></div></div>
+    <div class="row"><div><label>Cladding Ø (mm) — over the lagging</label><input type="number" inputmode="decimal" id="dcD" placeholder="269.1"></div>
+    <div><label>Circumference (mm)</label><input type="number" inputmode="decimal" id="dcC" placeholder="845.4"></div></div>
+    <div class="hint" style="text-align:left">Type either one — the other follows. Plain π × Ø: no insulation is added here, so type the finished cladding Ø (pipe OD + 2 × lagging). Girth of that Ø with your seam lap (${SET.lapTotal} mm): <b id="dcL">–</b></div></div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="pvhead"><span class="k">ASME B36.10 · BS EN 10220</span><span class="v">ALL DIMS MM</span></div>
     <div class="tscroll"><table><thead><tr><th>Inch</th><th>DN</th><th>OD</th><th>1D · SR</th><th>1.5D · LR</th><th>2D</th><th>3D</th><th>5D</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="hint" style="text-align:left;padding:8px 10px">Centre-line radii. 1D is the ASME short-radius elbow, 1.5D the long radius — the two the fitting charts list; 2D · 3D · 5D are the pulled-bend multiples, scaled off the true 1.5D. A dash means the standard defines no elbow that tight. Swipe the table sideways for the bigger radii.</div></div>`;
+    <div class="hint" style="text-align:left;padding:8px 10px">Centre-line radii. 1D is the ASME short-radius elbow, 1.5D the long radius — the two the fitting charts list; 2D · 3D · 5D are the pulled-bend multiples, worked off the nominal bore (inch size × 25.4), not off the elbow chart. A dash means the standard defines no elbow that tight. Swipe the table sideways for the bigger radii.</div></div>`;
   const dD=document.getElementById('dcD'), dC=document.getElementById('dcC'), dL=document.getElementById('dcL');
   const lap=()=>{ const c=parseFloat(dC.value); dL.textContent=isNaN(c)?'–':(c+SET.lapTotal).toFixed(1)+' mm'; };
   dD.oninput=()=>{ const v=parseFloat(dD.value); dC.value=isNaN(v)?'':(Math.PI*v).toFixed(1); lap(); };
@@ -5967,7 +6160,10 @@ function t3elbow(s){
   const A=Math.max(5,Math.min(90,+s.bendDeg||90))*Math.PI/180;
   const mir=(s.bendHand==='B'||s.bendHand==='C')?-1:1;
   const seam=(((+s.seamFromThroat||0)*mir)%360+360)%360*Math.PI/180;
-  const Lc=Math.max(+s.minLen||25,r*0.5)+r*Math.tan(A/2);
+  /* the leg the engine prints: FP.elbow yTop = minLen + A(1-cos). The old
+     r/2 floor made the 3D ~30 mm taller than the template at defaults and
+     deaf to the Min piece length box until it passed r/2 (12 Sep 26, #20). */
+  const Lc=(s.minLen!=null&&s.minLen!==''?+s.minLen:25)+r*Math.tan(A/2);
   const tan=t=>[Math.sin(t),0,Math.cos(t)], rad=t=>[Math.cos(t),0,-Math.sin(t)];
   const side=[0,1,0], n=tan(A/2);   // B/C are turned into place (t3place), not mirrored
   const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -6924,6 +7120,17 @@ const T3GL = {
     return ctx;
   },
 
+  /* Tear a context down for good. three's dispose() only drops listeners and
+     caches - the GL context lived on until GC, one per fitting opened
+     (12 Sep 26, #52). forceContextLoss releases it now. */
+  drop(ctx){
+    try { this.clear(ctx); } catch (e) {}
+    try { (ctx.lineObjs || []).forEach(o => { ctx.group.remove(o); o.geometry.dispose(); o.material.dispose(); }); ctx.lineObjs = []; } catch (e) {}
+    try { if (ctx.scene.environment) { ctx.scene.environment.dispose(); ctx.scene.environment = null; } } catch (e) {}
+    try { ctx.r.forceContextLoss(); } catch (e) {}
+    try { ctx.r.dispose(); } catch (e) {}
+  },
+
   clear(ctx){
     ctx.parts.forEach(o => {
       ctx.group.remove(o);
@@ -7182,6 +7389,27 @@ const T3GL = {
     ctx.cam.up.set(0, 0, 1);
     ctx.cam.lookAt(0, 0, 0);
 
+    /* SQUARE ON / BIRDS EYE are fixed views, so they fit TIGHT on the
+       projected extents exactly as the SVG renderer does (t3render's vw.sq
+       branch); the WebGL path kept the free-spin radius and sat small in the
+       pane (12 Sep 26, #53). Camera frame only - no vertex moves. */
+    if (vw.sq) {
+      ctx.cam.updateMatrixWorld();
+      const M = ctx.cam.matrixWorldInverse, v = new T.Vector3();
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      st.pieces.forEach(({ G, mesh }) => { if (G.fade && fadeAt <= 0.01) return;
+        const arr = mesh.geometry.getAttribute('position').array;
+        for (let i = 0; i < arr.length; i += 3) { v.set(arr[i], arr[i + 1], arr[i + 2]).applyMatrix4(M);
+          if (v.x < x0) x0 = v.x; if (v.x > x1) x1 = v.x; if (v.y < y0) y0 = v.y; if (v.y > y1) y1 = v.y; } });
+      if (x1 > x0 && y1 > y0) {
+        const asp = (w || 1) / (h || 1), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        let hx = (x1 - x0) / 2 * 1.04, hy = (y1 - y0) / 2 * 1.04;
+        if (hx / hy > asp) hy = hx / asp; else hx = hy * asp;   // keep the pane's aspect - no stretch
+        ctx.cam.left = cx - hx; ctx.cam.right = cx + hx; ctx.cam.top = cy + hy; ctx.cam.bottom = cy - hy;
+        ctx.cam.updateProjectionMatrix();
+        return;
+      }
+    }
     /* FIX THE FRAME on the model's bounding radius, not its silhouette: a
        radius cannot change when you spin, so the fitting turns inside a still
        window instead of breathing in and out. */
@@ -7200,6 +7428,11 @@ const T3GL = {
   /* The one entry point. Returns true if it drew, false to use the SVG. */
   draw(pv, kind, s, w){
     if (!this.can() || !T3B[kind]) return false;
+    /* a stale tick after navigation (snap / unwrap / rAF) used to arrive with
+       the OLD form's #pv: ctx.host !== host, so the live renderer was disposed
+       and a fresh one built into a detached node (12 Sep 26, #52). Nothing to
+       draw into - say "drawn" so t3mount does not paint an SVG there either. */
+    if (!document.body.contains(pv)) return true;
     const T = this.T;
     if (!T) {
       /* three is not here yet. Remember what was asked for and re-issue it
@@ -7217,7 +7450,7 @@ const T3GL = {
     if (!host || !this.ctx || this.ctx.host !== host) {
       pv.innerHTML = '<div id="pv3d" style="width:100%;height:100%"></div>';
       host = pv.querySelector('#pv3d');
-      if (this.ctx) { this.clear(this.ctx); this.ctx.r.dispose(); this.ctx = null; }
+      if (this.ctx) { this.drop(this.ctx); this.ctx = null; }
       if (!this.init(T, host)) return false;
     }
     const ctx = this.ctx;
@@ -7971,7 +8204,9 @@ function crBasePipe(s,f){
 /* One source of truth for the ×D centre radii, shared by the bend forms and the
    pipe chart so the same radius can never read two different ways in the two
    places. 1D and 1.5D are the TRADE chart columns (ASME), not DN multiples;
-   anything else scales off the true 1.5D radius. Where ASME defines no short
+   anything else is nominal bore × D (4.38.0 - lr/1.5 handed 1/2", 3/4" and 1"
+   the same radius; the lr/1.5 branch below is only for a row with no nom,
+   and every chart row has one - 12 Sep 26, #65). Where ASME defines no short
    radius elbow at all (1/2"), 1D is genuinely undefined — return null rather
    than falling through to lr/1.5, which handed back 25 mm against a true
    12.7 because that size pins lr to the 38 mm standard minimum. */
@@ -8104,11 +8339,28 @@ function fieldHTML(f,s,after){
     return `<label>${f.label}</label>${picker}<select data-crsel="${f.k}">${opts.map(o=>`<option value="${o.mm}" ${(hit&&hit.mm===o.mm)?'selected':''}>${o.label}</option>`).join('')}<option value="custom" ${hit?'':'selected'}>Custom…</option></select><div data-crwrap="${f.k}" class="${hit?'hide':''}"><input type="number" inputmode="decimal" data-k="${f.k}" value="${cur}" step="1" style="margin-top:8px" placeholder="radius in mm"></div>`; }
   return '';
 }
+/* The peel/wrap and square-on animations run on timers that outlive the
+   page: tap Back mid-peel and open another tile, and the old step() fired its
+   refresh() into the NEW form - reading the new boxes into the old fitting's
+   state and painting the old fitting into the new pane. Every route out of a
+   form kills them, and the callbacks refuse to run once their pane has left
+   the document (review 12 Sep 26, #19). */
+function stopFormAnims(){ clearTimeout(form._uwto||0); form._uwto=0; clearTimeout(form._snapto||0); form._snapto=0;
+  if(form._t3raf) cancelAnimationFrame(form._t3raf); form._t3raf=0; }
 function form(kind, presetParams){
   CUR=()=>form(kind);
+  stopFormAnims();
   let kitOpen=false, kitJustOpened=false, activePc=null, plotOnce=true;
   const fit=F[kind];
   if(presetParams) states[kind]=Object.assign({},presetParams,{__touched:true});
+  /* A job saved under Pipe + insulation and reopened under Finished O used to
+     build with its insulation forced to 0 while the job pack printed it -
+     two different templates for one saved item. Fold the saved insulation
+     into every pipe size once, then the form's insulation:0 is right. */
+  if(presetParams && presetParams.__sizeMode==='pipeins' && SET.sizeMode==='diameter' && +states[kind].insulation){
+    const st=states[kind], ins=+st.insulation;
+    F[kind].fields.filter(f=>f.type==='pipe').forEach(f=>{ if(+st[f.k]) st[f.k]=+st[f.k]+2*ins; });
+    st.insulation=0; st.__sizeMode='diameter'; }
   const s=states[kind];
   /* A B C D is back on the bends that print by it - the lobster and the
      mitred elbow (Craig, 11 Sep: "it changes the template"). A saved letter
@@ -8277,6 +8529,17 @@ function form(kind, presetParams){
           h.setAttribute('cx',dot.getAttribute('cx')); h.setAttribute('cy',dot.getAttribute('cy'));
           h.setAttribute('r','11'); h.setAttribute('class','seamhalo');
           dot.parentNode.appendChild(h); setTimeout(()=>h.remove(),420); } });
+      /* Gloves: a tap anywhere on the clock goes to the NEAREST number, not
+         only a dead hit on a 9-unit dot. Nearest is measured on screen, so it
+         holds at every size the wheel is drawn at - the 92px corner overlay on
+         a phone included. A tap on a dot still goes to that dot; the centre
+         hint is not a control. Bigger hit circles were the wrong answer: the
+         dots sit ~28 units apart, so r=16 already overlaps its neighbours. */
+      svg.onclick=e=>{ if(e.target.closest('[data-dot]')||e.target.closest('.seamhint')) return;
+        let best=null,bd=1e9;
+        svg.querySelectorAll('[data-dot]').forEach(g=>{ const r=g.querySelector('circle').getBoundingClientRect();
+          const d=Math.hypot(e.clientX-(r.left+r.width/2), e.clientY-(r.top+r.height/2)); if(d<bd){ bd=d; best=g; } });
+        if(best) best.onclick(); };
       upd(); } }
   { const ab=app.querySelector('[data-abcdsvg]');
     if(ab) ab.querySelectorAll('[data-abcd]').forEach(g=>g.onclick=()=>{ touch(); s.bendHand=g.dataset.abcd;
@@ -8295,48 +8558,96 @@ function form(kind, presetParams){
     if(vs) vs.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.dataset.vk!==kind) repage(()=>form(b.dataset.vk)); }); }
   const lb=document.getElementById('lockBtn'); if(lb) lb.onclick=showUnlock;
   const buildDoc=()=>{ flushRefresh();
-    if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(eff()), {page:SET.page, orient:'auto', brand:SET.brand||undefined});
+    if(fit.kit){ const out=FP.makeKitPDF(window.jspdf.jsPDF, fit.kit(eff()), {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined});
       return {out, name:BRAND.name+'_'+kind+'_kit_'+SET.page+'.pdf', msg:'Full kit PDF — '+out.pieces+' patterns, '+out.sheets+' sheets'}; }
-    const out=FP.makePDF(window.jspdf.jsPDF, form._pat, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
+    const out=FP.makePDF(window.jspdf.jsPDF, form._pat, {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined});
     return {out, name:BRAND.name+'_'+kind+'_'+SET.page+'.pdf', msg:'PDF ready — '+out.sheets+' sheet'+(out.sheets>1?'s':'')}; };
-  /* Generate 'plots' the sheet: sweep starts, then the synchronous jsPDF build */
-  const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{
-    if(gb.classList.contains('plotting')) return;
-    flushRefresh();
+  /* Generate and Share are ONE road to paper (12 Sep 26, #41/#42/#61/#62/#63):
+     both refuse re-entry while a build is running, both re-check the form
+     after flushRefresh, both show the 100% warning, and both surface an
+     engine throw as a toast instead of a silent rejection. */
+  const busy=()=>!!document.querySelector('#genBtn.plotting,#shareBtn.plotting');
+  const preflight=()=>{ flushRefresh();
     if(form._problem){ toast(form._problem);
       const pb=document.getElementById('probbox');
       if(pb){ pb.animate?pb.animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:220}):0;
         pb.scrollIntoView({block:'nearest',behavior:'smooth'}); }
-      return; }
-    /* The scale warning used to sit under the button as a permanent amber
-       block nobody reads twice. It is the one thing that scraps metal, so it
-       now lands as a popup at the moment it matters - on the way to the PDF. */
+      return false; }
+    return true; };
+  /* The scale warning used to sit under the button as a permanent amber
+     block nobody reads twice. It is the one thing that scraps metal, so it
+     lands as a popup at the moment it matters - on the way to the PDF, and
+     on the way to the share sheet (AirPrint, the print shop) just the same. */
+  const confirmScale=(label,then)=>{
     const cal=INCH_PAGE(SET.page)?'4 inch':'100 mm';
     const bg=modal(`<h3 style="margin:0 0 10px">Print at 100% — actual size</h3>
       <p style="margin:0 0 10px;line-height:1.5">Never <b>Fit to page</b> or <b>Shrink to fit</b>, or every figure on the sheet comes out short.</p>
       <p style="margin:0 0 14px;line-height:1.5">Tape the sheets on the red crosshairs, then measure the <b>${cal}</b> calibration bar before you mark any metal.</p>
       <div class="btnrow" style="grid-template-columns:1fr 1fr">
         <button class="btn ghost" id="pwCancel">Back</button>
-        <button class="btn primary" id="pwGo">Got it — save the PDF</button></div>`);
+        <button class="btn primary" id="pwGo">${label}</button></div>`);
     bg.querySelector('#pwCancel').onclick=()=>bg.close();
-    bg.querySelector('#pwGo').onclick=()=>{ bg.close(); plotIt(); };
+    bg.querySelector('#pwGo').onclick=()=>{ bg.close(); then(); }; };
+  /* the installed app: an iOS home-screen PWA has a history of dropping the
+     synthetic <a download> click jsPDF's save() relies on, and save() gives
+     no signal either way - so standalone goes out through the share sheet
+     when the browser has one (#63) */
+  const standalone=()=>navigator.standalone===true||!!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+  /* Generate 'plots' the sheet: sweep starts, then the synchronous jsPDF build */
+  const gb=document.getElementById('genBtn'); if(gb) gb.onclick=()=>{
+    if(busy()||!preflight()) return;
+    confirmScale('Got it — save the PDF', ()=>{ if(standalone()&&navigator.canShare) shareIt(gb); else plotIt(); });
   };
   function plotIt(){
     const gb=document.getElementById('genBtn'); if(!gb) return;
     gb.classList.add('plotting');
 
-    setTimeout(()=>{ try{ const d=buildDoc(); d.out.doc.save(d.name); toast(d.msg); }
+    setTimeout(()=>{ try{ const d=buildDoc(); saveOut(d.out.doc.output('blob'), d.name); toast(d.msg+' · sent to your downloads'); }
       catch(e){ setProblem(e.message||'That will not make a pattern.'); toast(e.message); }
       finally{ setTimeout(()=>gb.classList.remove('plotting'),350); } },80); };
-  const sb=document.getElementById('shareBtn'); if(sb) sb.onclick=async()=>{ const d=buildDoc();
-    const file=new File([d.out.doc.output('blob')], d.name, {type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{ await navigator.share({files:[file], title:BRAND.name+' template'}); }catch(e){} }
-    else { d.out.doc.save(d.name); toast('This browser cannot share files - saved the PDF instead.'); } };
+  /* Build and share INSIDE the click - no timer, no await before share() -
+     so iOS still has the user activation. Every rejection but the user's own
+     cancel falls back to a plain save and says so; the same tap twice is
+     refused by busy() rather than opening a second sheet. */
+  async function shareIt(btn){
+    btn=btn||sb||gb; if(!btn) return;
+    btn.classList.add('plotting');
+    let d; try{ d=buildDoc(); }
+    catch(e){ btn.classList.remove('plotting'); setProblem(e.message||'That will not make a pattern.'); toast(e.message||'That will not make a pattern.'); return; }
+    try{
+      const file=new File([d.out.doc.output('blob')], d.name, {type:'application/pdf'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file], title:BRAND.name+' template'}); }
+        catch(e){ if(e&&e.name==='AbortError') return;
+          saveOut(d.out.doc.output('blob'), d.name); toast('Share failed ('+((e&&e.name)||'error')+') — saved the PDF instead.'); } }
+      else { saveOut(d.out.doc.output('blob'), d.name); toast('This browser cannot share files — saved the PDF instead.'); }
+    } finally { setTimeout(()=>btn.classList.remove('plotting'),350); } }
+  const sb=document.getElementById('shareBtn'); if(sb) sb.onclick=()=>{
+    if(busy()||!preflight()) return;
+    confirmScale('Got it — share the PDF', ()=>shareIt(sb)); };
   const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!PRO) return showUnlock();
     flushRefresh();
-    const blob=new Blob([FP.toDXF(form._pat)],{type:'application/dxf'}); const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download=BRAND.name+'_'+kind+'.dxf'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('DXF saved to your downloads.'); };
+    if(form._problem){ toast(form._problem); return; }
+    /* A kit is EVERY piece, not the one the tile builds (12 Sep 26, #11): the
+       lobster's DXF was the middle gore alone, a box's the first plate. All
+       the pieces go into one file, laid in a row 10 mm apart - the shift is
+       applied to a copy at write time, the engine's patterns never move. A
+       promoted kit piece exports on its own. */
+    let pats, name=BRAND.name+'_'+kind;
+    if(fit.kit&&activePc!=null&&form._kit&&form._kit[activePc]){ pats=[form._kit[activePc]]; name+='_'+kitCaption(form._kit[activePc]).replace(/[^\w]+/g,'_').replace(/^_|_$/g,''); }
+    else if(fit.kit){ try{ pats=form._kit||fit.kit(eff()); }catch(e){ toast(e.message||'That will not make a kit.'); return; } name+='_kit'; }
+    else pats=[form._pat];
+    let dxf;
+    if(pats.length===1) dxf=FP.toDXF(pats[0]);
+    else { const prim=[], holes=[]; let dx=0;
+      pats.forEach(p=>{ const x0=(p.bbox&&isFinite(p.bbox.x0))?p.bbox.x0:0, sh=dx-x0;
+        p.prim.forEach(pr=>prim.push({style:pr.style, pts:pr.pts.map(q=>[q[0]+sh,q[1]])}));
+        p.holes.forEach(h=>holes.push([h[0]+sh,h[1]].concat(h.slice(2))));
+        dx+=((p.bbox&&isFinite(p.bbox.w))?p.bbox.w:0)+10; });
+      dxf=FP.toDXF({prim,holes}); }
+    const blob=new Blob([dxf],{type:'application/dxf'}); const a=document.createElement('a');
+    saveOut(blob, name+'.dxf');
+    toast(pats.length>1?'DXF saved to your downloads — all '+pats.length+' kit pieces in one file.':'DXF saved to your downloads.'); };
   const jb=document.getElementById('jobBtn'); if(jb) jb.onclick=()=>{ if(!PRO) return showUnlock(); flushRefresh(); saveToJob(kind); };
   refresh();
 
@@ -8461,11 +8772,14 @@ function form(kind, presetParams){
     if(pill) pill.style.display=activePc==null?'none':'inline-block';
     const pvt=document.getElementById('pvtitle');
     if(pvt) pvt.textContent=activePc!=null?kitCaption(shown):(in3d?'The fitting · 3D — drag to spin':(boxHero?'Cut patterns · 1:1':'Live preview · 1:1'));
-    const pl=plan(pat,SET.page);
+    /* the sheet count and the material chip describe the piece ON SCREEN -
+       a promoted kit piece used to sit under the build piece's figures
+       (12 Sep 26, #39) */
+    const pl=plan(shown,SET.page);
     const pvs=document.getElementById('pvsheets'),
           ptxt=pl.n+' × '+SET.page.toUpperCase();
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
-    const ms=FP.materialStats(pat,SET);
+    const ms=FP.materialStats(shown,SET);
     const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,{...eff(),__small:1});
     /* ONE WINDOW, TWO JOBS (Craig, 10 Sep: "we can use the live preview
        window to do both"). For t3 fittings the big pane IS the fitting -
@@ -8479,7 +8793,8 @@ function form(kind, presetParams){
       const pvEl=document.getElementById('pv');
       const label=()=>{ const b=document.getElementById('t3uw'); if(!b) return;
         b.textContent=vw.mode==='pat'?'\u25C2 BACK TO THE FITTING \u00B7 3D':'UNWRAP THE PATTERN \u25B8'; };
-      const rd=()=>{ if(vw.mode!=='pat'&&activePc==null&&pvEl){
+      const rd=()=>{ if(!pvEl||!document.body.contains(pvEl)) return;   // pane gone - a stale tick draws nothing
+        if(vw.mode!=='pat'&&activePc==null&&pvEl){
           t3mount(pvEl,kind,eff(),Math.max(300,Math.min(560,pvEl.clientWidth-24))); }
         label(); };
       const kick=()=>{ if(!form._t3raf) form._t3raf=requestAnimationFrame(()=>{form._t3raf=0;rd();}); };
@@ -8492,9 +8807,11 @@ function form(kind, presetParams){
          then fit tight, since a fixed view cannot rotate out of its frame. */
       { const snap=(azT,elT)=>{ const a0=vw.az, e0=vw.el, t0=performance.now(), D=380;
           const ease=x=>1-Math.pow(1-x,3);
-          const step=()=>{ const q=Math.min(1,(performance.now()-t0)/D), k=ease(q);
+          clearTimeout(form._snapto||0);
+          const step=()=>{ if(!document.body.contains(pvEl)) return;
+            const q=Math.min(1,(performance.now()-t0)/D), k=ease(q);
             vw.az=a0+(azT-a0)*k; vw.el=e0+(elT-e0)*k; vw.sq=(q>=1)?1:0; rd();
-            if(q<1) setTimeout(step,16); };
+            if(q<1) form._snapto=setTimeout(step,16); };
           step(); };
         const sq=document.getElementById('pvSq'), be=document.getElementById('pvBe');
         if(sq) sq.onclick=e=>{ e.stopPropagation(); snap(0,0); };
@@ -8531,13 +8848,15 @@ function form(kind, presetParams){
         if(vw.mode==='pat'){                      // pattern -> fitting: wrap back up
           vw.mode='fit'; vw.un=1; refresh();
           const t0=performance.now();
-          const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
+          const step=()=>{ if(!document.body.contains(pvEl)) return;
+            const p=Math.min(1,(performance.now()-t0)/D);
             vw.un=1-ease(p); rd();
             if(p<1) form._uwto=setTimeout(step,16); else { vw.un=0; rd(); } };
           step();
         } else {                                   // fitting -> peel open -> real pattern
           const t0=performance.now();
-          const step=()=>{ const p=Math.min(1,(performance.now()-t0)/D);
+          const step=()=>{ if(!document.body.contains(pvEl)) return;
+            const p=Math.min(1,(performance.now()-t0)/D);
             vw.un=ease(p); rd();
             if(p<1) form._uwto=setTimeout(step,16);
             else { vw.mode='pat'; vw.un=1; PVZoom.reset(); refresh(); } };
@@ -8566,9 +8885,21 @@ function form(kind, presetParams){
     const basic=!SET.detail && fit.mini;
     const chips=(basic?fit.mini(pat.calc):fit.stats(pat.calc)).slice();
     document.getElementById('pvstat').innerHTML=chips.map(x=>'<span class="chip">'+x+'</span>').join('')
-      +(basic?'':`<span class="chip gold">${(ms.areaM2).toFixed(2)} m² · ${ms.perSheet}/sheet</span>`);
+      +(basic?'':matChips(ms));
     renderKit();
   }
+  /* The gold chip is PER PIECE and says so; a kit also gets the fitting total
+     (every piece × its CUT n OFF count), which is what a man ordering sheet
+     wants - the lone piece figure under-read a lobster ~4x (12 Sep 26, #40).
+     A piece bigger than the sheet reads as such, not "0/sheet" (#60). */
+  function matChips(ms){
+    const fitTxt=ms.perSheet>0?ms.perSheet+' pieces/sheet':'will not fit '+ms.sheetW+' × '+ms.sheetH+' — split it';
+    let out=`<span class="chip gold">${(ms.areaM2).toFixed(2)} m²/piece · ${fitTxt}</span>`;
+    if(fit.kit){ let pats=form._kit; if(!pats){ try{ pats=fit.kit(eff()); }catch(e){ pats=null; } }
+      if(pats&&pats.length){ let area=0,n=0;
+        pats.forEach(p=>{ const m=/\bCUT (\d+)\b/i.exec(p.cutNote||''), q=m?+m[1]:1; area+=FP.materialStats(p,SET).areaM2*q; n+=q; });
+        out+=`<span class="chip gold">whole fitting ${area.toFixed(2)} m² · ${n} piece${n===1?'':'s'}</span>`; } }
+    return out; }
   function kitCaption(p){ const t=(p.title||'').replace(/\s*1:1\s*$/,'');
     const parts=t.split(/\s+-\s+/); return (parts.length>1?parts.slice(1).join(' - '):t).trim(); }
   function renderKit(){ const kw=document.getElementById('kitwrap'); if(!kw) return;
@@ -8589,11 +8920,12 @@ function form(kind, presetParams){
 
 /* ================= jobs ================= */
 function saveToJob(kind){
-  const opts=JOBS.map(j=>`<button class="btn ghost" data-j="${j.id}" style="margin-bottom:8px">${j.name} <span style="color:var(--sub)">(${j.items.length})</span></button>`).join('');
+  const opts=JOBS.map(j=>`<button class="btn ghost" data-j="${j.id}" style="margin-bottom:8px">${esc(j.name)} <span style="color:var(--sub)">(${j.items.length})</span></button>`).join('');
   const bg=modal(`<h3>Save to Job</h3><p>${F[kind].name} — with the sizes you've set.</p>${opts}
     <input id="njName" placeholder="New job name (e.g. Grangemouth U47)" style="margin-bottom:10px">
     <button class="btn primary" id="njGo">Create job &amp; save</button>`);
   const add=(job)=>{ const params=Object.assign({},states[kind]); if(SET.sizeMode==='diameter') params.insulation=0;
+    params.__sizeMode=SET.sizeMode;   // so a reopen under the other sizing mode can fold the insulation in (review 3, 12 Sep 26)
     job.items.push({kind, params, name:F[kind].name, ts:Date.now(), qty:1, note:''});
     saveJobs(); bg.remove(); toast('Saved to '+job.name); };
   bg.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>add(JOBS.find(j=>j.id==b.dataset.j)));
@@ -8611,12 +8943,13 @@ function jobsPage(){
   if(!PRO){ app.innerHTML=`<div class="empty">${sketch('PRO FEATURE — LOCKED')}Jobs are a Pro feature.<br>Save every fitting on a contract and reprint templates any time.</div><button class="btn gold" id="up2">Go Pro</button>`; document.getElementById('up2').onclick=showUnlock; return; }
   if(!JOBS.length){ app.innerHTML=`<div class="empty">${sketch('NO DRAWINGS ON FILE')}No jobs yet.<br>Open a fitting, set your sizes, then tap <b>+ Job</b>.</div>`; return; }
   app.innerHTML=`<div class="card" style="padding:4px 14px">${JOBS.map(j=>`
-    <div class="jobrow" data-open="${j.id}"><div class="ic"><svg viewBox="0 0 34 28" style="width:24px;height:20px"><path d="M3 7 L12 7 L15 4 L31 4 L31 24 L3 24 Z" fill="none" stroke="var(--ly-object)" stroke-width="1.8" stroke-linejoin="round"/><line x1="7" y1="15" x2="27" y2="15" stroke="var(--ly-centre)" stroke-width="1.2" stroke-dasharray="7 2 2 2"/></svg></div><div><div class="nm">${j.name}</div>
+    <div class="jobrow" data-open="${j.id}" role="button" tabindex="0"><div class="ic"><svg viewBox="0 0 34 28" style="width:24px;height:20px"><path d="M3 7 L12 7 L15 4 L31 4 L31 24 L3 24 Z" fill="none" stroke="var(--ly-object)" stroke-width="1.8" stroke-linejoin="round"/><line x1="7" y1="15" x2="27" y2="15" stroke="var(--ly-centre)" stroke-width="1.2" stroke-dasharray="7 2 2 2"/></svg></div><div><div class="nm">${esc(j.name)}</div>
     <div class="meta">${j.items.length} fitting${j.items.length!==1?'s':''} · ${new Date(j.items[0]?j.items[0].ts:Date.now()).toLocaleDateString()}</div></div>
     <button class="x" data-del="${j.id}">✕</button></div>`).join('')}</div>`;
-  app.querySelectorAll('[data-open]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.del) return; repage(()=>jobDetail(r.dataset.open)); });
+  app.querySelectorAll('[data-open]').forEach(r=>{ r.onclick=e=>{ if(e.target.dataset.del) return; repage(()=>jobDetail(r.dataset.open)); };
+    r.onkeydown=e=>{ if(e.target===r&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); r.onclick(e); } }; });   // keyboard opens the row (12 Sep 26, #24)
   app.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const j=JOBS.find(x=>x.id==b.dataset.del); if(!j) return;
-    const bg=modal(`<h3>Delete "${j.name}"?</h3><p>${j.items.length} saved fitting${j.items.length!==1?'s':''} go with it. This can't be undone (unless you've exported a backup).</p>
+    const bg=modal(`<h3>Delete "${esc(j.name)}"?</h3><p>${j.items.length} saved fitting${j.items.length!==1?'s':''} go with it. This can't be undone (unless you've exported a backup).</p>
       <div class="btnrow" style="margin-top:0"><button class="btn ghost" id="delNo">Keep it</button><button class="btn primary" id="delYes" style="background:var(--danger);color:#fff">Delete</button></div>`);
     bg.querySelector('#delNo').onclick=()=>bg.remove();
     bg.querySelector('#delYes').onclick=()=>{ JOBS=JOBS.filter(x=>x.id!=j.id); saveJobs(); bg.remove(); repage(jobsPage); }; });
@@ -8627,34 +8960,43 @@ function jobDetail(id){
   setView(job.name, job.items.length+' saved fitting'+(job.items.length!==1?'s':''), true);
   if(!job.items.length){ app.innerHTML='<div class="empty">Nothing in this job yet.</div>'; return; }
   app.innerHTML=`<div class="card" style="padding:4px 14px">${job.items.map((it,i)=>`
-    <div class="jobrow" data-i="${i}"><div class="ic" style="width:44px">${F[it.kind]?F[it.kind].icon:''}</div>
-    <div style="min-width:0"><div class="nm">${it.name}</div><div class="meta">${describe(it)}${it.note?' · '+it.note:''}</div></div>
+    <div class="jobrow" data-i="${i}" role="button" tabindex="0"><div class="ic" style="width:44px">${F[it.kind]?F[it.kind].icon:''}</div>
+    <div style="min-width:0"><div class="nm">${esc(it.name)}</div><div class="meta">${esc(describe(it))}${it.note?' · '+esc(it.note):''}</div></div>
     <div class="qty"><button data-q="-1" data-qi="${i}">−</button><span>${it.qty||1}</span><button data-q="1" data-qi="${i}">+</button></div>
     <button class="x" data-nt="${i}" style="background:var(--panel2);color:var(--chip-ink)">✎</button>
     <button class="x" data-di="${i}">✕</button></div>`).join('')}</div>
     <button class="btn primary" id="jobPdf" style="margin-top:4px">Print whole job — every template, one PDF</button>
     <div class="hint">Tap a fitting to open it with its saved sizes. − / + sets how many of that fitting the job needs (each pattern prints once, marked ×N).</div>`;
-  app.querySelectorAll('[data-i]').forEach(r=>r.onclick=e=>{ if(e.target.dataset.di||e.target.dataset.q||e.target.dataset.nt||e.target.closest('.qty')) return;
+  app.querySelectorAll('[data-i]').forEach(r=>{ r.onclick=e=>{ if(e.target.dataset.di||e.target.dataset.q||e.target.dataset.nt||e.target.closest('.qty')) return;
     const it=job.items[+r.dataset.i]; if(!F[it.kind]){ toast('That fitting is no longer in the app - it was saved by an older version.'); return; }
-    TAB='fit'; repage(()=>form(it.kind, it.params)); });
-  app.querySelectorAll('[data-di]').forEach(b=>b.onclick=()=>{ job.items.splice(+b.dataset.di,1); saveJobs(); repage(()=>jobDetail(id)); });
+    TAB='fit'; repage(()=>form(it.kind, it.params)); };
+    r.onkeydown=e=>{ if(e.target===r&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); r.onclick(e); } }; });   // keyboard opens the row (12 Sep 26, #24)
+  /* same Keep/Remove stop as deleting a whole job: the ✕ sits a thumb-width
+     from the note and qty buttons, and a mis-tap used to bin the fitting and
+     its sizes on the spot (review 12 Sep 26, #21) */
+  app.querySelectorAll('[data-di]').forEach(b=>b.onclick=()=>{ const it=job.items[+b.dataset.di]; if(!it) return;
+    const bg=modal(`<h3>Remove "${esc(it.name)}"?</h3><p>${esc(describe(it))}${it.note?' · '+esc(it.note):''}<br>Its saved sizes go with it. This can't be undone (unless you've exported a backup).</p>
+      <div class="btnrow" style="margin-top:0"><button class="btn ghost" id="delNo">Keep it</button><button class="btn primary" id="delYes" style="background:var(--danger);color:#fff">Remove</button></div>`);
+    bg.querySelector('#delNo').onclick=()=>bg.remove();
+    bg.querySelector('#delYes').onclick=()=>{ job.items.splice(+b.dataset.di,1); saveJobs(); bg.remove(); repage(()=>jobDetail(id)); }; });
   app.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ const it=job.items[+b.dataset.qi];
     it.qty=Math.max(1,(it.qty||1)+(+b.dataset.q)); saveJobs(); repage(()=>jobDetail(id)); });
   app.querySelectorAll('[data-nt]').forEach(b=>b.onclick=()=>{ const it=job.items[+b.dataset.nt];
-    const bg=modal(`<h3>Note — ${it.name}</h3><input id="ntIn" value="${(it.note||'').replace(/"/g,'&quot;')}" placeholder="e.g. boiler house riser, both hands">
+    const bg=modal(`<h3>Note — ${esc(it.name)}</h3><input id="ntIn" value="${esc(it.note||'')}" placeholder="e.g. boiler house riser, both hands">
       <button class="btn primary" id="ntGo" style="margin-top:10px">Save note</button>`);
     bg.querySelector('#ntGo').onclick=()=>{ it.note=bg.querySelector('#ntIn').value.trim(); saveJobs(); bg.remove(); repage(()=>jobDetail(id)); }; });
   document.getElementById('jobPdf').onclick=()=>{
     const pats=[];
     for(const it of job.items){ const f=F[it.kind]; if(!f) continue;
       const p=Object.assign({},it.params); if(it.kind==='inctee'||it.kind==='teereducer') p.flange=SET.flange;
+      if(p.swage!=null) p.swage=SET.swage; if(p.jointAllow!=null) p.jointAllow=SET.swage;   // swage lives in Settings for everything (review 6, 12 Sep 26)
       let ps; try{ ps=f.kit?f.kit(p):[f.build(p)]; }catch(e){ toast(it.name+': '+e.message); continue; }
       const q=it.qty||1;
       ps.forEach(pt=>{ if(q>1) pt.title='[×'+q+']  '+pt.title; if(it.note) pt.meta=(pt.meta||[]).concat(['Job note: '+it.note]); });
       pats.push(...ps); }
     if(!pats.length) return toast('Nothing in this job to print yet - add a fitting.');
-    const out=FP.makeKitPDF(window.jspdf.jsPDF, pats, {page:SET.page, orient:'auto', brand:SET.brand||undefined});
-    out.doc.save(BRAND.name+'_job_'+job.name.replace(/[^\w-]+/g,'_')+'.pdf');
+    const out=FP.makeKitPDF(window.jspdf.jsPDF, pats, {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined});
+    saveOut(out.doc.output('blob'), BRAND.name+'_job_'+job.name.replace(/[^\w-]+/g,'_')+'.pdf');
     toast('Job pack — '+out.pieces+' patterns, '+out.sheets+' sheets'); };
 }
 function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
@@ -8697,7 +9039,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left;margin-bottom:8px">Templates always print black on white whatever the app theme is set to.</div>
     <label>Sheet size (mm)</label><div class="row" style="gap:6px"><input type="number" id="sSW" value="${SET.sheetW}"><input type="number" id="sSH" value="${SET.sheetH}"></div>
     <div class="hint" style="text-align:left;margin-bottom:8px">Feeds the per-sheet count in the Detailed preview info — how many of a pattern nest on one sheet.</div>
-    <label>Company name on templates ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</label><input id="sBrand" value="${SET.brand||''}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></details>
+    <label>Company name on templates ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</label><input id="sBrand" value="${esc(SET.brand||'')}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></details>
    <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ ${BRAND.name} Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
      :`<button class="btn gold" id="sUp">Unlock ${BRAND.name} Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Backup</summary>
@@ -8726,13 +9068,14 @@ function settingsPage(){
         : 'Out of range - set to '+c); }
     return c; };
   const save=()=>{
-    SET.insulation = rd('sIns',        0,   500, SET.insulation);
-    SET.lapTotal   = rd('sLap',        0,   200, SET.lapTotal);
-    SET.holePitch  = rd('sHole',       5,   500, SET.holePitch);
-    SET.swage      = rd('sSwage',      0,    50, SET.swage);
-    SET.flange     = rd('sFlange',     0,   100, SET.flange);
-    SET.sheetW     = rd('sSW',       200,  5000, SET.sheetW);
-    SET.sheetH     = rd('sSH',       200,  5000, SET.sheetH);
+    const rdk=(id,k)=>rd(id,SET_LIMITS[k][0],SET_LIMITS[k][1],SET[k]);
+    SET.insulation = rdk('sIns',   'insulation');
+    SET.lapTotal   = rdk('sLap',   'lapTotal');
+    SET.holePitch  = rdk('sHole',  'holePitch');
+    SET.swage      = rdk('sSwage', 'swage');
+    SET.flange     = rdk('sFlange','flange');
+    SET.sheetW     = rdk('sSW',    'sheetW');
+    SET.sheetH     = rdk('sSH',    'sheetH');
     const b=document.getElementById('sBrand'); if(b&&!b.disabled) SET.brand=b.value;
     saveSet(); ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); }); };
   app.querySelectorAll('input,select').forEach(e=>e.onchange=save);
@@ -8740,14 +9083,16 @@ function settingsPage(){
   document.getElementById('sDetail').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDetail').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.detail=b.dataset.v==='1'; saveSet(); });
   document.getElementById('sDiv').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDiv').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.nDiv=+b.dataset.v; saveSet(); });
   document.getElementById('sAppear').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sAppear').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.appearance=b.dataset.v; applyTheme(); saveSet(); route(); });
-  document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SET.sizeMode=b.dataset.v; saveSet(); settingsPage(); });
+  /* in place like every other seg here - re-rendering the page snapped the
+     Cladding & sizing section shut under your thumb (review 12 Sep 26, #25) */
+  document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSizeMode').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.sizeMode=b.dataset.v; saveSet();
+    const ins=document.getElementById('sIns'); if(ins) ins.disabled=(SET.sizeMode==='diameter'); });
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.65.9',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null)};
+    const data={app:BRAND.name,ver:'4.65.9',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-    a.download=BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+    saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
   const impF=document.getElementById('sImportFile');
   document.getElementById('sImport').onclick=()=>impF.click();
@@ -8758,17 +9103,61 @@ function settingsPage(){
            is still this app's backup, and refusing it would strand someone's
            jobs on a wiped phone for the sake of a string. */
         if(d.app!==BRAND.name && d.app!=='CladMate') throw new Error('not a '+BRAND.name+' backup');
-        if(d.settings) { SET=Object.assign({},SET,d.settings); saveSet(); }
+        /* clamp the imported numbers like the Settings form would, and apply
+           the imported theme now - it used to show as picked while the page
+           stayed the old colour until the next launch (review 12 Sep 26, #48) */
+        if(d.settings) { const prev=SET; SET=Object.assign({},SET,d.settings); clampSet(prev); applyTheme(); saveSet(); }
         if(Array.isArray(d.jobs)) { JOBS=d.jobs; saveJobs(); }
-        if(d.pro && !PRO){ PRO=true; store.set('cm_pro',true); if(d.proExp!==undefined) store.set('cm_pro_exp',d.proExp); renderPro(); }
+        /* Pro comes back from the CODE in the file, never from a pro:true flag:
+           a 40-byte hand-typed JSON used to unlock every phone it was opened on,
+           and a lapsed sub restoring an old backup got Pro back until the next
+           launch. Same expiry-plus-grace rule as boot, so what a restore grants
+           is exactly what a reload keeps. A backup from before the code was
+           exported restores jobs and settings and asks for the code
+           (review 12 Sep 26, #14/#34). */
+        let proMsg='';
+        if(!PRO && (d.proCode||d.pro)){ const r=checkCode(d.proCode);
+          if(r && !(r.exp && Date.now()>r.exp+PRO_GRACE_MS)){
+            PRO=true; store.set('cm_pro',true); store.set('cm_pro_exp',r.exp||null);
+            store.set('cm_pro_code',String(d.proCode).trim().toUpperCase()); renderPro(); }
+          else proMsg = r ? ' - the Pro code in it has expired' : ' - enter your Pro code under Settings to unlock Pro'; }
         ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); });
-        toast('Backup restored'); repage(settingsPage);
+        toast('Backup restored'+proMsg); repage(settingsPage);
       }catch(e){ toast('That file isn’t a '+BRAND.name+' backup'); } };
     rd.readAsText(f); impF.value=''; };
 }
 
 /* ================= boot ================= */
-if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+/* Not in the native app: Capacitor serves every asset from the APK, so the
+   worker only mirrored the bundle and could pair a new index.html with the
+   previous build's three.min.js for one launch (12 Sep 26, #57). A phone
+   that already has the worker from an earlier build is cleaned up too. */
+/* review 4 + 31, 12 Sep 26: the Android app could not save a single file and
+   its back button quit the app. Capacitor registers its plugins on
+   window.Capacitor.Plugins, so no bundler is needed for this single-file app. */
+function isNative(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(e){ return false; } }
+async function saveOut(blob, name){
+  if(!isNative()){
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000); return; }
+  try{
+    const b64=await new Promise((ok,no)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(',')[1]); r.onerror=no; r.readAsDataURL(blob); });
+    const P=Capacitor.Plugins;
+    const w=await P.Filesystem.writeFile({ path:name, data:b64, directory:'CACHE' });
+    await P.Share.share({ title:name, files:[w.uri] });
+  }catch(e){ if(!(e&&/cancel|abort/i.test(String(e.message||e.name||'')))) toast('Could not hand the file over: '+((e&&e.message)||e)); }
+}
+if(isNative() && Capacitor.Plugins.App){
+  Capacitor.Plugins.App.addListener('backButton', ()=>{
+    const m=document.querySelector('.modal-bg'); if(m){ (m.querySelector('[data-cancel],.cancel,button')||m).click(); return; }
+    const b=document.getElementById('backBtn'); if(b && !b.classList.contains('hide')){ b.click(); return; }
+    Capacitor.Plugins.App.exitApp(); });
+}
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
+  if(window.Capacitor){
+    try{ navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{}); }catch(e){}
+    try{ caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{}); }catch(e){}
+  } else navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 // ask the browser not to evict our storage (jobs + licence live in it)
 if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); window._installEvt=e; if(TAB==='fit'&&!CUR) route(); });
