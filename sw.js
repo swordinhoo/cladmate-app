@@ -1,4 +1,4 @@
-const CACHE = 'turboclad-6a8e8760';
+const CACHE = 'turboclad-5060dbc4';
 /* three.min.js is in the install list on purpose: the whole promise is that the
    app works with no signal, and a renderer that only turned up on the second
    open would break that on the one day it mattered. 132KB gzipped. */
