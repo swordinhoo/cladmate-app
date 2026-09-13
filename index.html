@@ -1224,7 +1224,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.68.0</span>
+  <span class="ver">v4.68.1</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4905,6 +4905,15 @@ if(PRO && !OWNER && _proExp && Date.now() > _proExp + PRO_GRACE_MS) PRO = false;
    than LIC_TRUST is ignored and the code's own arithmetic rules again, so a
    cancelled-then-offline device still stops when the baked-in month ends.
    Same 14-day grace either way. Owner builds never ask. */
+/* STORE BUILD (14 Sep 26). Google Play and the App Store forbid an app from
+   steering people to buy a digital unlock anywhere but their own billing.
+   Entering a code bought elsewhere is allowed; "renew at turboclad.co.uk"
+   is not. tools/build.js stamps  as '' for the web builds and
+   'play' for dist/store/ (which is what turboclad-mobile syncs), and every
+   renew-at-the-site fragment goes through renewHint(), which is silent in
+   a store build. The licence check itself is not steering and stays. */
+const STORE = ('' || null);
+const renewHint = (sep) => (BRAND.site && !STORE) ? (sep||' ')+'Renew at '+BRAND.site+'.' : '';
 const LIC_URL = (!OWNER && BRAND.site) ? 'https://'+BRAND.site+'/api/licence' : null;
 const LIC_TTL = 24*3600*1000, LIC_TRUST = 45*24*3600*1000;
 function expFromVerdict(v){ if(v.expires) return Date.parse(v.expires+'T23:59:59Z'); return v.valid ? null : 0; }
@@ -4924,7 +4933,7 @@ async function refreshLicence(force){
     const verdict={code, at:Date.now(), valid:j.valid, expires:j.expires||null, reason:j.reason||null};
     store.set('cm_lic',verdict);
     const was=PRO; applyVerdict(verdict);
-    if(was!==PRO){ renderPro(); route(); toast(PRO ? BRAND.name+' Pro is active' : BRAND.name+' Pro has ended'+(BRAND.site?' - renew at '+BRAND.site:'')); }
+    if(was!==PRO){ renderPro(); route(); toast(PRO ? BRAND.name+' Pro is active' : BRAND.name+' Pro has ended.'+renewHint()); }
     return true;
   }catch(e){ return false; } }
 let JOBS = store.get('cm_jobs',[]);
@@ -4970,7 +4979,7 @@ function licBannerHTML(){
   const exp=store.get('cm_pro_exp',null);
   if(!exp||!store.get('cm_pro',false)) return '';
   const now=Date.now(), day=86400000;
-  const renew=BRAND.site?(' Renew at '+BRAND.site+'.'):'';
+  const renew=renewHint();
   if(now>exp+PRO_GRACE_MS)
     return `<div class="note">${BRAND.name} Pro has ended.${renew} Your existing code carries on once you do.</div>`;
   if(now>exp){ const d=Math.max(1,Math.ceil((exp+PRO_GRACE_MS-now)/day));
@@ -5592,7 +5601,7 @@ function showUnlock(){
   bg.querySelector('#licGo').onclick=()=>{
     const raw=bg.querySelector('#licIn').value, r=checkCode(raw);
     if(!r){ toast('That code isn’t right — check it and try again.'); return; }
-    if(r.exp && Date.now()>r.exp){ toast('That code has expired'+(BRAND.site?' — renew at '+BRAND.site:'')+'.'); return; }
+    if(r.exp && Date.now()>r.exp){ toast('That code has expired.'+renewHint()); return; }
     PRO=true; store.set('cm_pro',true);
     store.set('cm_pro_exp',r.exp||null);   // a perpetual v1 code clears any old expiry (sub -> lifetime upgrade)
     store.set('cm_pro_code',raw.trim().toUpperCase()); store.set('cm_lic',null);
@@ -9195,7 +9204,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.68.0</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.68.1</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -9238,7 +9247,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.68.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.68.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
