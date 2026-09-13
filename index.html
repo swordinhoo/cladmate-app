@@ -1224,7 +1224,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.67.1</span>
+  <span class="ver">v4.68.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4895,6 +4895,38 @@ let PRO = OWNER || (function(){ const c = store.get('cm_pro_code', null);
 const PRO_GRACE_MS = 14*24*3600*1000;
 const _proExp = store.get('cm_pro_exp',null);
 if(PRO && !OWNER && _proExp && Date.now() > _proExp + PRO_GRACE_MS) PRO = false;
+/* ONE CODE, CHECKED ONLINE (13 Sep 26). Craig: "not practical for people to
+   receive a new code via email each month". A subscription code is typed in
+   ONCE. When the app has signal it asks the site once a day whether that code
+   is still good - the code is the only thing sent - and the answer's expiry
+   REPLACES the month baked into the code: a renewal moves it on, a
+   cancellation pulls it back to the paid-through date, a refund ends it. The
+   verdict is cached (cm_lic) so weeks offline change nothing; a verdict older
+   than LIC_TRUST is ignored and the code's own arithmetic rules again, so a
+   cancelled-then-offline device still stops when the baked-in month ends.
+   Same 14-day grace either way. Owner builds never ask. */
+const LIC_URL = (!OWNER && BRAND.site) ? 'https://'+BRAND.site+'/api/licence' : null;
+const LIC_TTL = 24*3600*1000, LIC_TRUST = 45*24*3600*1000;
+function expFromVerdict(v){ if(v.expires) return Date.parse(v.expires+'T23:59:59Z'); return v.valid ? null : 0; }
+function applyVerdict(v){ const exp=expFromVerdict(v); store.set('cm_pro_exp',exp);
+  PRO = OWNER || (exp===null) || Date.now() <= exp + PRO_GRACE_MS; if(PRO) store.set('cm_pro',true); }
+(function(){ if(OWNER) return; const v=store.get('cm_lic',null), code=store.get('cm_pro_code',null);
+  if(v && code && v.code===code && Date.now()-v.at < LIC_TRUST) applyVerdict(v); })();
+async function refreshLicence(force){
+  if(!LIC_URL) return false; const code=store.get('cm_pro_code',null); if(!code) return false;
+  const v=store.get('cm_lic',null);
+  if(!force && v && v.code===code && Date.now()-v.at < LIC_TTL) return false;
+  if(navigator.onLine===false) return false;
+  try{
+    const r=await fetch(LIC_URL+'?code='+encodeURIComponent(code),{cache:'no-store'});
+    if(!r.ok) return false;
+    const j=await r.json(); if(typeof j.valid!=='boolean') return false;
+    const verdict={code, at:Date.now(), valid:j.valid, expires:j.expires||null, reason:j.reason||null};
+    store.set('cm_lic',verdict);
+    const was=PRO; applyVerdict(verdict);
+    if(was!==PRO){ renderPro(); route(); toast(PRO ? BRAND.name+' Pro is active' : BRAND.name+' Pro has ended'+(BRAND.site?' - renew at '+BRAND.site:'')); }
+    return true;
+  }catch(e){ return false; } }
 let JOBS = store.get('cm_jobs',[]);
 function saveJobs(){ store.set('cm_jobs',JOBS); }
 
@@ -4940,11 +4972,11 @@ function licBannerHTML(){
   const now=Date.now(), day=86400000;
   const renew=BRAND.site?(' Renew at '+BRAND.site+'.'):'';
   if(now>exp+PRO_GRACE_MS)
-    return `<div class="note">${BRAND.name} Pro has EXPIRED - enter your renewal code under Settings.${renew}</div>`;
+    return `<div class="note">${BRAND.name} Pro has ended.${renew} Your existing code carries on once you do.</div>`;
   if(now>exp){ const d=Math.max(1,Math.ceil((exp+PRO_GRACE_MS-now)/day));
-    return `<div class="note">Pro expired - still working for ${d} more day${d===1?'':'s'} while your renewal lands. Enter the new code under Settings.${renew}</div>`; }
-  if(exp-now<30*day){ const d=Math.max(1,Math.ceil((exp-now)/day));
-    return `<div class="note">Pro renews in ${d} day${d===1?'':'s'} - your new code arrives by email.</div>`; }
+    return `<div class="note">Pro has lapsed - still working for ${d} more day${d===1?'':'s'}.${renew} Nothing to type: your code carries on once the payment lands.</div>`; }
+  if(exp-now<30*day && !store.get('cm_lic',null)){ const d=Math.max(1,Math.ceil((exp-now)/day));
+    return `<div class="note">Pro renews in ${d} day${d===1?'':'s'}. Open the app with signal once and it carries on by itself.</div>`; }
   return ''; }
 function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m;
   document.body.appendChild(t);
@@ -5563,8 +5595,10 @@ function showUnlock(){
     if(r.exp && Date.now()>r.exp){ toast('That code has expired'+(BRAND.site?' — renew at '+BRAND.site:'')+'.'); return; }
     PRO=true; store.set('cm_pro',true);
     store.set('cm_pro_exp',r.exp||null);   // a perpetual v1 code clears any old expiry (sub -> lifetime upgrade)
-    store.set('cm_pro_code',raw.trim().toUpperCase());
-    renderPro(); bg.remove(); toast('Pro unlocked — nice one!'); route(); };
+    store.set('cm_pro_code',raw.trim().toUpperCase()); store.set('cm_lic',null);
+    renderPro(); bg.remove(); toast('Pro unlocked — nice one!'); route();
+    refreshLicence(true);   // a subscription code carries its TRUE expiry on the site, not the month baked in
+  };
 }
 
 /* ================= tabs / routing ================= */
@@ -8509,7 +8543,7 @@ function form(kind, presetParams){
       <div class="pvctl"><button id="pvIn" aria-label="Zoom in">+</button><button id="pvOut" aria-label="Zoom out">−</button><button id="pvFit" aria-label="Reset zoom to fit">⬚</button></div>
       <div class="pvviews"><button type="button" id="pvSq" title="Straight elevation">SQUARE ON</button><button type="button" id="pvBe" title="Straight down from above">BIRDS EYE</button></div>
     </div>
-    ${pvCtlHtml}
+    ${pvCtlHtml}
     <div class="pvlegend">
       <button type="button" class="lgc" aria-pressed="false" data-ly="cut"><i style="border-color:var(--ly-object)"></i>CUT</button>
       <button type="button" class="lgc" aria-pressed="false" data-ly="fold"><i style="border-color:var(--ly-fold);border-top-style:dashed"></i>FOLD</button>
@@ -9150,7 +9184,10 @@ function settingsPage(){
     <label>Sheet size (mm)</label><div class="row" style="gap:6px"><input type="number" id="sSW" value="${SET.sheetW}"><input type="number" id="sSH" value="${SET.sheetH}"></div>
     <div class="hint" style="text-align:left;margin-bottom:8px">Feeds the per-sheet count in the Detailed preview info — how many of a pattern nest on one sheet.</div>
     <label>Company name on templates ${PRO?'':'<span class="chip gold" style="font-size:10px">Pro</span>'}</label><input id="sBrand" value="${esc(SET.brand||'')}" placeholder="e.g. Your Company Ltd" ${PRO?'':'disabled'}></details>
-   <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ ${BRAND.name} Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>`
+   <div class="card">${PRO?`<div style="font-weight:700;color:var(--good)">✓ ${BRAND.name} Pro is active</div><div class="hint" style="text-align:left">All fittings, DXF, Jobs and branding unlocked on this device.</div>${(()=>{ const v=store.get('cm_lic',null), exp=store.get('cm_pro_exp',null); if(OWNER||!store.get('cm_pro_code',null)) return '';
+      const until = exp===null ? 'never expires' : ('good until '+new Date(exp).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}));
+      const chk = v ? ('checked '+new Date(v.at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})) : 'not checked online yet';
+      return `<div class="hint" style="text-align:left;margin-top:6px">Licence ${until} · ${chk}. <button class="btn ghost" id="sLicChk" style="padding:4px 10px;font-size:12px;margin-left:6px">Check now</button></div>`; })()}`
      :`<button class="btn gold" id="sUp">Unlock ${BRAND.name} Pro</button><div class="hint">One code unlocks everything on this device.</div>`}</div>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Backup</summary>
     <div class="btnrow" style="margin-top:10px"><button class="btn ghost" id="sExport">Export backup</button><button class="btn ghost" id="sImport">Restore backup</button></div>
@@ -9158,7 +9195,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.67.1</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.68.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -9198,8 +9235,10 @@ function settingsPage(){
     const ins=document.getElementById('sIns'); if(ins) ins.disabled=(SET.sizeMode==='diameter'); });
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
+  const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
+    const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.67.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.68.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
@@ -9228,7 +9267,7 @@ function settingsPage(){
         if(!PRO && (d.proCode||d.pro)){ const r=checkCode(d.proCode);
           if(r && !(r.exp && Date.now()>r.exp+PRO_GRACE_MS)){
             PRO=true; store.set('cm_pro',true); store.set('cm_pro_exp',r.exp||null);
-            store.set('cm_pro_code',String(d.proCode).trim().toUpperCase()); renderPro(); }
+            store.set('cm_pro_code',String(d.proCode).trim().toUpperCase()); store.set('cm_lic',null); renderPro(); refreshLicence(true); }
           else proMsg = r ? ' - the Pro code in it has expired' : ' - enter your Pro code under Settings to unlock Pro'; }
         ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); });
         toast('Backup restored'+proMsg); repage(settingsPage);
@@ -9282,6 +9321,8 @@ if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); window._installEvt=e; if(TAB==='fit'&&!CUR) route(); });
 window.addEventListener('appinstalled',()=>toast(BRAND.name+' installed'));
 applyTheme(); renderPro(); route();
+/* the daily licence check: on boot, and again when signal comes back */
+refreshLicence(); window.addEventListener('online',()=>{ refreshLicence(); });
 /* first run: the three rules that make templates come out right */
 if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
   const bg=modal(`<div class="tb"><span>${BRAND.name} · First run</span><span>SHT 1/1</span></div>
