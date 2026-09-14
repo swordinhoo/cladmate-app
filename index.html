@@ -1224,7 +1224,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.68.1</span>
+  <span class="ver">v4.68.2</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -1377,8 +1377,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       kind: 'Reducer',
       title: 'Reducer Cladding  -  1:1 Template',
       meta: [
-        `Bare pipe ${p.bigPipeOD}→${p.smallPipeOD} mm OD  +  insulation ${p.insulation} mm`,
-        `Cladding worked to ${bigOD.toFixed(0)}→${smallOD.toFixed(0)} mm OD   height ${p.height} mm`,
+        `Bare pipe ${p.bigPipeOD} to ${p.smallPipeOD} mm OD + insulation ${p.insulation} mm`,
+        `Cladding worked to ${bigOD.toFixed(0)} to ${smallOD.toFixed(0)} mm OD · height ${p.height} mm`,
         `Lap ${p.lapTotal} mm (${lapEach} each edge)   swage ${p.swage||0} mm each end   ordinates ${ND}`,
         `Big radius ${SR.toFixed(1)}  small radius ${Sr.toFixed(1)}  angle ${(theta*180/Math.PI).toFixed(1)}°`
       ],
@@ -1470,7 +1470,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       kind: 'Lobster',
       title: mid ? 'Lobster Back  -  Middle Gore 1:1' : 'Lobster Back  -  Starter / Finisher Gore 1:1',
       meta: [
-        `Bare pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD`,
+        `Bare pipe ${p.pipeOD} + insulation ${p.insulation} = cladding ${cladOD.toFixed(0)} mm OD`,
         `Bend ${p.bendDeg}°  ${N} segments = 2 half-end gores + ${nMid} middle gore${nMid===1?'':'s'}   centre radius ${p.centreRadius} mm`,
         `Mitre half-angle ${(g*180/Math.PI).toFixed(2)}°  amplitude ${A.toFixed(1)}  circ ${circ.toFixed(1)} mm  swage ${p.jointAllow||0} mm`,
         mid
@@ -1618,7 +1618,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return packDeveloped({
       kind: p.mode, title: (names[p.mode] || 'Offset Reducer') + '  -  1:1 Template',
       meta: [
-        `Big ${bigOD.toFixed(0)} → small ${smallOD.toFixed(0)} mm OD   height ${H} mm   offset ${off.toFixed(0)} mm`,
+        `Big ${bigOD.toFixed(0)} to small ${smallOD.toFixed(0)} mm OD · height ${H} mm · offset ${off.toFixed(0)} mm`,
         `Lap ${p.lapTotal} mm (${(p.lapTotal/2)} each edge)   developed by triangulation`
       ],
       calc: { bigOD, smallOD, offset: off, H },
@@ -1709,7 +1709,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { kind: 'teebendhole', title: 'Trunnion  -  Hole in the Bend 1:1',
       meta: [
         `Hole for the Ø${stubOD.toFixed(0)} stub through the Ø${mainOD.toFixed(0)} bend wrap, centre radius ${R} mm`,
-        `Wrap this on the bend cladding along the back; stations 7→1 from the riser side: ${st.join('  ')}`,
+        `Wrap this on the bend cladding along the back; stations 7 to 1 from the riser side: ${st.join('  ')}`,
         `Setout check S = ${S.toFixed(0)} mm from the hole's far edge to the end of the 90° bend (outer fibre)` ],
       calc: { mainOD, stubOD, R, W, S, halfGirth: rt*Math.asin(Math.min(1, rb/rt)) },
       prim, holes: [], ticks, bbox: bboxOf(prim), cutNote: 'MARK & CUT 1' };
@@ -1751,7 +1751,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, hh=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,hh]]}); ticks.push({x,y:hh,label:hh.toFixed(0)}); }
     const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
     return { kind:'teeoncone', title:(flat?'Tee on Flat Back Reducer':'Tee on Reducer')+'  -  Branch Wrap 1:1',
-      meta:[ `Branch Ø ${brOD.toFixed(0)} into reducer Ø ${bigOD.toFixed(0)} → ${smallOD.toFixed(0)}, height ${H} mm`,
+      meta:[ `Branch Ø ${brOD.toFixed(0)} into reducer Ø ${bigOD.toFixed(0)} to ${smallOD.toFixed(0)}, height ${H} mm`,
              `Branch centreline ${zc} mm above the big end   min length ${L} mm (bottom generator)`,
              `Circumference ${circ.toFixed(1)} mm   with lap (${p.lapTotal} mm): ${(circ+p.lapTotal).toFixed(1)} mm`,
              `Ordinates ${ND}-div (mm): ${hs.join('  ')}` ],
@@ -1925,7 +1925,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return packDeveloped({
       kind: 'anglecone', title: 'Angle Cone  -  1:1 Template',
       meta: [
-        `Big ${bigOD.toFixed(0)} → small ${smallOD.toFixed(0)} mm OD   small end tilted ${p.topAngle||0}°`,
+        `Big ${bigOD.toFixed(0)} to small ${smallOD.toFixed(0)} mm OD · small end tilted ${p.topAngle||0}°`,
         `Small-end centre: height ${H} mm, throw ${X} mm toward the throat`,
         `Lap ${p.lapTotal} mm (${(p.lapTotal/2)} each edge)   developed by triangulation`
       ],
@@ -2069,7 +2069,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { kind:'elbow', title:`${p.bendDeg}° Mitred Elbow  -  1:1 Template`,
       meta:[ (p.insulation||0)===0
               ? `Cladding Ø ${cladOD.toFixed(0)} mm`
-              : `Pipe ${p.pipeOD} mm + insulation ${p.insulation} mm  =>  cladding Ø ${cladOD.toFixed(0)} mm`,
+              : `Pipe ${p.pipeOD} mm + insulation ${p.insulation} mm = cladding Ø ${cladOD.toFixed(0)} mm`,
             `Circumference ${circ.toFixed(1)} mm   ·   with lap (${p.lapTotal} mm):  ${(circ + p.lapTotal).toFixed(1)} mm`,
             `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha*180/Math.PI).toFixed(1)}°`,
             `Type ${p.bendHand||'A'}  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.swage||0} mm  min length ${minLen} mm  CUT ${pieces} OFF`]
@@ -2186,7 +2186,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { kind: 'flatelbow', title: `${p.bendDeg}° Flat-sided Elbow  -  1:1 Template`,
       meta: [ (p.insulation || 0) === 0
                 ? `Cladding Ø ${cladOD.toFixed(0)} mm  with a ${rnd(RD)} mm flat (recess on the ${where})`
-                : `Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat on the ${where}`,
+                : `Pipe ${p.pipeOD} + insulation ${p.insulation} = cladding Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat on the ${where}`,
               `Flat length ${rnd(flatLen)} mm  ·  developed girth ${rnd(girth)} mm  (a round wrap would be ${rnd(fullCirc)} mm)`,
               `Bend ${p.bendDeg}°  ${pieces}-piece  mitre half-angle ${(alpha * 180 / Math.PI).toFixed(1)}°  ·  lap ${p.lapTotal} (${lapEach} each end)  swage ${swE} mm  min length ${minLen} mm`,
               `Roll the two seam edges onto the round part; the two dashed folds are the edges of the flat.  CUT ${pieces} OFF` ],
@@ -2271,7 +2271,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       title: mid ? 'Flat-sided Bend  -  Middle Gore 1:1' : 'Flat-sided Bend  -  Starter / Finisher Gore 1:1',
       meta: [
         (p.insulation || 0) === 0 ? `Cladding Ø ${cladOD.toFixed(0)} mm  with a ${rnd(RD)} mm flat on the ${where}`
-                                  : `Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat on the ${where}`,
+                                  : `Pipe ${p.pipeOD} + insulation ${p.insulation} = cladding Ø ${cladOD.toFixed(0)} mm  ·  ${rnd(RD)} mm flat on the ${where}`,
         `Bend ${p.bendDeg}°  ${N} segments = 2 half-end gores + ${nMid} middle gore${nMid === 1 ? '' : 's'}   centre radius ${p.centreRadius} mm`,
         `Flat length ${rnd(flatLen)} mm  ·  developed girth ${rnd(girth)} mm  (round wrap ${rnd(fullCirc)} mm)  ·  loss to the flat ${rnd(loss)} mm`,
         mid ? `MIDDLE gore - wavy both edges, flat panel on the back, cut ${nMid} off.  Mitre half-angle ${(g * 180 / Math.PI).toFixed(2)}°  lap ${p.lapTotal} (${lapEach} each end)  swage ${p.jointAllow || 0} mm`
@@ -2717,7 +2717,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     [0,circ].forEach(xl=>{ const h=hAt(phiAt(xl)), tp=h-p.holeEndGap, b=-(h-p.holeEndGap), span=tp-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
     for(let k=0;k<=ND;k++){ const x=k*circ/ND, h=hAt(phiAt(x)); prim.push({style:'ord', pts:[[x,-h],[x,h]]}); ticks.push({x,y:h,label:(2*h).toFixed(0)}); }
     return { kind:'swanneck', title:'Offset (Swan Neck)  -  Middle Piece 1:1',
-      meta:[`Bare pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD`,
+      meta:[`Bare pipe ${p.pipeOD} + insulation ${p.insulation} = cladding ${cladOD.toFixed(0)} mm OD`,
             `Offset ${S} mm over middle length ${d} mm  =>  joint angle ${(alpha*180/Math.PI).toFixed(1)}°`,
             `This sheet = MIDDLE piece. End pipes: plain mitre cut at ${(alpha*180/Math.PI/2).toFixed(1)}° (use Mitred Elbow, bend ${(alpha*180/Math.PI).toFixed(1)}°, 2-piece, and keep one half).`,
             `Lap ${p.lapTotal} (${lapEach} each end)`],
@@ -2764,7 +2764,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       ticks.push({ x, y: yT(th), label: (yT(th)-yB(th)).toFixed(0) }); }
     const oT = []; for (let k=0;k<=6;k++){ const th=seamRad + 2*Math.PI*k/12; oT.push(Math.round(yT(th)-yB(th))); }
     return { kind:'bendonbend', title:'Double Bend - The Twister 1:1',
-      meta:[`Pipe ${p.pipeOD} + insulation ${p.insulation}  =>  cladding ${cladOD.toFixed(0)} mm OD   circ ${circ.toFixed(1)}`,
+      meta:[`Pipe ${p.pipeOD} + insulation ${p.insulation} = cladding ${cladOD.toFixed(0)} mm OD   circ ${circ.toFixed(1)}`,
             `Bend 1: ${p.bendDeg1}° / ${p.segments1} seg / CR ${p.centreRadius1}    Bend 2: ${p.bendDeg2}° / ${p.segments2} seg / CR ${p.centreRadius2}`,
             `${p.direction==='same'?'Same-way bend':'S-bend (opposite)'}   straight between bends ${p.midLen||0} mm   twist ${p.twist||0}°   Type ${p.bendHand||'A'}   lap ${p.lapTotal} (${lapEach} each end)`,
             `THE TWISTER - finishes bend 1, straight (if any), starts bend 2, with the twist rolled into the top cut. One edge mates the first-bend gores, the other mates the end-bend gores.`],
@@ -3956,7 +3956,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                   : noKn ? `Dished cap  -  crown radius ${R2(Rc)} (= diameter), no knuckle`
                   : `Crown radius ${R2(Rc)}  ·  knuckle radius ${R2(Rk)}  (crown + knuckle = diameter)`,
              `Gore ${R2(plateLen)} long × ${R2(2 * hw[0])} wide at the base; swage ${sw} on the edges, body lap ${lap}`,
-             `Half-widths A→M: ${hw.map(x => R2(x)).join(', ')}`],
+             `Half-widths A to M: ${hw.map(x => R2(x)).join(', ')}`],
       calc: { Rc, Rk, meridian, plateLen, N, base: 2 * hw[0], knSp, crSp, ords: hw.map(x => R2(x)), dia: D, H },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT ${N} OFF (gores)` }];
   }
@@ -4388,7 +4388,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         const xLo = PM + 3, xHi = PM + uw - 3 - sz.w - (col < nCols - 1 ? OV : 0);
         const yLo = clipY + 14 + (row < nRows - 1 ? OV : 0), yHi = clipY + uh - 3 - sz.h;
         for (let py = yLo; py <= yHi; py += STEP) for (let px = xLo; px <= xHi; px += STEP) {
-          if (px < PM + 100 && py + sz.h > H - PM - 13) continue;   // 50 mm scale check
+          if (px < PM + 130 && py + sz.h > H - PM - 13) continue;   // 100 mm scale check + label
           const X0 = px - PM + col*sx + bb.x0, X1 = X0 + sz.w;
           const Y1 = H - PM + row*sy - py + bb.y0, Y0 = Y1 - sz.h;
           const n = busy(X0-gap, Y0-gap, X1+gap, Y1+gap);
@@ -4638,9 +4638,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const X = x => o.PM - o.col * o.sx + o.nx(x);
     const Y = y => o.H - o.PM + o.row * o.sy - o.ny(y);   // y-down flip
     const clipY = o.H - o.PM - o.uh;
-    // per-sheet scale check - 50 mm, or 2 inches (50.8) when the paper is US.
+    // per-sheet scale check - the full 100 mm (4 in on US paper), so every sheet carries the bar the site promises (14 Sep 26)
     // Sized and placed up front so the note repeater knows where to keep off.
-    const ckL = o.inches ? 50.8 : 50, ckT = o.inches ? '2 in check' : '50 mm check';
+    const ckL = o.inches ? 101.6 : 100, ckT = o.inches ? '4 in check' : '100 mm check';
     const f0 = doc.getFont(); doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
     const ckW = ckL + 2 + doc.getTextWidth(ckT);
     doc.setFont(f0.fontName, f0.fontStyle);
@@ -5594,10 +5594,22 @@ function unlocked(k){ return PRO || isFree(k); }
 function showUnlock(){
   const bg=modal(`<h3>${BRAND.name} Pro</h3>
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Area and sheet-fit on every pattern</li></ul>
+    ${(!STORE && BRAND.site) ? `<div class="card" style="margin:0 0 12px;padding:12px 14px"><div style="font-weight:700">Get a code</div><div class="hint" style="text-align:left;margin:4px 0 8px" id="licPrices">Sold at ${BRAND.site}/pricing. Your code arrives by email the moment you pay.</div><a class="btn gold" href="https://${BRAND.site}/pricing" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">Buy a code at ${BRAND.site}</a></div>` : ''}
     <label style="display:block">Licence code</label>
     <input id="licIn" placeholder="CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
-    <div class="hint">Codes come with the paid version.${BRAND.email?` If you have bought it and lost your code, email <a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>.`:' If you have bought it and lost your code, get in touch wherever you bought it.'}</div>`);
+    <div class="hint">${BRAND.email?`Bought it and lost your code? Email <a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>.`:'Bought it and lost your code? Get in touch wherever you bought it.'}</div>`);
+  /* The web build shows the price and the way to buy (four reviewers, 14 Sep
+     26: "tap Go Pro and there is no price and nowhere to pay"). The store
+     build shows neither - Play and App Store forbid steering to another shop;
+     entering a code bought elsewhere is allowed. Prices come from the site so
+     the app never carries a number that can drift. */
+  if(!STORE && BRAND.site && navigator.onLine!==false){
+    fetch('https://'+BRAND.site+'/api/plans',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
+      const el=bg.querySelector('#licPrices'); if(!el||!j||!j.plans) return;
+      el.textContent = j.plans.map(p=>p.name+' '+p.label).join('  ·  ')+'. Your code arrives by email the moment you pay.';
+    }).catch(()=>{});
+  }
   bg.querySelector('#licGo').onclick=()=>{
     const raw=bg.querySelector('#licIn').value, r=checkCode(raw);
     if(!r){ toast('That code isn’t right — check it and try again.'); return; }
@@ -9160,7 +9172,7 @@ function describe(it){ const p=it.params, q=(it.qty||1)>1?'×'+it.qty+' · ':'';
   if(p.boxLen) return q+p.boxW+'×'+p.boxH+'×'+p.boxLen;
   if(p.boxL) return q+p.boxL+'×'+p.boxW+'×'+p.boxH;
   if(p.pipeOD) return q+'Ø'+p.pipeOD+' +'+(p.insulation||0)+'mm';
-  if(p.bigPipeOD) return q+'Ø'+p.bigPipeOD+'→'+p.smallPipeOD+' +'+(p.insulation||0)+'mm';
+  if(p.bigPipeOD) return q+'Ø'+p.bigPipeOD+' to '+p.smallPipeOD+' +'+(p.insulation||0)+'mm';
   if(p.mainPipeOD) return q+'Ø'+p.mainPipeOD+' / Ø'+p.branchPipeOD;
   if(p.trunnionPipeOD) return q+'Ø'+p.trunnionPipeOD+' / Ø'+p.bendPipeOD;
   return q.slice(0,-3); }
@@ -9204,7 +9216,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.68.1</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.68.2</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
@@ -9247,7 +9259,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.68.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.68.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
