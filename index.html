@@ -1224,7 +1224,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.68.2</span>
+  <span class="ver">v4.68.3</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4814,7 +4814,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
    in the day the domain lands and the About card, the licence prompt and
    the printed footer all pick it up at once. No personal name and no
    personal address anywhere: this is a product, not a person. */
-const BRAND = { name:'TurboClad', owner:'STX Insulation Ltd', site:'turboclad.co.uk', email:'support@turboclad.co.uk' };
+const BRAND = { name:'TurboClad', owner:'STX Insulation Ltd', company:'SC895063', office:'71 Castlegate, Berwick-upon-Tweed TD15 1LF', site:'turboclad.co.uk', email:'support@turboclad.co.uk' };
 /* owner stays STX Insulation Ltd - that is the legal entity behind the product,
    the copyright holder and the data controller in the privacy notice. Only the
    ADDRESS moved: the product has its own name and its own domain now, and that
@@ -5595,7 +5595,7 @@ function showUnlock(){
   const bg=modal(`<h3>${BRAND.name} Pro</h3>
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Area and sheet-fit on every pattern</li></ul>
     ${(!STORE && BRAND.site) ? `<div class="card" style="margin:0 0 12px;padding:12px 14px"><div style="font-weight:700">Get a code</div><div class="hint" style="text-align:left;margin:4px 0 8px" id="licPrices">Sold at ${BRAND.site}/pricing. Your code arrives by email the moment you pay.</div><a class="btn gold" href="https://${BRAND.site}/pricing" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">Buy a code at ${BRAND.site}</a></div>` : ''}
-    <label style="display:block">Licence code</label>
+    <label style="display:block">Already have a code? Enter it here</label>
     <input id="licIn" placeholder="CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
     <button class="btn gold" id="licGo">Unlock Pro</button>
     <div class="hint">${BRAND.email?`Bought it and lost your code? Email <a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>.`:'Bought it and lost your code? Get in touch wherever you bought it.'}</div>`);
@@ -5737,7 +5737,8 @@ function home(){
     const i=+d.dataset.gi; if(d.open) HOMEOPEN.add(i); else HOMEOPEN.delete(i); }));
   bindGo(app);
   const ub=document.getElementById('upBtn'); if(ub) ub.onclick=showUnlock;
-  if(window._installEvt){ const w=document.getElementById('installWrap'); w.classList.remove('hide');
+  // the install banner waits until the first-run card has been read: the two stacked on a fresh phone (reviewers, 14 Sep 26)
+  if(window._installEvt && store.get('cm_seen_intro',false)){ const w=document.getElementById('installWrap'); w.classList.remove('hide');
     document.getElementById('installBtn').onclick=async()=>{ window._installEvt.prompt(); const r=await window._installEvt.userChoice; if(r.outcome==='accepted'){ toast('Installing - check your home screen.'); w.classList.add('hide'); window._installEvt=null; } }; }
 }
 
@@ -9216,9 +9217,10 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.68.2</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.68.3</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
+    <div style="font-size:11px;color:var(--sub);margin-top:10px;line-height:1.5">${BRAND.owner}${BRAND.company?' · company no. '+BRAND.company:''}${BRAND.office?'<br>'+BRAND.office:''}</div>
     <div style="font-size:11px;color:var(--sub);margin-top:12px;line-height:1.5">Built from real shop-floor practice. Patterns are worked to the outside of the lagging and verified against trade references — always print at 100%, check the calibration bar, and offer the first template up to the metal before cutting a batch.</div>
    </div>
    <div class="hint">© ${BRAND.owner} · all rights reserved</div>`;
@@ -9259,7 +9261,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.68.2',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.68.3',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
@@ -9352,7 +9354,7 @@ if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
     <div class="hint" style="margin-top:10px">Set up for ${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[SET.page]||'A3'} paper, dimensions in mm — change any time in Settings</div>
     <button class="btn primary" id="introGo">Read &amp; understood</button></div>`);
   bg.querySelector('.modal').classList.add('sheet');
-  bg.querySelector('#introGo').onclick=()=>bg.close(); }
+  bg.querySelector('#introGo').onclick=()=>{ bg.close(); if(TAB==='fit'&&!CUR) route(); }; }   // re-render so the install banner can now appear
 </script>
 </body>
 </html>
