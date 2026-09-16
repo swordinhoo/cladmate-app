@@ -1231,7 +1231,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.69.0</span>
+  <span class="ver">v4.70.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4887,21 +4887,31 @@ const MARKURI='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc
   let l=document.querySelector('link[rel="icon"]'); if(!l){ l=document.createElement('link'); l.rel='icon'; document.head.appendChild(l); }
   l.href=MARKURI; })();
 const OWNER = false;   // build flag: owner edition has Pro permanently on
-/* The stored CODE is the truth, not the boolean beside it: cm_pro on its own
-   was a one-line console edit, and a restored backup used to carry it (review
-   #5, 12 Sep 26). A licence unlocked before codes were kept is grandfathered -
-   nobody who paid loses Pro to this. */
-let PRO = OWNER || (function(){ const c = store.get('cm_pro_code', null);
-  if (c) { try { return !!checkCode(c); } catch(e) { return store.get('cm_pro', false); } }
-  return store.get('cm_pro', false); })();
 /* v2 codes expire (subscriptions). cm_pro_exp absent = perpetual - the owner
    build and every v1 one-off code. Past expiry Pro keeps working for a 14-day
    GRACE window - a lapsed card must never brick a lid half marked out on a
    scaffold - then drops back to FREE. The stored code and expiry survive the
    drop so the messaging can say "expired", never the insulting "invalid". */
 const PRO_GRACE_MS = 14*24*3600*1000;
-const _proExp = store.get('cm_pro_exp',null);
-if(PRO && !OWNER && _proExp && Date.now() > _proExp + PRO_GRACE_MS) PRO = false;
+/* The stored CODE is the truth, not the boolean beside it: cm_pro on its own
+   was a one-line console edit, and a restored backup used to carry it (review
+   #5, 12 Sep 26). A licence unlocked before codes were kept is grandfathered -
+   nobody who paid loses Pro to this. */
+function proFromCode(){
+  const c = store.get('cm_pro_code', null);
+  let ok;
+  if (c) { try { ok = !!checkCode(c); } catch(e) { ok = store.get('cm_pro', false); } }
+  else ok = store.get('cm_pro', false);
+  if(!ok) return false;
+  const exp = store.get('cm_pro_exp', null);
+  return !(exp && Date.now() > exp + PRO_GRACE_MS); }
+/* Pro bought through Google Play (17 Sep 26): RevenueCat's verdict, cached in
+   cm_spro so a phone stood in a plant room with no signal keeps working, and
+   given the same 14-day grace a code gets. exp null = the one-off purchase. */
+function proFromStore(v){ v = v || store.get('cm_spro', null);
+  if(!v || !v.active) return false;
+  return v.exp == null || Date.now() <= v.exp + PRO_GRACE_MS; }
+let PRO = OWNER || proFromCode() || proFromStore();
 /* ONE CODE, CHECKED ONLINE (13 Sep 26). Craig: "not practical for people to
    receive a new code via email each month". A subscription code is typed in
    ONCE. When the app has signal it asks the site once a day whether that code
@@ -4920,12 +4930,18 @@ if(PRO && !OWNER && _proExp && Date.now() > _proExp + PRO_GRACE_MS) PRO = false;
    renew-at-the-site fragment goes through renewHint(), which is silent in
    a store build. The licence check itself is not steering and stays. */
 const STORE = ('' || null);
+/* RevenueCat's PUBLIC sdk key - it ships inside the APK by design and can do
+   nothing but read this app's offerings. Empty in every web build. */
+const RC_KEY = '';
 const renewHint = (sep) => (BRAND.site && !STORE) ? (sep||' ')+'Renew at '+BRAND.site+'.' : '';
 const LIC_URL = (!OWNER && BRAND.site) ? 'https://'+BRAND.site+'/api/licence' : null;
 const LIC_TTL = 24*3600*1000, LIC_TRUST = 45*24*3600*1000;
 function expFromVerdict(v){ if(v.expires) return Date.parse(v.expires+'T23:59:59Z'); return v.valid ? null : 0; }
 function applyVerdict(v){ const exp=expFromVerdict(v); store.set('cm_pro_exp',exp);
-  PRO = OWNER || (exp===null) || Date.now() <= exp + PRO_GRACE_MS; if(PRO) store.set('cm_pro',true); }
+  /* a live Play purchase outranks a lapsed code: never take Pro off a man who
+     is paying Google for it because the code he typed last year ran out */
+  PRO = OWNER || (exp===null) || Date.now() <= exp + PRO_GRACE_MS || proFromStore();
+  if(PRO) store.set('cm_pro',true); }
 (function(){ if(OWNER) return; const v=store.get('cm_lic',null), code=store.get('cm_pro_code',null);
   if(v && code && v.code===code && Date.now()-v.at < LIC_TRUST) applyVerdict(v); })();
 async function refreshLicence(force){
@@ -5598,9 +5614,67 @@ function isFree(k){ return !!F[k].free; }
 function unlocked(k){ return PRO || isFree(k); }
 
 /* ================= pro / unlock ================= */
+/* PLAY BILLING (17 Sep 26). In a store build Pro is bought from Google Play,
+   not with a code off the site - Play forbids sending anyone elsewhere to buy
+   a digital unlock. RevenueCat sits in the middle: it asks Play what the
+   offering costs in the customer's own money (so not one price is baked in
+   here), hands a package to Play's own purchase sheet, and hands back a
+   single entitlement, 'pro'. The phone never gets to decide - proFromStore
+   reads RevenueCat's verdict out of cm_spro, with the same grace a code gets.
+   Reached through window.Capacitor.Plugins, same as Filesystem and Share, so
+   this is still one file with no bundler. Web and owner builds never see it. */
+const PLAY=(()=>{
+  const ENT='pro';
+  const plugin=()=>{ try{ return (STORE==='play' && window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Purchases) || null; }catch(e){ return null; } };
+  let ready=false;
+  function apply(ci){
+    let e=null; try{ e = ci && ci.entitlements && ci.entitlements.active && ci.entitlements.active[ENT]; }catch(err){ e=null; }
+    const v = e ? { active:true, exp:(e.expirationDateMillis==null?null:+e.expirationDateMillis), at:Date.now() }
+                : { active:false, exp:0, at:Date.now() };
+    store.set('cm_spro',v);
+    const was=PRO;
+    PRO = OWNER || proFromCode() || proFromStore(v);
+    if(PRO) store.set('cm_pro',true);
+    if(was!==PRO){ renderPro(); route(); }
+    return PRO; }
+  async function init(){
+    const p=plugin(); if(!p || ready || !RC_KEY) return false;
+    try{
+      await p.configure({ apiKey: RC_KEY });
+      ready=true;
+      try{ p.addCustomerInfoUpdateListener(ci=>apply(ci)); }catch(e){}
+      const r=await p.getCustomerInfo(); apply(r && r.customerInfo);
+      return true;
+    }catch(e){ return false; } }
+  /* Play's prices, in the order the site lists them. Anything RevenueCat does
+     not hand back is simply not offered - nothing here is ever guessed. */
+  const RANK={ MONTHLY:0, ANNUAL:1, LIFETIME:2 }, rank=p=>RANK[p&&p.packageType]==null?9:RANK[p.packageType];
+  async function packages(){
+    const p=plugin(); if(!p) return [];
+    if(!ready && !(await init())) return [];
+    try{
+      const o=await p.getOfferings();
+      const list=(o && o.current && o.current.availablePackages) || [];
+      return list.slice().filter(x=>x && x.product && x.product.priceString).sort((a,b)=>rank(a)-rank(b));
+    }catch(e){ return []; } }
+  const cancelled=e=>{ try{ return !!(e && (e.userCancelled===true || /cancel/i.test(String(e.code||'')+' '+String(e.message||'')))); }catch(err){ return false; } };
+  async function buy(pkg){
+    const p=plugin(); if(!p) return false;
+    try{ const r=await p.purchasePackage({ aPackage: pkg }); return apply(r && r.customerInfo); }
+    catch(e){ if(!cancelled(e)) toast('That did not go through. '+((e&&e.message)||'Try again in a minute.')); return false; } }
+  async function restore(){
+    const p=plugin(); if(!p) return false;
+    if(!ready && !(await init())) return false;
+    try{ const r=await p.restorePurchases(); return apply(r && r.customerInfo); }
+    catch(e){ toast('Could not reach Google Play just now.'); return false; } }
+  return { on:()=>!!plugin(), init, packages, buy, restore };
+})();
 function showUnlock(){
+  const play = PLAY.on();
   const bg=modal(`<h3>${BRAND.name} Pro</h3>
     <ul class="prolist"><li>All ${NALL} fittings</li><li>DXF export for plasma &amp; laser</li><li>Jobs — save &amp; reprint</li><li>Your company name on templates</li><li>Area and sheet-fit on every pattern</li></ul>
+    ${play ? `<div id="rcBox" class="hint" style="text-align:left;margin:0 0 10px">Asking Google Play for today’s prices…</div>
+      <button class="btn" id="rcRest" style="margin-bottom:14px">Restore a purchase</button>` : ''}
     ${(!STORE && BRAND.site) ? `<div class="card" style="margin:0 0 12px;padding:12px 14px"><div style="font-weight:700">Get a code</div><div class="hint" style="text-align:left;margin:4px 0 8px" id="licPrices">Sold at ${BRAND.site}/pricing. Your code arrives by email the moment you pay.</div><a class="btn gold" href="https://${BRAND.site}/pricing" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">Buy a code at ${BRAND.site}</a></div>` : ''}
     <label style="display:block">Already have a code? Enter it here</label>
     <input id="licIn" placeholder="CM-XXXX-XXXX" autocapitalize="characters" style="margin-bottom:10px">
@@ -5616,6 +5690,27 @@ function showUnlock(){
       const el=bg.querySelector('#licPrices'); if(!el||!j||!j.plans) return;
       el.textContent = j.plans.map(p=>p.name+' '+p.label).join('  ·  ')+'. Your code arrives by email the moment you pay.';
     }).catch(()=>{});
+  }
+  /* The store build buys through Play and nothing else. The prices come off
+     Play itself, so they are right for whatever country the phone is in, and
+     Restore is there because a man who wipes his phone must not pay twice. */
+  if(play){
+    const box=bg.querySelector('#rcBox'), rb=bg.querySelector('#rcRest');
+    if(rb) rb.onclick=async()=>{ rb.disabled=true; rb.textContent='Checking…';
+      const ok=await PLAY.restore();
+      if(ok){ bg.remove(); toast('Pro restored — nice one!'); }
+      else { rb.disabled=false; rb.textContent='Restore a purchase'; toast('Nothing to restore on this Google account.'); } };
+    PLAY.packages().then(list=>{
+      if(!box) return;
+      if(!list.length){ box.textContent='Google Play is not answering just now — try again when you have signal.'; return; }
+      const say={ MONTHLY:'a month', ANNUAL:'a year', LIFETIME:'once, yours for good' };
+      box.innerHTML=list.map((p,i)=>`<button class="btn ${p.packageType==='LIFETIME'?'gold':''}" data-i="${i}" style="width:100%;margin:0 0 8px">${esc(p.product.priceString)} ${esc(say[p.packageType]||'')}</button>`).join('');
+      box.querySelectorAll('button[data-i]').forEach(b=>{ b.onclick=async()=>{
+        box.querySelectorAll('button').forEach(x=>x.disabled=true);
+        const ok=await PLAY.buy(list[+b.dataset.i]);
+        if(ok){ bg.remove(); toast('Pro unlocked — nice one!'); }
+        else box.querySelectorAll('button').forEach(x=>x.disabled=false); }; });
+    });
   }
   bg.querySelector('#licGo').onclick=()=>{
     const raw=bg.querySelector('#licIn').value, r=checkCode(raw);
@@ -9241,7 +9336,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.69.0</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.70.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:10px;line-height:1.5">${BRAND.owner}${BRAND.company?' · company no. '+BRAND.company:''}${BRAND.office?'<br>'+BRAND.office:''}</div>
@@ -9285,7 +9380,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.69.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.70.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
@@ -9370,6 +9465,8 @@ window.addEventListener('appinstalled',()=>toast(BRAND.name+' installed'));
 applyTheme(); renderPro(); route();
 /* the daily licence check: on boot, and again when signal comes back */
 refreshLicence(); window.addEventListener('online',()=>{ refreshLicence(); });
+/* and the Play side, which is silent everywhere but the store build */
+PLAY.init();
 /* first run: the three rules that make templates come out right */
 if(!store.get('cm_seen_intro',false)){ store.set('cm_seen_intro',true);
   const bg=modal(`<div class="tb"><span>${BRAND.name} · First run</span><span>SHT 1/1</span></div>
