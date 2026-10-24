@@ -1102,6 +1102,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .grid2 .full{grid-column:1 / -1}
   /* form section divider - the Double Bend was one flat soup of 11 fields and
      Craig ruled it must read as Bend 1 / Bend 2 / the joining bits (28 Aug) */
+  /* the Allowances card on a fitting form (24 Oct 26) */
+  .allow{margin-top:4px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:9px 11px}
+  .allow summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:10px;font-weight:700;font-size:13.5px;font-family:var(--fd);font-stretch:87.5%}
+  .allow summary::-webkit-details-marker{display:none}
+  .allow summary .n{margin-left:auto;font-family:var(--fm);font-size:10px;color:var(--sub);font-weight:600;letter-spacing:.03em;text-align:right;line-height:1.35}
+  .allow[open] summary{margin-bottom:6px}
   .fhd{font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
        color:var(--acc);border-bottom:1px solid var(--line);padding:10px 0 4px;margin-top:2px}
   .fld:first-child .fhd{margin-top:0;padding-top:0}
@@ -1231,7 +1237,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.72.0</span>
+  <span class="ver">v4.73.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -1347,7 +1353,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const sw = p.swage != null ? +p.swage : (+p.jointAllow || 0);
     const half = (+p.lapTotal || 0) / 2;
     const lapA = p.lapA != null ? +p.lapA : half, lapB = p.lapB != null ? +p.lapB : half;
-    return { lapA, lapB, lapTotal: lapA + lapB,
+    /* the hole line: holeInset is its distance in from edge A (Craig, 24 Oct 26: "10 mm and
+       40 mm on the other side to get the same effect"). ho is that as an offset from the
+       seam towards edge B, applied to BOTH edges' hole lines so the holes meet when rolled;
+       absent, the line is the seam itself, as it always was. */
+    const ho = p.holeInset != null && p.holeInset !== '' ? Math.min(lapA + lapB, Math.max(0, +p.holeInset)) - lapA : 0;
+    return { lapA, lapB, lapTotal: lapA + lapB, ho,
              swM: p.swageMale != null ? +p.swageMale : sw, swF: p.swageFemale != null ? +p.swageFemale : sw };
   }
 
@@ -1363,7 +1374,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const SR = L * R / (R - r);
     const Sr = L * r / (R - r);
     const theta = 2 * Math.PI * (R - r) / L;
-    const { lapA, lapB } = _allow(p), lapEach = (lapA + lapB) / 2;
+    const { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB) / 2;
 
     const half = theta / 2;
     const sw = p.swage || 0;
@@ -1385,7 +1396,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       // holes ON the seam (fold) line -> rolls to the correct diameter
       const start = Sr + p.holeEndGap, end = SR - p.holeEndGap, span = end - start;
       const nH = _nH(span, p.holePitch);
-      for (let k = 0; k <= nH; k++) holes.push(pol(start + span * k / nH, edge));
+      for (let k = 0; k <= nH; k++) { const q = pol(start + span * k / nH, edge); holes.push([q[0] + ho * Math.cos(edge), q[1] + ho * Math.sin(edge)]); }
     });
     const ND = _nd(p.nDiv, 12);
     for (let i = 0; i <= ND; i++) {
@@ -1428,7 +1439,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (C - A < 5) throw new Error('Centre radius ' + p.centreRadius + ' mm is inside the cladding radius '
       + r.toFixed(0) + ' mm - the throat pinches out. Use a bigger radius or more segments.');
     const circ = Math.PI * cladOD;
-    const { lapA, lapB } = _allow(p), lapEach = (lapA + lapB) / 2;
+    const { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB) / 2;
     const ND = _nd(p.nDiv, 12);
     const seamEff = (p.bendHand === 'B' || p.bendHand === 'C') ? ((360 - (p.seamFromThroat || 0)) % 360) : (p.seamFromThroat || 0);
     const seamRad = seamEff * Math.PI / 180;
@@ -1470,7 +1481,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         if (JAt > 0) prim.push({ style: 'swage', pts: tl, note: sexTop + ' SWAGE ' + JAt });
         if (JAb > 0) prim.push({ style: 'swage', pts: bl, note: sexBot + ' SWAGE ' + JAb });
       }
-      [0, circ].forEach(xl => { const t = hT(phiAt(xl)) - p.holeEndGap, b = -(hB(phiAt(xl)) - p.holeEndGap), span = t - b;
+      [ho, circ + ho].forEach(xl => { const t = hT(phiAt(xl)) - p.holeEndGap, b = -(hB(phiAt(xl)) - p.holeEndGap), span = t - b;
         const nH = _nH(span, p.holePitch);
         for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
       for (let k = 0; k <= ND; k++) { const x = k * circ / ND, ht = hT(phiAt(x)), hb = hB(phiAt(x)); prim.push({ style: 'ord', pts: [[x, -hb], [x, ht]] }); ticks.push({ x, y: ht, label: (ht + hb).toFixed(0) }); }
@@ -1485,7 +1496,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         for (let i = 0; i <= steps; i++) { const x = xLo + (xHi - xLo) * i / steps; tl.push([x, hT(phiAt(x)) - JAt]); }
         prim.push({ style: 'swage', pts: tl, note: sexTop + ' SWAGE ' + JAt });
       }
-      [0, circ].forEach(xl => { const t = hT(phiAt(xl)) - p.holeEndGap, b = p.holeEndGap, span = t - b;
+      [ho, circ + ho].forEach(xl => { const t = hT(phiAt(xl)) - p.holeEndGap, b = p.holeEndGap, span = t - b;
         const nH = _nH(span, p.holePitch);
         for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
       for (let k = 0; k <= ND; k++) { const x = k * circ / ND, h = hT(phiAt(x)); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
@@ -1614,15 +1625,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
        you roll it. Own style, own colour, own dash. */
     if (sw) { prim.push({ style: 'swage', pts: b2, note: 'SWAGE ' + sw });
               prim.push({ style: 'swage', pts: t2, note: 'SWAGE ' + sw }); }
-    [[b2x[0], t2x[0]], [b2x[nn-1], t2x[nn-1]]].forEach(edge => {
-      const [P, Q] = edge;
+    const hoT = o.holeInset != null && o.holeInset !== '' ? Math.min(lapL + lapR, Math.max(0, +o.holeInset)) - lapL : 0;
+    [[b2x[0], t2x[0], [-nL[0]*hoT, -nL[1]*hoT]], [b2x[nn-1], t2x[nn-1], [nR[0]*hoT, nR[1]*hoT]]].forEach(edge => {
+      const [P, Q, sh] = edge;
       prim.push({ style: 'fold', pts: [P, Q] });        // seam line (dashed)
       if (lapE > 0) {
         // holes ON the seam (fold) line -> rolls to the correct size
         const seam = Math.hypot(Q[0]-P[0], Q[1]-P[1]);
         const g = o.holeEndGap, span = seam - 2*g;
         const nH = _nH(span, o.holePitch);
-        for (let k = 0; k <= nH; k++) { const tt = (g + span*k/nH) / seam; holes.push([P[0]+(Q[0]-P[0])*tt, P[1]+(Q[1]-P[1])*tt]); }
+        for (let k = 0; k <= nH; k++) { const tt = (g + span*k/nH) / seam; holes.push([P[0]+(Q[0]-P[0])*tt + sh[0], P[1]+(Q[1]-P[1])*tt + sh[1]]); }
       }
     });
     return { kind: o.kind, title: o.title, meta: o.meta, calc: o.calc, prim, holes, ticks, bbox: bboxOf(prim), cutNote: o.cutNote || null };
@@ -1649,7 +1661,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${(p.lapTotal/2)} each edge)   developed by triangulation`
       ],
       calc: { bigOD, smallOD, offset: off, H },
-      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, lapA: _allow(p).lapA, lapB: _allow(p).lapB, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, lapA: _allow(p).lapA, lapB: _allow(p).lapB, holeInset: p.holeInset, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
     });
   }
 
@@ -1667,7 +1679,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (rb >= rt) throw new Error('The stub is bigger than the bend. Make the stub smaller than the bend cladding.');
     const xa = -R + (p.offset || 0);
     const Htop = p.height + R;
-    const circ = Math.PI*stubOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
+    const circ = Math.PI*stubOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
     const psi0 = ((p.seamFromThroat==null?0:p.seamFromThroat) * Math.PI/180);
     const drop = psi => { const px = xa + rb*Math.cos(psi), py = rb*Math.sin(psi);
       const q = rt*rt - py*py;
@@ -1684,7 +1696,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
-    [0, circ].forEach(xl => { const h = hAt(phiAt(xl)), tp = h - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
+    [ho, circ + ho].forEach(xl => { const h = hAt(phiAt(xl)), tp = h - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
       const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, h=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
@@ -1764,7 +1776,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       return (flat ? R - Rb : 0) + Math.sqrt(s2); };
     const x0 = surf(0);                       // bottom of the branch - nearest the big end
     const hAt = psi => L + x0 - surf(psi);
-    const circ = Math.PI*brOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
+    const circ = Math.PI*brOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
     const psi0 = ((p.seamFromThroat==null?90:p.seamFromThroat) * Math.PI/180);
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapA, xHi = circ + lapB, top = [];
@@ -1773,7 +1785,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
-    [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
+    [ho, circ + ho].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
       const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, hh=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,hh]]}); ticks.push({x,y:hh,label:hh.toFixed(0)}); }
     const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
@@ -1810,7 +1822,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const rMin = Math.abs(a - rb), s0 = surf(rMin);
     const hAt = psi => { const r = Math.hypot(a + rb*Math.cos(psi), rb*Math.sin(psi));
       return L + s0 - surf(r); };            // psi=pi = toward the centre = shortest
-    const circ = Math.PI*brOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
+    const circ = Math.PI*brOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
     const psi0 = Math.PI + ((p.seamFromThroat==null?90:p.seamFromThroat) * Math.PI/180);
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapA, xHi = circ + lapB, top = [];
@@ -1819,7 +1831,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
-    [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
+    [ho, circ + ho].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
       const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, hh=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,hh]]}); ticks.push({x,y:hh,label:hh.toFixed(0)}); }
     return { kind:'teedome', title:'Tee on Dome  -  Branch Wrap 1:1',
@@ -1850,7 +1862,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const z0 = z(X - rb);                     // nearest generator = highest roof
     const hAt = psi => { const rho = Math.hypot(X + rb*Math.cos(psi), rb*Math.sin(psi));
       return L + z0 - z(rho); };              // psi=pi = toward the centre = throat
-    const circ = Math.PI*brOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
+    const circ = Math.PI*brOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
     const psi0 = Math.PI + ((p.seamFromThroat==null?90:p.seamFromThroat) * Math.PI/180);
     const prim = [], holes = [], ticks = [];
     const steps = 400, xLo = -lapA, xHi = circ + lapB, top = [];
@@ -1859,7 +1871,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
-    [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
+    [ho, circ + ho].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
       const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, hh=hAt(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,hh]]}); ticks.push({x,y:hh,label:hh.toFixed(0)}); }
     return { kind:'teetanktop', title:'Tee onto Tank Top  -  Branch Wrap 1:1',
@@ -1897,7 +1909,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const hAt = isMain
       ? psi => L + A + r*t2*(1 - Math.abs(Math.cos(psi)))
       : psi => L + A + r*(fMax - fB(psi));
-    const circ = Math.PI*OD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
+    const circ = Math.PI*OD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, ND = _nd(p.nDiv, 12);
     // seam 0 = the SHORT point: on the main that is the crotch line, on a
     // branch it is the inside of the fork. Both are the natural datum.
     const psi0 = (isMain ? 0 : Math.PI) + ((p.seamFromThroat == null ? 0 : p.seamFromThroat) * Math.PI/180);
@@ -1908,7 +1920,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, hAt(phiAt(xf))]] }));
-    [0, circ].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
+    [ho, circ + ho].forEach(xl => { const hh = hAt(phiAt(xl)), tp = hh - p.holeEndGap, bot = p.holeEndGap, span = tp - bot;
       const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const xx=k*circ/ND, hh=hAt(phiAt(xx)); prim.push({style:'ord',pts:[[xx,0],[xx,hh]]}); ticks.push({x:xx,y:hh,label:hh.toFixed(0)}); }
     const hs=[]; for(let k=0;k<=ND;k++) hs.push(hAt(psi0 + 2*Math.PI*k/ND).toFixed(0));
@@ -1957,7 +1969,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${(p.lapTotal/2)} each edge)   developed by triangulation`
       ],
       calc: { bigOD, smallOD, H, X, angle: p.topAngle||0 },
-      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, lapA: _allow(p).lapA, lapB: _allow(p).lapB, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, lapA: _allow(p).lapA, lapB: _allow(p).lapB, holeInset: p.holeInset, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
     });
   }
 
@@ -1971,7 +1983,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const R = D/2, H = p.height;
     if (!(H > 0)) throw new Error('Height must be more than 0.');
     const slant = Math.hypot(R, H), circ = Math.PI*D, theta = circ/slant;
-    const { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, sw = p.swage||0, ND = _nd(p.nDiv, 12);
+    const { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, sw = p.swage||0, ND = _nd(p.nDiv, 12);
     const half = theta/2, loL = -(half + lapA/slant), hiL = half + lapB/slant, SRe = slant + sw;
     const pol = (s, phi) => [s*Math.sin(phi), -s*Math.cos(phi)];
     const prim = [], holes = [], ticks = [];
@@ -1984,7 +1996,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     [-1, 1].forEach(sgn => { const edge = sgn*half;
       prim.push({ style: 'fold', pts: [[0,0], pol(slant, edge)] });            // radial seam edge
       const start = p.holeEndGap, end = slant - p.holeEndGap, span = end - start, nH = _nH(span, p.holePitch);
-      for (let k = 0; k <= nH; k++) holes.push(pol(start + span*k/nH, edge));   // holes on the seam
+      for (let k = 0; k <= nH; k++) { const q = pol(start + span*k/nH, edge); holes.push([q[0] + ho*Math.cos(edge), q[1] + ho*Math.sin(edge)]); }   // holes on the seam, or ho along from it
     });
     for (let i = 0; i <= ND; i++) { const phi = -half + theta*i/ND;
       prim.push({ style: 'centre', pts: [pol(slant - 6, phi), pol(slant + 6, phi)] });
@@ -2059,14 +2071,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         `Lap ${p.lapTotal} mm (${p.lapTotal/2} each edge)   developed by triangulation`
       ],
       calc: { w, dpt, roundOD: 2*rTop, H, ox, oy },
-      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, lapA: _allow(p).lapA, lapB: _allow(p).lapB, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
+      b2, t2, swage: p.swage, lapEach: p.lapTotal/2, lapA: _allow(p).lapA, lapB: _allow(p).lapB, holeInset: p.holeInset, holePitch: _hp(p.holePitch), holeEndGap: p.holeEndGap
     });
   }
 
   // ---- elbow: 2-piece / N-piece mitred (parallel line) ----
   function elbow(p) {
     const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
-    const r = cladOD/2, circ = Math.PI*cladOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2;
+    const r = cladOD/2, circ = Math.PI*cladOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2;
     const pieces = p.pieces || 2;
     const alpha = (p.bendDeg * Math.PI/180) / (2*(pieces-1));   // mitre half-angle per joint
     const A = r * Math.tan(alpha), minLen = p.minLen != null ? p.minLen : 25;
@@ -2093,7 +2105,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (swE > 0) prim.push({ style: 'swage', pts: topT, note: (W ? sexE + ' ' : '') + 'SWAGE ' + swE });
     prim.push({ style: 'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style: 'fold', pts: [[xf,0],[xf, yTop(phiAt(xf)) + swE]] }));
-    [0, circ].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
+    [ho, circ + ho].forEach(xl => { const h = yTop(phiAt(xl)), top = h - p.holeEndGap, bot = p.holeEndGap, span = top - bot; const nH = _nH(span, p.holePitch); for (let k=0;k<=nH;k++) holes.push([xl, bot + span*k/nH]); });
     for (let k=0;k<=ND;k++){ const x=k*circ/ND, h=yTop(phiAt(x)); prim.push({style:'ord',pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     return { kind:'elbow', title:`${p.bendDeg}° Mitred Elbow  -  1:1 Template`,
       meta:[ (p.insulation||0)===0
@@ -2168,7 +2180,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const majorArc = r * (2 * Math.PI - 2 * phi0);      // the round part that survives
     const girth    = majorArc + flatLen;                // developed length of the D-section
     const fullCirc = Math.PI * D;                        // plain round wrap, for reference
-    const { lapA, lapB } = _allow(p), lapEach = (lapA + lapB) / 2;
+    const { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB) / 2;
     const pieces   = p.pieces || 2;
     const alpha    = (p.bendDeg * Math.PI / 180) / (2 * (pieces - 1));   // mitre half-angle
     const Am       = r * Math.tan(alpha);               // mitre wave amplitude
@@ -2208,7 +2220,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
     [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, 0], [xs, topAt(xs) + swE]] }));   // seam edges
     [foldA, foldB].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, topAt(xf)]] }));        // crease folds of the flat
-    [0, girth].forEach(xl => { const h = topAt(xl), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
+    [ho, girth + ho].forEach(xl => { const h = topAt(xl), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
     for (let k = 0; k <= ND; k++) { const x = k * girth / ND, h = topAt(x); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
 
     const rnd = v => Math.round(v), where = orient;
@@ -2254,7 +2266,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const C = p.centreRadius * g + (p.jointAllow || 0);   // half-gore mean length
     if (C - A < 5) throw new Error('Centre radius ' + p.centreRadius + ' mm is inside the cladding radius '
       + r.toFixed(0) + ' mm - the throat pinches out. Use a bigger radius or more segments.');   // see _lobGore
-    const { lapA, lapB } = _allow(p), lapEach = (lapA + lapB) / 2;
+    const { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB) / 2;
     const ND = _nd(p.nDiv, 12);
     const mid = (kind === 'mid');
     // flat on the back (default), throat or side; seam/fastener line on the
@@ -2284,14 +2296,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       prim.push({ style: 'centre', pts: [[xLo, 0], [xHi, 0]] });
       [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, -topAt(xs)], [xs, topAt(xs)]] }));    // seam edges
       [foldA, foldB].forEach(xf => prim.push({ style: 'fold', pts: [[xf, -topAt(xf)], [xf, topAt(xf)]] })); // crease folds
-      [0, girth].forEach(xl => { const h = topAt(xl) - p.holeEndGap, span = 2 * h; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, -h + span * k / nH]); });
+      [ho, girth + ho].forEach(xl => { const h = topAt(xl) - p.holeEndGap, span = 2 * h; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, -h + span * k / nH]); });
       for (let k = 0; k <= ND; k++) { const x = k * girth / ND, h = topAt(x); prim.push({ style: 'ord', pts: [[x, -h], [x, h]] }); ticks.push({ x, y: h, label: (2 * h).toFixed(0) }); }
     } else {
       prim.push({ style: 'cut', pts: [[xLo, 0]].concat(pts, [[xHi, 0]], [[xLo, 0]]) });
       prim.push({ style: 'fold', pts: [[xLo, 0], [xHi, 0]] });   // flat flange edge (butts the straight pipe)
       [0, girth].forEach(xs => prim.push({ style: 'fold', pts: [[xs, 0], [xs, topAt(xs)]] }));
       [foldA, foldB].forEach(xf => prim.push({ style: 'fold', pts: [[xf, 0], [xf, topAt(xf)]] }));
-      [0, girth].forEach(xl => { const h = topAt(xl), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
+      [ho, girth + ho].forEach(xl => { const h = topAt(xl), t = h - p.holeEndGap, b = p.holeEndGap, span = t - b; const nH = _nH(span, p.holePitch); for (let k = 0; k <= nH; k++) holes.push([xl, b + span * k / nH]); });
       for (let k = 0; k <= ND; k++) { const x = k * girth / ND, h = topAt(x); prim.push({ style: 'ord', pts: [[x, 0], [x, h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
     }
 
@@ -2342,7 +2354,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const th = Math.PI/2;                                   // radial (perpendicular) into the bend tube
     const tInt = phi => Math.sqrt(Math.max(R*R - r*r*Math.sin(phi)*Math.sin(phi), 0));
 
-    const circ = Math.PI * tOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, L = p.minLen != null ? p.minLen : 200;
+    const circ = Math.PI * tOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, L = p.minLen != null ? p.minLen : 200;
     const JA = p.jointAllow || 0, ND = _nd(p.nDiv, 12);
     const seamRad = (p.seamFromThroat == null ? 0 : p.seamFromThroat) * Math.PI/180;
     // phi=0 (point 1) sits on the crown line - shortest cut; sides wrap furthest onto the bend.
@@ -2359,7 +2371,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({ style:'cut', pts: [[xLo,0]].concat(top, [[xHi,0]], [[xLo,0]]) });
     prim.push({ style:'centre', pts: [[xLo,0],[xHi,0]] });
     [0, circ].forEach(xf => prim.push({ style:'fold', pts: [[xf,0],[xf, yb(phiAt(xf))]] }));
-    [0, circ].forEach(xl => { const h = yb(phiAt(xl)), tp = h - p.holeEndGap, b = p.holeEndGap, span = tp - b;
+    [ho, circ + ho].forEach(xl => { const h = yb(phiAt(xl)), tp = h - p.holeEndGap, b = p.holeEndGap, span = tp - b;
       const nH = _nH(span, p.holePitch);
       for (let k = 0; k <= nH; k++) holes.push([xl, b + span*k/nH]); });
     for (let k = 0; k <= ND; k++) { const x = k*circ/ND, h = yb(phiAt(x)); prim.push({ style:'ord', pts: [[x,0],[x,h]] }); ticks.push({ x, y: h, label: h.toFixed(0) }); }
@@ -2396,7 +2408,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // branch pattern (Inclined Tee / Trunnion / Tee Reducer)
   function branchOnCylinder(p) {
     const g = _branchGeom(p), R = g.R, r = g.r, th = g.th, tInt = g.tInt;
-    const circ = Math.PI*g.brOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2, minLen = p.minLen != null ? p.minLen : 30;
+    const circ = Math.PI*g.brOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2, minLen = p.minLen != null ? p.minLen : 30;
     const ND = _nd(p.nDiv, 12), seamRad = (p.seamFromThroat||0)*Math.PI/180;
     let tmax = -1e9, tmin = 1e9;   // see trunbend: sweep both ends, the saddle is not seam-relative
     for (let i=0;i<=360;i++){ const t=tInt(seamRad + 2*Math.PI*i/360); if(t>tmax)tmax=t; if(t<tmin)tmin=t; }
@@ -2453,7 +2465,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     }
     prim.push({style:'centre', pts:[[xLo,0],[xHi,0]]});
     [0,circ].forEach(xf=>prim.push({style:'fold', pts:[[xf,0],[xf,flAt(xf)]]}));
-    [0, circ].forEach(xl=>{ const h=yb(phiAt(xl)),top=h-p.holeEndGap,b=p.holeEndGap,span=top-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
+    [ho, circ + ho].forEach(xl=>{ const h=yb(phiAt(xl)),top=h-p.holeEndGap,b=p.holeEndGap,span=top-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
     for(let k=0;k<=ND;k++){ const x=k*circ/ND, h=yb(phiAt(x)); prim.push({style:'ord', pts:[[x,0],[x,h]]}); ticks.push({x,y:h,label:h.toFixed(0)}); }
     const names={inctee:'Inclined Tee',trunnion:'Trunnion',teereducer:'Tee Reducer'};
     return { kind:p.mode||'branch', title:(names[p.mode]||'Branch')+'  -  1:1 Template',
@@ -2728,7 +2740,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // Middle piece = cylinder cut by two mirrored planes -> lobster-segment wave.
   function swanNeck(p) {
     const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
-    const r = cladOD/2, circ = Math.PI*cladOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2;
+    const r = cladOD/2, circ = Math.PI*cladOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2;
     const S = p.offset, d = p.middleLen;
     if (!(d > S)) throw new Error('Middle length must be greater than the offset.');
     const alpha = Math.asin(S/d);                 // tilt of middle piece
@@ -2743,7 +2755,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     prim.push({style:'cut', pts: top.concat([[xHi,-hAt(phiAt(xHi))]], bot.slice().reverse(), [top[0]])});
     prim.push({style:'centre', pts:[[xLo,0],[xHi,0]]});
     [0,circ].forEach(xf=>{ const h=hAt(phiAt(xf)); prim.push({style:'fold', pts:[[xf,-h],[xf,h]]}); });
-    [0,circ].forEach(xl=>{ const h=hAt(phiAt(xl)), tp=h-p.holeEndGap, b=-(h-p.holeEndGap), span=tp-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
+    [ho, circ + ho].forEach(xl=>{ const h=hAt(phiAt(xl)), tp=h-p.holeEndGap, b=-(h-p.holeEndGap), span=tp-b; const nH=_nH(span, p.holePitch); for(let k=0;k<=nH;k++) holes.push([xl,b+span*k/nH]); });
     for(let k=0;k<=ND;k++){ const x=k*circ/ND, h=hAt(phiAt(x)); prim.push({style:'ord', pts:[[x,-h],[x,h]]}); ticks.push({x,y:h,label:(2*h).toFixed(0)}); }
     return { kind:'swanneck', title:'Offset (Swan Neck)  -  Middle Piece 1:1',
       meta:[`Bare pipe ${p.pipeOD} + insulation ${p.insulation} = cladding ${cladOD.toFixed(0)} mm OD`,
@@ -2762,7 +2774,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // twist: bend 2's plane rolled about the pipe axis, -90..+90 deg.
   function bendOnBend(p) {
     const cladOD = _od(p.pipeOD, p.insulation, p.cladGap, 'the pipe size');
-    const r = cladOD/2, circ = Math.PI*cladOD, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB)/2;
+    const r = cladOD/2, circ = Math.PI*cladOD, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB)/2;
     /* _lobGore rounds and floors its segment count; this did not, so 0 segments
        made every ordinate NaN and the sheet still built (review #4, 12 Sep 26). */
     const n1 = Math.max(1, Math.round(+p.segments1 || 0)), n2 = Math.max(1, Math.round(+p.segments2 || 0));
@@ -2784,8 +2796,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     for (let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, th=phiAt(x); top.push([x,yT(th)]); bot.push([x,yB(th)]); }
     prim.push({ style:'cut', pts: top.concat([[xHi, yB(phiAt(xHi))]], bot.slice().reverse(), [top[0]]) });
     prim.push({ style:'centre', pts: [[xLo, L0/2],[xHi, L0/2]] });
+    /* the swage lines, one inside each cut (Craig, 24 Oct 26: 'on the double bends the print
+       doesn't show the swage line'). Both edges mate a gore, so both are swaged; the same
+       figure each end here, as the twister's two joints are not told apart by position. */
+    const JAd = p.jointAllow || 0;
+    if (JAd > 0) { const st=[], sb=[];
+      for (let i=0;i<=steps;i++){ const x=xLo+(xHi-xLo)*i/steps, th=phiAt(x); st.push([x, yT(th)-JAd]); sb.push([x, yB(th)+JAd]); }
+      prim.push({ style:'swage', pts: st, note:'SWAGE '+JAd }); prim.push({ style:'swage', pts: sb, note:'SWAGE '+JAd }); }
     [0, circ].forEach(xf => { const th=phiAt(xf); prim.push({ style:'fold', pts: [[xf, yB(th)],[xf, yT(th)]] }); });
-    [0, circ].forEach(xl => { const th=phiAt(xl), b=yB(th)+p.holeEndGap, t=yT(th)-p.holeEndGap, span=t-b;
+    [ho, circ + ho].forEach(xl => { const th=phiAt(xl), b=yB(th)+p.holeEndGap, t=yT(th)-p.holeEndGap, span=t-b;
       const nH=_nH(span, p.holePitch);
       for (let k=0;k<=nH;k++) holes.push([xl, b + span*k/nH]); });
     const ND = _nd(p.nDiv, 12);
@@ -3997,7 +4016,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   // radials A:C carry the simple edge, chords and arcs are bare.
   function tankTopKit(p) {
     const bD = p.baseDia, tD = p.topDia, H = p.height, N = Math.max(4, Math.round(p.segments));
-    const edge = p.edge || 0, { lapA, lapB } = _allow(p), lapEach = (lapA + lapB) / 2;
+    const edge = p.edge || 0, { lapA, lapB, ho } = _allow(p), lapEach = (lapA + lapB) / 2;
     const hp = p.holePitch || 60, eg = p.holeEndGap || 20;
     if (!(bD > 0 && tD > 0 && H > 0)) throw new Error('Base, top and height must all be positive.');
     if (tD >= bD) throw new Error('The top opening must be smaller than the base diameter.');
@@ -4915,7 +4934,7 @@ const INCH_PAGE=p=>p==='letter'||p==='legal'||p==='tabloid';
 let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:LOCALE_PAGE, swage:3, flange:15, nDiv:12, detail:false,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model', sizeMode:'pipeins',
   lockform:25, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10, shade3d:'solid',
-  lapA:null, lapB:null, swageM:null, swageF:null, dxfHoles:'circle', dxfHoleDia:4, dxfKerf:0 }, store.get('cm_settings',{}));
+  lapA:null, lapB:null, swageM:null, swageF:null, holeInset:null, dxfHoles:'circle', dxfHoleDia:4, dxfKerf:0 }, store.get('cm_settings',{}));
 function saveSet(){ store.set('cm_settings',SET); }
 /* Per-edge figures (24 Oct 26, Graeme Bell's 19/11): the two seam edges each
    take their own lap, the male and female edges of a swaged joint their own
@@ -4929,7 +4948,7 @@ SET.lapTotal=(+SET.lapA)+(+SET.lapB); SET.swage=+SET.swageM;
    Settings form clamps against it as you type; a restored backup is clamped
    against it on the way in, falling back to the value it is replacing when
    the file holds junk (review 12 Sep 26, #48). */
-const SET_LIMITS={ insulation:[0,500], lapTotal:[0,200], holePitch:[5,500], swage:[0,50], lapA:[0,200], lapB:[0,200], swageM:[0,50], swageF:[0,50], dxfHoleDia:[1,50], dxfKerf:[0,10], flange:[0,100], sheetW:[200,5000], sheetH:[200,5000] };
+const SET_LIMITS={ insulation:[0,500], lapTotal:[0,200], holePitch:[5,500], swage:[0,50], lapA:[0,200], lapB:[0,200], swageM:[0,50], swageF:[0,50], dxfHoleDia:[1,50], dxfKerf:[0,10], holeInset:[0,400], flange:[0,100], sheetW:[200,5000], sheetH:[200,5000] };
 function clampSet(prev){ for(const k in SET_LIMITS){ const [lo,hi]=SET_LIMITS[k], v=parseFloat(SET[k]);
   SET[k]=isFinite(v)?Math.min(hi,Math.max(lo,v)):(prev||SET)[k]; } }
 /* Canvas = how the DRAWINGS are shown: model space (AutoCAD layer colours
@@ -5253,34 +5272,34 @@ const F={
  lobster:{name:'Lobster Back',sub:'Segmented bend',icon:I.lob,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,centreRadius:229,_xd:1.5,bendDeg:90,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)',0.1),num('segments','Segments'),{type:'abcd',k:'bendHand',label:'Bend type — where it sits'},FAST],
-  build:s=>FP.lobster({...s,gore:'mid',jointAllow:SET.swage,watershed:s.bendHand||'A'}),
+  build:s=>FP.lobster({...s,gore:'mid',jointAllow:(s.swageMale!=null?+s.swageMale:SET.swage),watershed:s.bendHand||'A'}),
   /* A lobster bend is TWO patterns, not one: the half-height starter/finisher
      that butts the straight pipe (cut 2) and the wavy middle gore (cut N-1).
      The engine has always made both - the tile only ever offered the middle
      one, so the ends had to be guessed at. Craig, 10 Sep. */
-  kit:s=>FP.lobsterKit({...s,jointAllow:SET.swage,watershed:s.bendHand||'A'}),
+  kit:s=>FP.lobsterKit({...s,jointAllow:(s.swageMale!=null?+s.swageMale:SET.swage),watershed:s.bendHand||'A'}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Middle gore — cut '+c.nMid],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.g.toFixed(2)+'°','o12 '+c.o12.join(','),'Middle gore — cut '+c.nMid],
   note:'Two patterns make the bend: the STARTER / FINISHER gore (half height, flat edge butts the straight pipe, cut 2 off) and the MIDDLE gore (wavy both edges, cut N-1). Show all kit pieces to see both, or Generate to print the set. Holes sit on the dashed seam line so the rolled piece comes out at the exact diameter.'},
  elbow:{name:'Mitred Elbow',sub:'2-piece',icon:I.elbow,free:true,
   defaults:{bendHand:'A',pipeOD:168.3,insulation:25,bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),{type:'abcd',k:'bendHand',label:'Bend type — where it sits'},{type:'seam',k:'seamFromThroat',label:'Fastener / seam position'}],
-  build:s=>FP.elbow({...s,pieces:2,swage:SET.swage,watershed:s.bendHand||'A'}),
-  kit:s=>FP.elbowKit({...s,pieces:2,swage:SET.swage,watershed:s.bendHand||'A'}),   // bottom + top piece, each marked face out
+  build:s=>FP.elbow({...s,pieces:2,swage:(s.swageMale!=null?+s.swageMale:SET.swage),watershed:s.bendHand||'A'}),
+  kit:s=>FP.elbowKit({...s,pieces:2,swage:(s.swageMale!=null?+s.swageMale:SET.swage),watershed:s.bendHand||'A'}),   // bottom + top piece, each marked face out
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Circ '+c.circ.toFixed(0),'Cut 2 off'],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Mitre '+c.alpha.toFixed(1)+'°','Cut 2 off']},
  flatelbow:{name:'Flat-sided Elbow',sub:'D-section · 2-piece',icon:I.elbow,
   defaults:{pipeOD:168.3,insulation:25,recessDepth:40,recessAt:'back',bendDeg:90,pieces:2,lapTotal:50,holePitch:50,holeEndGap:20,minLen:25,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),num('bendDeg','Bend angle (°)',0.1),num('minLen','Min piece length (mm)'),FAST],
-  build:s=>FP.flatElbow({...s,pieces:2,swage:SET.swage}),
+  build:s=>FP.flatElbow({...s,pieces:2,swage:(s.swageMale!=null?+s.swageMale:SET.swage)}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Recess '+c.recessDepth.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   note:'A round elbow with one face pressed flat (recess on the back). Generate prints the full 1:1 D-section wrap - the round part keeps the mitre wave, the flat develops to a straight-topped panel between the two dashed crease folds. Roll the seam edges onto the round part. CUT 2 OFF.'},
  flatlobster:{name:'Flat-sided Bend',sub:'D-section · segmented',icon:I.lob,
   defaults:{pipeOD:168.3,insulation:25,recessDepth:40,recessAt:'back',centreRadius:229,bendDeg:90,segments:4,jointAllow:3,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('recessDepth','Recess depth (mm)'),sego('recessAt','Recess on',[{v:'back',label:'Back / top'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),{type:'crad',k:'centreRadius',label:'Centre radius'},num('bendDeg','Bend angle (°)',0.1),num('segments','Segments'),FAST],
-  build:s=>FP.flatLobster({...s,gore:'mid',jointAllow:SET.swage}),
-  kit:s=>FP.flatLobsterKit({...s,jointAllow:SET.swage}),
+  build:s=>FP.flatLobster({...s,gore:'mid',jointAllow:(s.swageMale!=null?+s.swageMale:SET.swage)}),
+  kit:s=>FP.flatLobsterKit({...s,jointAllow:(s.swageMale!=null?+s.swageMale:SET.swage)}),
   mini:c=>['Ø '+c.cladOD.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   stats:c=>['Clad Ø'+c.cladOD.toFixed(0),'Recess '+c.recessDepth.toFixed(0),'Flat '+c.flatLen.toFixed(0),'Girth '+c.girth.toFixed(0)],
   note:'A lobster-back bend with one face pressed flat on the back. Generate prints the full 1:1 D-section gores - the round part keeps the segment wave, the flat develops to a level panel between two crease folds. Middle gore is wavy both edges (cut N-1); the starter/finisher gore butts the straight pipe (cut 2). The flat runs along the back of the whole bend.'},
@@ -5299,8 +5318,8 @@ const F={
        swings bend 2 round, the wheel puts the fastener anywhere, the pane spins. */
     Object.assign(num('twist','Twist (°) · ± flips'),{neg:1,onpv:1}),
     {type:'seam',k:'seamFromThroat',label:'Fastener / seam position',noHand:true}],
-  build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage}),
-  kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:SET.swage});
+  build:s=>FP.bendOnBend({...s,direction:dirOf(s),jointAllow:(s.swageMale!=null?+s.swageMale:SET.swage)}),
+  kit:s=>{ const shared=FP.bendOnBend({...s,direction:dirOf(s),jointAllow:(s.swageMale!=null?+s.swageMale:SET.swage)});
     // seams: bend-1 gores measure from bend 1's throat; end-bend gores must measure
     // from BEND 2's OWN throat, which is rolled round by direction + twist.
     const hand=s.bendHand==='B'||s.bendHand==='C';
@@ -5308,7 +5327,7 @@ const F={
     const twistE=hand?-(s.twist||0):(s.twist||0);
     const th2=(dirOf(s)==='same'?0:180)+twistE;
     const seam2=(((seamE-th2)%360)+360)%360;
-    const gore=(n,cr,deg,g,seamDeg,tag,extra)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:SET.swage,swageMale:SET.swageM,swageFemale:SET.swageF,lapTotal:s.lapTotal,lapA:s.lapA,lapB:s.lapB,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:seamDeg,bendHand:'A',gore:g});
+    const gore=(n,cr,deg,g,seamDeg,tag,extra)=>{ const p=FP.lobster({pipeOD:s.pipeOD,insulation:s.insulation,centreRadius:cr,bendDeg:deg,segments:n,jointAllow:(s.swageMale!=null?+s.swageMale:SET.swage),swageMale:s.swageMale,swageFemale:s.swageFemale,lapTotal:s.lapTotal,lapA:s.lapA,lapB:s.lapB,holeInset:s.holeInset,holePitch:s.holePitch,holeEndGap:s.holeEndGap,nDiv:s.nDiv,seamFromThroat:seamDeg,bendHand:'A',gore:g});
       p.title='Double Bend - '+tag+' 1:1'; p.meta.push(extra); return p; };
     const out=[];
     // 1) FIRST BEND: starter + middles
@@ -5380,7 +5399,7 @@ const F={
  witcheshat:{name:'Witches Hat',sub:'Cone to a point',icon:I.cone,
   defaults:{pipeOD:400,insulation:25,height:400,swage:3,lapTotal:40,holePitch:60,holeEndGap:20,nDiv:12},
   fields:[pipe('pipeOD','Base diameter'),num('insulation','Insulation (mm)'),num('height','Height (mm)')],
-  build:s=>FP.witchesHat(Object.assign({},s,{swage:SET.swage})),
+  build:s=>FP.witchesHat(Object.assign({},s,{swage:(s.swageMale!=null?+s.swageMale:SET.swage)})),
   mini:c=>['Base Ø '+c.cladOD.toFixed(0),'Slant '+c.slant.toFixed(0),'Sector '+c.theta.toFixed(0)+'°'],
   stats:c=>['Base Ø'+c.cladOD.toFixed(0),'Slant '+c.slant.toFixed(0),'Sector '+c.theta.toFixed(0)+'°','Loss '+c.loss.toFixed(0)],
   note:'A full cone to a point - the classic witches hat. Generate prints the single sector: roll it and seam the two straight edges. Slant is the sector radius; loss is the waste wedge cut from a full circle.'},
@@ -5609,7 +5628,7 @@ F.hemidome={name:'Hemispherical Dome',sub:'Half-ball · gores',icon:I.hemi,
    no lapTotal default so they are left alone. */
 Object.keys(F).forEach(k=>{ const f=F[k];
   if(f && f.defaults && f.defaults.lapTotal!=null && Array.isArray(f.fields) && !f.fields.some(x=>x.k==='lapTotal'))
-    f.fields=f.fields.concat([num('lapTotal','Lap (mm)')]);
+    f.fields=f.fields.concat([{type:'allow'}]);
 });
 function capParams(s){ const D=+s.capPipe+2*(+s.insulation||0);
   return {dia:D, style:s.capStyle||'flat', wsAngle:SET.wsAngle, slotFlange:SET.slotFlange,
@@ -5682,7 +5701,11 @@ function simplifyDouble(s){
   return s; }
 const states={};
 function freshState(k){ const s=Object.assign({},F[k].defaults);
-  ['insulation','lapTotal','holePitch'].forEach(key=>{ if(key in s && SET[key]!=null) s[key]=SET[key]; }); return s; }
+  ['insulation','lapTotal','holePitch'].forEach(key=>{ if(key in s && SET[key]!=null) s[key]=SET[key]; });
+  /* the Allowances card (24 Oct 26): every fitting with a seam lap starts from the shop defaults and keeps its own copy */
+  if('lapTotal' in s){ s.lapA=+SET.lapA||0; s.lapB=+SET.lapB||0; s.lapTotal=s.lapA+s.lapB; s.swageMale=+SET.swageM||0; s.swageFemale=+SET.swageF||0;
+    s.holeInset=(SET.holeInset==null||SET.holeInset==='')?null:+SET.holeInset; }
+  return s; }
 ORDER.forEach(k=>states[k]=freshState(k));
 function isFree(k){ return !!F[k].free; }
 function unlocked(k){ return PRO || isFree(k); }
@@ -8630,7 +8653,31 @@ function placeSeamWheel(){
   if(!_wheelHook){ _wheelHook=1; addEventListener('resize',()=>placeSeamWheel()); }
 }
 
+/* The Allowances card: lap per seam edge, swage per joint edge, the hole line - on the
+   fitting itself, so the day's job is changed on the spot and Settings only holds the
+   defaults (Craig, 24 Oct 26). A job that was saved before the card carries no lapA;
+   the boxes fall back to the figures it did carry. */
+function allowSummary(s){ const ins=(s.holeInset==null||s.holeInset==='')?'on the seam':s.holeInset+' in from A';
+  return `Lap ${+s.lapA||0}/${+s.lapB||0} · swage ${+s.swageMale||0}/${+s.swageFemale||0} · holes ${+s.holePitch||0} pitch, ${ins}`; }
+function allowHTML(s){
+  const lapA=s.lapA!=null?s.lapA:(+s.lapTotal||0)/2, lapB=s.lapB!=null?s.lapB:(+s.lapTotal||0)/2;
+  const swM=s.swageMale!=null?s.swageMale:SET.swageM, swF=s.swageFemale!=null?s.swageFemale:SET.swageF;
+  const hp=s.holePitch!=null?s.holePitch:SET.holePitch, hg=s.holeEndGap!=null?s.holeEndGap:20, hi=(s.holeInset==null||s.holeInset==='')?'':s.holeInset;
+  const inp=(k,v,extra='')=>`<input type="number" inputmode="decimal" data-k="${k}" value="${v}" step="1" ${extra}>`;
+  return `<details class="allow"${s.__allowOpen?' open':''}><summary><span>Allowances</span><span class="n" data-allowsum>${allowSummary(Object.assign({},s,{lapA,lapB,swageMale:swM,swageFemale:swF,holePitch:hp}))}</span></summary>
+    <div class="grid2">
+      <div class="fld"><label>Lap, edge A (mm)</label>${inp('lapA',lapA)}</div>
+      <div class="fld"><label>Lap, edge B (mm)</label>${inp('lapB',lapB)}</div>
+      <div class="fld"><label>Swage, male (mm)</label>${inp('swageMale',swM)}</div>
+      <div class="fld"><label>Swage, female (mm)</label>${inp('swageFemale',swF)}</div>
+      <div class="fld"><label>Hole pitch (mm)</label>${inp('holePitch',hp)}</div>
+      <div class="fld"><label>Hole end gap (mm)</label>${inp('holeEndGap',hg)}</div>
+      <div class="fld full"><label>Hole line, in from edge A (mm)</label>${inp('holeInset',hi,`data-opt="1" placeholder="blank = on the seam (${lapA} in)"`)}</div>
+    </div>
+    <div class="hint" style="text-align:left;margin-top:6px">This fitting only. Lap total <b data-laptot>${(+lapA||0)+(+lapB||0)}</b> mm. A swaged joint's male edge takes the first swage figure, the female the second; type the hole line as 10 and the other edge's line lands ${(+lapA||0)+(+lapB||0)-10} in, so the holes meet.</div>
+    <button type="button" class="btn ghost" data-allowsave style="margin-top:8px">Save as my defaults</button></details>`; }
 function fieldHTML(f,s,after){
+  if(f.type==='allow') return allowHTML(s);
   if(f.type==='hd') return `<div class="fhd">${f.label}${f.sub?`<span class="n">${f.sub}</span>`:''}</div>`;
   if(f.type==='num'){ const inp=`<input type="number" inputmode="decimal" data-k="${f.k}" value="${s[f.k]}" step="${f.step||1}">`;
     if(f.neg) return `<label>${f.label}</label><div class="negrow">${inp}<button type="button" class="negbtn" data-negk="${f.k}" title="Flip direction">±</button></div>`;
@@ -8774,7 +8821,7 @@ function form(kind, presetParams){
   html+=fit.fields.filter(f=>f.type!=='seam'&&f.type!=='abcd').filter(f=>!f.onpv).filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
     const full=(f.type!=='num'&&f.type!=='pipe');
     return `<div class="fld${full?' full':''}">${fieldHTML(f,s)}</div>`; }).join('');
-  html+=`</div><div class="hint" style="margin-top:8px">Swage ${SET.swageM}/${SET.swageF} · lap ${SET.lapA}+${SET.lapB} · hole pitch ${SET.holePitch} · ${SET.nDiv||12} ordinates · ${(SET.page||'a3').toUpperCase()} — change in Settings</div></div>`;
+  html+=`</div></div>`;
   const hand2Html='';   // bend 2's hand lives on the drawing now - see pvCtlHtml
   /* the old 2D schematic under the form: gone wherever the fitting has a 3D
      view - the live 3D shows the same thing, bigger (Craig, 11 Sep 26) */
@@ -8837,6 +8884,11 @@ function form(kind, presetParams){
 
   app.querySelectorAll('[data-pipe]').forEach(sel=>sel.onchange=()=>{ touch(); app.querySelector(`[data-cuswrap="${sel.dataset.pipe}"]`).classList.toggle('hide',sel.value!=='custom'); if(cradFields.some(f=>crPipeK(f)===sel.dataset.pipe)){ readAll(); rebuildCr(); } refresh(); });
   app.querySelectorAll('input').forEach(i=>i.oninput=()=>{ touch(); refreshSoon(); });
+  app.querySelectorAll('details.allow').forEach(d=>d.ontoggle=()=>{ s.__allowOpen=d.open; });
+  app.querySelectorAll('[data-allowsave]').forEach(b=>b.onclick=()=>{ readAll();
+    SET.lapA=+s.lapA||0; SET.lapB=+s.lapB||0; SET.lapTotal=SET.lapA+SET.lapB; SET.swageM=+s.swageMale||0; SET.swageF=+s.swageFemale||0; SET.swage=SET.swageM;
+    if(+s.holePitch>0) SET.holePitch=+s.holePitch; SET.holeInset=(s.holeInset==null||s.holeInset==='')?null:+s.holeInset; saveSet();
+    ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); }); toast('Saved as your defaults for every fitting.'); });
   app.querySelectorAll('[data-negk]').forEach(b=>b.onclick=()=>{ touch();
     const inp=app.querySelector(`[data-k="${b.dataset.negk}"]`); if(!inp) return;
     const v=parseFloat(inp.value), nv=isNaN(v)?0:-v; s[b.dataset.negk]=nv; inp.value=nv; refresh(); });
@@ -9033,7 +9085,7 @@ function form(kind, presetParams){
       if(e.closest('.hide')) return;                       // collapsed custom boxes do not count
       const raw=(e.value||'').trim(), v=parseFloat(raw), empty=(raw===''||isNaN(v));
       e.classList.toggle('bad',empty);
-      if(empty){ blanks.push(labelOf(e)); } else s[e.dataset.k]=v; });
+      if(empty){ if(e.dataset.opt){ s[e.dataset.k]=null; e.classList.remove('bad'); return; } blanks.push(labelOf(e)); } else s[e.dataset.k]=v; });
     fit.fields.filter(f=>f.type==='pipe').forEach(f=>{ const sel=app.querySelector(`[data-pipe="${f.k}"]`); if(!sel)return;
       if(sel.value==='custom'){ const c=app.querySelector(`[data-cus="${f.k}"]`); const v=parseFloat(c.value);
         const empty=isNaN(v); c.classList.toggle('bad',empty);
@@ -9075,15 +9127,25 @@ function form(kind, presetParams){
     // NOTE: box 'lap' is its OWN per-box field (a valve-box lap is not the
     // pipe seam-lap) - it must NOT be overwritten from SET.lapTotal.
     const own=k2=>fit.fields.some(f2=>f2.k===k2);   // a visible field beats the Settings default
-    if('lapTotal' in s && !own('lapTotal')) s.lapTotal=SET.lapTotal;
-    /* the two seam edges and the two joint edges take their own figures (24 Oct
-       26). A fitting's own Lap box is the TOTAL, split in the proportion
-       Settings holds (30/20 there and a 60 lap here is 36/24). */
-    if('lapTotal' in s){ const t=+s.lapTotal||0, ta=(+SET.lapA||0)+(+SET.lapB||0); const a=ta>0?Math.round(t*(+SET.lapA)/ta*2)/2:t/2; s.lapA=a; s.lapB=t-a; }
-    s.swageMale=+SET.swageM||0; s.swageFemale=+SET.swageF||0;
-    if('holePitch' in s && !own('holePitch')) s.holePitch=SET.holePitch;
-    if('swage' in s && !own('swage')) s.swage=SET.swage;
-    if('jointAllow' in s && !own('jointAllow')) s.jointAllow=SET.swage;
+    const hasAllow=fit.fields.some(f2=>f2.type==='allow');
+    if(hasAllow){
+      /* the Allowances card on this form holds the figures (24 Oct 26): its two laps make the
+         total, its male swage is the single figure the un-sexed fittings read */
+      s.lapTotal=(+s.lapA||0)+(+s.lapB||0);
+      if('swage' in s) s.swage=+s.swageMale||0;
+      if('jointAllow' in s) s.jointAllow=+s.swageMale||0;
+      const sum=app.querySelector('[data-allowsum]'); if(sum) sum.textContent=allowSummary(s);
+      const lt=app.querySelector('[data-laptot]'); if(lt) lt.textContent=s.lapTotal;
+    } else {
+      if('lapTotal' in s && !own('lapTotal')) s.lapTotal=SET.lapTotal;
+      // no card (the boxes, the dome): the shop defaults, the Lap box split in their proportion
+      if('lapTotal' in s){ const t=+s.lapTotal||0, ta=(+SET.lapA||0)+(+SET.lapB||0); const a=ta>0?Math.round(t*(+SET.lapA)/ta*2)/2:t/2; s.lapA=a; s.lapB=t-a; }
+      s.swageMale=+SET.swageM||0; s.swageFemale=+SET.swageF||0;
+      s.holeInset=(SET.holeInset==null||SET.holeInset==='')?null:+SET.holeInset;   // null = on the seam
+      if('holePitch' in s && !own('holePitch')) s.holePitch=SET.holePitch;
+      if('swage' in s && !own('swage')) s.swage=SET.swage;
+      if('jointAllow' in s && !own('jointAllow')) s.jointAllow=SET.swage;
+    }
     if('nDiv' in s && !own('nDiv')) s.nDiv=SET.nDiv||12;
     if(kind==='inctee'||kind==='teereducer') s.flange=SET.flange;   // flat flange rollout from settings
     rebuildCr();   // Finished-Ø mode: radius multiples follow the typed Ø
@@ -9413,7 +9475,9 @@ function settingsPage(){
     <div><label>Swage, female (mm)</label><input type="number" id="sSwF" value="${SET.swageF}"></div></div>
     <div class="hint" style="text-align:left;margin-bottom:6px">The allowance added to each swaged edge at every bend, lobster and cone joint - the male edge takes the first figure, the female the second, so a crimped joint can run 19 over 11. The flat ends that meet the straight stay plain.</div>
     <div class="row"><div><label>Hole pitch (mm)</label><input type="number" id="sHole" value="${SET.holePitch}"></div>
-    <div><label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}"></div></div>
+    <div><label>Hole line, in from edge A (mm)</label><input type="number" id="sHoleIn" value="${SET.holeInset==null?'':SET.holeInset}" placeholder="${SET.lapA} (on the seam)"></div></div>
+    <div class="hint" style="text-align:left;margin-bottom:6px">Leave it blank and the holes sit on the seam, ${SET.lapA} in from edge A and ${SET.lapB} in from edge B. Type 10 and they sit 10 in from edge A and ${SET.lapTotal-10} in from edge B - the same holes, the same place once it is rolled.</div>
+    <label>Tee flat flange (mm)</label><input type="number" id="sFlange" value="${SET.flange}">
     <div class="hint" style="text-align:left">The tee flange is the flat lip rolled out on a branch saddle to rivet onto the main — used instead of a swage.</div></details>
    <details class="card"><summary style="font-weight:700;font-size:15px;cursor:pointer;padding:2px 0">Printing &amp; sheets</summary>
     <label>Paper</label><div class="seg" id="sPage">${['a3','a4','letter','legal','tabloid'].map(p=>`<button data-v="${p}" ${SET.page===p?'class="on"':''}>${{a3:'A3',a4:'A4',letter:'Letter',legal:'Legal',tabloid:'Tabloid'}[p]}</button>`).join('')}</div>
@@ -9432,7 +9496,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.72.0</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.73.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:10px;line-height:1.5">${BRAND.owner}${BRAND.company?' · company no. '+BRAND.company:''}${BRAND.office?'<br>'+BRAND.office:''}</div>
@@ -9461,6 +9525,7 @@ function settingsPage(){
     SET.swageM     = rdk('sSwM',   'swageM');
     SET.swageF     = rdk('sSwF',   'swageF');
     SET.swage      = SET.swageM;
+    { const hi=document.getElementById('sHoleIn'); const v=hi?hi.value.trim():''; SET.holeInset = v==='' ? null : Math.min(SET.lapTotal, Math.max(0, +v||0)); if(hi&&v!=='') hi.value=SET.holeInset; }
     SET.flange     = rdk('sFlange','flange');
     SET.sheetW     = rdk('sSW',    'sheetW');
     SET.sheetH     = rdk('sSH',    'sheetH');
@@ -9480,7 +9545,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.72.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.73.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
