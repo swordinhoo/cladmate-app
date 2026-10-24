@@ -1237,7 +1237,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.73.1</span>
+  <span class="ver">v4.74.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -7086,6 +7086,9 @@ const T3B={elbow:s=>t3place(t3elbow(s),s),lobster:s=>t3place(t3lobster(s),s),red
    is what the Swage per joint setting feeds. A transformer, a dome gore or a
    box fold does not, and drawing a bead on one would be inventing detail. */
 const SWAGEKIND={elbow:1,lobster:1,bendonbend:1};
+/* the fittings whose fastener holes run up the seam line of every gore (the engine puts them at
+   x = ho and x = circ + ho): the 3D draws those holes by the same rule (25 Oct 26) */
+const HOLE3=new Set(['lobster','elbow','flatelbow','flatlobster','bendonbend','swanneck','trunnion','teebend','inctee','teereducer','teeoncone','teedome','teetanktop','ybranch','reducer','oblique','flatback','anglecone','witcheshat','sqround','rectround','obliqueround','rasqround','oblxform']);
 function t3render(kind,s,w){
   const geo=T3B[kind](s);
   const vw=T3VIEW[kind]||(T3VIEW[kind]={az:0.85,el:0.32,un:0});
@@ -7581,7 +7584,7 @@ const T3GL = {
       ctx.group.add(o); ctx.lineObjs.push(o);
     };
 
-    const joints = [], seam = [], swage = [], ink = [], wire = [], pen = [];
+    const joints = [], seam = [], swage = [], ink = [], wire = [], pen = [], holes3 = [];
     st.pieces.forEach(({ G, p3, pF, NN, nb, bOff }) => {
       /* every line rides the metal, so it peels by exactly the rule the mesh
          peels by - band by band, over the same arc */
@@ -7641,6 +7644,34 @@ const T3GL = {
         for (const e of edges) for (let j = 0; j < nb; j++) push(seam, vert(j, 0, e), vert(j, 1, e));
       }
 
+      /* THE HOLES (Craig, 25 Oct 26: "be good if it actually showed you the holes aswell"). On
+         the seam line of every gore, from the Allowances card - pitch, end gap, and the hole
+         line's offset from the seam - placed by the rule the engine prints them with (_nH),
+         and riding the metal through the unwrap the way the ink does. */
+      if (HOLE3.has(st.kind) && !G.noseam && un < 0.98) {
+        const ss = st.s || {}, lapA = ss.lapA != null ? +ss.lapA : (+ss.lapTotal || 0) / 2, lapB = ss.lapB != null ? +ss.lapB : (+ss.lapTotal || 0) / 2;
+        const ins = (ss.holeInset != null && ss.holeInset !== '') ? Math.min(lapA + lapB, Math.max(0, +ss.holeInset)) : lapA;
+        const ho = ins - lapA, gap = +ss.holeEndGap || 20, pitch = Math.max(5, +ss.holePitch || 60);
+        const hr = Math.max(2.2 * K, st.SZ * 0.012);   // a 4.4 mm hole on a 300 mm bend is a pixel: drawn no smaller than the eye can find
+        const surf = (b, u, v) => { const uu = ((u % NN) + NN) % NN, i0 = Math.min(NN - 1, Math.floor(uu)), f = uu - i0;
+          const A0 = vert(b, 0, i0), A1 = vert(b, 0, i0 + 1), B0 = vert(b, 1, i0), B1 = vert(b, 1, i0 + 1);
+          return [0, 1, 2].map(c => (A0[c] + (A1[c] - A0[c]) * f) * (1 - v) + (B0[c] + (B1[c] - B0[c]) * f) * v); };
+        const d3 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+        const unit = (a, b) => { const d = d3(a, b) || 1; return [(b[0] - a[0]) / d, (b[1] - a[1]) / d, (b[2] - a[2]) / d]; };
+        for (let j = 0; j < nb; j++) {
+          const A = vert(j, 0, 0), B = vert(j, 1, 0), A1 = vert(j, 0, 1), B1 = vert(j, 1, 1);
+          const Lmm = d3(A, B) / K, facet = ((d3(A, A1) + d3(B, B1)) / 2) / K || 1, span = Lmm - 2 * gap;
+          if (!(span > 0)) continue;
+          const nH = Math.max(1, Math.min(400, Math.round(span / pitch))), u = ho / facet;
+          for (let k = 0; k <= nH; k++) {
+            const v = (gap + span * k / nH) / Lmm, P = surf(j, u, v);
+            const ta = unit(P, surf(j, u + 0.25, v)), tb = unit(P, surf(j, u, Math.min(1, v + 0.02)));
+            let prev = null;
+            for (let q = 0; q <= 8; q++) { const a = q / 8 * 2 * Math.PI; const pt = [0, 1, 2].map(c => P[c] + (ta[c] * Math.cos(a) + tb[c] * Math.sin(a)) * hr); if (prev) push(holes3, prev, pt); prev = pt; }
+          }
+        }
+      }
+
       // the swage on every segment of a bend, on the piece the next one laps
       // over - the same watershed rule the SVG renderer follows
       if (!XR && SWAGEKIND[st.kind] && (+SET.swage || 0) > 0 && un < 0.9) {
@@ -7685,10 +7716,12 @@ const T3GL = {
       add(pen, LY.object, 1, true);
       add(ink, LY.object, 1, true);
       add(seam, LY.centre, 1, true);
+      add(holes3, LY.hole || '#4cd964', 1, true);
     } else {
       add(joints, LY.object, 1);
       add(pen, LY.object, 1, true);            // the pen draws over the metal
       add(swage, '#ffffff', 0.8);
+      add(holes3, LY.hole || '#4cd964', 1);
       add(ink, LY.object, 0.95);
       add(seam, LY.centre, 1);
       /* the seam where it runs round the back: depth-tested away by the metal,
@@ -9498,7 +9531,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.73.1</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.74.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:10px;line-height:1.5">${BRAND.owner}${BRAND.company?' · company no. '+BRAND.company:''}${BRAND.office?'<br>'+BRAND.office:''}</div>
@@ -9547,7 +9580,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.73.1',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.74.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
