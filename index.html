@@ -1231,7 +1231,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <button class="back hide" id="backBtn">‹ Back</button>
   <div class="logo"><img id="brandImg" alt="" width="30" height="30"></div>
   <div class="hdtxt"><h1 id="ttl">TurboClad</h1><div class="sub" id="subttl">Insulation cladding patterns</div></div>
-  <span class="ver">v4.76.0</span>
+  <span class="ver">v4.77.0</span>
   <button class="themetog" id="themeTog" title="Light / dark" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg></button>
   <button class="probadge" id="proBadge">GO PRO</button>
 </header>
@@ -4034,66 +4034,124 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
      1.0 until someone does. Nothing here claims a maker's head from a diameter
      and a rise: that is the trade rule, and it says so. */
   const HEAD_PRESETS = {
-    /* the usual published ratios - check them against the head maker's drawing
-       before cutting; the app does not know which head is on the vessel */
-    klopper:   { name: 'Klöpper (DIN 28011)',   crown: 1.0, knuckle: 0.100 },
-    korbbogen: { name: 'Korbbogen (DIN 28013)', crown: 0.8, knuckle: 0.154 },
-    asme:      { name: 'ASME F&D (6% knuckle)',  crown: 1.0, knuckle: 0.060 },
+    /* Graeme Bell's "Common Vessel Head Types" chart (Insulation MasterClass, received
+       26 Oct 26) and the DIN / ASME ratios it draws on. crown and knuckle are fractions
+       of the head diameter. chart holds what the chart PRINTS for a head of diameter 1 -
+       the rise to the tangent line, the crown arc, the knuckle arc and the flattened
+       radial length (the chart's blank disc is pi x that squared) - so verify/ can hold
+       the engine against the chart and not the other way round. Every one is a published
+       nominal ratio: the maker's drawing beats the table, and the app says so. */
+    klopper:   { name: 'Klöpper (DIN 28011)',             crown: 1.0,   knuckle: 0.100, chart: { H: 0.194, arcC: 0.4606, arcK: 0.1110, meridian: 0.572 } },
+    korbbogen: { name: 'Korbbogen (DIN 28013)',           crown: 0.8,   knuckle: 0.154, chart: { H: 0.254, arcC: 0.4522, arcK: 0.1548, meridian: 0.607 } },
+    semi21:    { name: '2:1 semi-ellipse, bi-radial',     crown: 0.905, knuckle: 0.173, chart: { H: 0.250, arcC: 0.4194, arcK: 0.1913, meridian: 0.611 } },
+    french19:  { name: 'French semi-ellipse 1.9:1',       crown: 0.862, knuckle: 0.186, chart: { H: 0.263, arcC: 0.4169, arcK: 0.2016, meridian: 0.619 } },
+    asme100_6: { name: 'ASME 100/6 flanged & dished',     crown: 1.0,   knuckle: 0.060, chart: { H: 0.169, arcC: 0.4871, arcK: 0.0650, meridian: 0.552 } },
+    asme80_10: { name: 'ASME 80/10 flanged & dished',     crown: 0.8,   knuckle: 0.100, chart: { H: 0.226, arcC: 0.4866, arcK: 0.0963, meridian: 0.583 } },
+    asme80_6:  { name: 'ASME 80/6 flanged & dished',      crown: 0.8,   knuckle: 0.060, chart: { H: 0.205, arcC: 0.5094, arcK: 0.0560, meridian: 0.565 } },
+    dished:    { name: 'Dished only (R = Ø, no knuckle)', crown: 1.0,   knuckle: 0,     chart: { H: 0.134, arcC: 0.5236, arcK: 0,      meridian: 0.524 } },
+    hemi:      { name: 'Hemispherical',                   crown: 0.5,   knuckle: 0,     chart: { H: 0.500, arcC: 0.7854, arcK: 0,      meridian: 0.785 } },
   };
+  HEAD_PRESETS.asme = HEAD_PRESETS.asme100_6;      // the name 4.76 used for it
+
+  /* headProfile(p): the meridian of the CLADDING, rim to apex, as [rho, z] points.
+       p.dia      the diameter the maker's radii are figured on (the vessel head)
+       p.insul    insulation + clearance: how far the cladding stands off that surface
+                  (if the maker's radii are inside figures, the wall thickness goes in
+                  here too - an offset of an offset is one offset)
+       p.profile  'hemi' | 'cap' (height) | 'ellipse' (ratio or height) |
+                  'tori' (crownR, knuckleR; knuckle 0 = a cap meeting the body at a
+                  corner) | 'custom' (points) | 'trade' (domeKit's rule)
+     The vessel's profile is built first, then pushed out by insul ALONG ITS NORMAL.
+     For arcs that is the same centres with every radius grown by insul: a Klöpper
+     1000 under 50 of insulation is clad as crown 1050, knuckle 150 on a Ø1100 rim -
+     NOT a Klöpper 1100 (crown 1100, knuckle 110), which sits 30 lower at the crown
+     and is a different curve. The chart's KEY says the same: multiply the constants
+     by the head's diameter, THEN add the insulation to the lengths and radii. A true
+     ellipse pushed out is no longer an ellipse (its parallel curve), so that one is
+     done point by point; so is a custom table. A head with no knuckle meets the body
+     at a corner, and its clad cap meets the body band a little above that corner
+     (rimLift) because the bigger sphere reaches the bigger cylinder sooner. */
   function headProfile(p) {
     const D = +p.dia, R = D / 2, kind = p.profile || 'trade';
     if (!(D > 0)) throw new Error('Diameter must be more than 0.');
-    let pts = [], Rc = null, Rk = null, H = null, note = '';
+    const t = (+p.insul || 0) + (+p.clear || 0);
+    if (!(t >= 0)) throw new Error('Insulation cannot be negative.');
+    let pts = [], Rc = null, Rk = null, H = null, note = '', geo = null, arcC = null, arcK = null, rimLift = 0;
     const arc = (cx, cz, r, a0, a1, n) => { for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; pts.push([cx + r * Math.cos(a), cz + r * Math.sin(a)]); } };
-    if (kind === 'hemi') { Rc = R; Rk = R; H = R; arc(0, 0, R, 0, Math.PI / 2, 240); note = 'Hemisphere: one quarter circle, radius ' + R.toFixed(0); }
+    if (kind === 'hemi') { Rc = R; Rk = 0; H = R; geo = { Cc: [0, 0], Kc: null }; note = 'Hemisphere: one quarter circle, radius ' + R.toFixed(0); }
     else if (kind === 'cap') {
       H = +p.height; if (!(H > 0 && H <= R + 1e-9)) throw new Error('Rise must be more than 0 and at most the radius.');
-      Rc = (R * R + H * H) / (2 * H); Rk = 0;
-      const a0 = Math.atan2(0 - (H - Rc), R); arc(0, H - Rc, Rc, a0, Math.PI / 2, 240);
+      Rc = (R * R + H * H) / (2 * H); Rk = 0; geo = { Cc: [0, H - Rc], Kc: null };
       note = 'Spherical cap: one radius ' + Rc.toFixed(0) + ', rise ' + H.toFixed(0);
+    }
+    else if (kind === 'tori') {
+      Rc = +p.crownR; Rk = +p.knuckleR;
+      if (!(Rc >= R - 1e-9)) throw new Error('Crown radius must be at least the head radius (' + R.toFixed(0) + ').');
+      if (!(Rk >= 0 && Rk < R)) throw new Error('Knuckle radius must be less than the head radius.');
+      if (Rk < 0.5) Rk = 0;
+      // knuckle centre (R - Rk, 0); crown centre on the axis, tangent to the knuckle: |Cc - Kc| = Rc - Rk
+      const dx = R - Rk, dz = Math.sqrt(Math.max(0, (Rc - Rk) * (Rc - Rk) - dx * dx));
+      H = Rc - dz; geo = { Cc: [0, -dz], Kc: Rk ? [dx, 0] : null };
+      note = (Rk ? 'Torispherical head: crown R ' + Rc.toFixed(0) + ', knuckle R ' + Rk.toFixed(0) : 'Dished-only head: one radius ' + Rc.toFixed(0) + ', no knuckle') + ', rise ' + H.toFixed(1);
+    }
+    else if (kind === 'trade') {   // the same solve as domeKit
+      H = +p.height; if (!(H > 0 && H <= R + 1e-9)) throw new Error('Dome height must be more than 0 and at most the radius (D/2 = hemisphere).');
+      const a = 2, b = -(D + 2 * H), c = 3 * D * D / 4 - (H - D) * (H - D);
+      Rk = (-b - Math.sqrt(Math.max(0, b * b - 4 * a * c))) / (2 * a); Rc = D - Rk;
+      if (Rk < 0.5) Rk = 0;
+      geo = { Cc: [0, H - Rc], Kc: Rk ? [R - Rk, 0] : null };
+      note = 'Trade rule: crown R ' + Rc.toFixed(0) + ' + knuckle R ' + Rk.toFixed(0) + ' = diameter';
     }
     else if (kind === 'ellipse') {
       const ratio = +p.ratio > 0 ? +p.ratio : 2;             // D : 2h, the 2:1 head
       H = +p.height > 0 ? +p.height : D / (2 * ratio);
       const a = R, c = H;
-      for (let i = 0; i <= 480; i++) { const t = Math.PI / 2 * i / 480; pts.push([a * Math.cos(t), c * Math.sin(t)]); }
-      note = 'Ellipsoidal head: a true ellipse, ' + a.toFixed(0) + ' by ' + c.toFixed(0) + ' (' + (D / H / 2).toFixed(2) + ':1)';
-    }
-    else if (kind === 'tori') {
-      Rc = +p.crownR; Rk = +p.knuckleR;
-      if (!(Rc >= R)) throw new Error('Crown radius must be at least the head radius (' + R.toFixed(0) + ').');
-      if (!(Rk >= 0 && Rk < R)) throw new Error('Knuckle radius must be less than the head radius.');
-      // knuckle centre (R - Rk, 0); crown centre on the axis, tangent to the knuckle: |Cc - Kc| = Rc - Rk
-      const dx = R - Rk, dz = Math.sqrt(Math.max(0, (Rc - Rk) * (Rc - Rk) - dx * dx)), zc = -dz;
-      H = zc + Rc;
-      const aT = Math.atan2(0 - zc, dx);                       // angle of the tangent point from both centres
-      if (Rk > 0.5) arc(dx, 0, Rk, 0, aT, 120);
-      arc(0, zc, Rc, aT, Math.PI / 2, 240);
-      note = 'Torispherical head: crown R ' + Rc.toFixed(0) + ', knuckle R ' + Rk.toFixed(0) + ', rise ' + H.toFixed(1);
+      for (let i = 0; i <= 480; i++) { const th = Math.PI / 2 * i / 480, cs = Math.cos(th), sn = Math.sin(th);
+        const nx = c * cs, nz = a * sn, L = Math.hypot(nx, nz) || 1;      // the ellipse's outward normal
+        pts.push([a * cs + t * nx / L, c * sn + t * nz / L]); }
+      note = 'Ellipsoidal head: a true ellipse, ' + a.toFixed(0) + ' by ' + c.toFixed(0) + ' (' + (D / H / 2).toFixed(2) + ':1)' + (t ? ', clad ' + t.toFixed(0) + ' off it (its parallel curve, not an ellipse)' : '');
     }
     else if (kind === 'custom') {
       const tab = (p.points || []).map(q => [+q[0], +q[1]]).filter(q => isFinite(q[0]) && isFinite(q[1]));
       if (tab.length < 3) throw new Error('A custom head needs at least three rho, z points from the rim to the apex.');
-      pts = tab; H = tab[tab.length - 1][1] - tab[0][1];
-      note = 'Custom profile, ' + tab.length + ' points';
+      H = tab[tab.length - 1][1] - tab[0][1];
+      if (t > 0) {   // the polyline's parallel curve: each segment moved out along its normal, an arc about every convex corner
+        const nrm = i => { const a = tab[i], b = tab[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1; return [dz / L, -dx / L]; };
+        for (let i = 0; i < tab.length - 1; i++) { const m = nrm(i);
+          if (i === 0) pts.push([tab[0][0] + t * m[0], tab[0][1] + t * m[1]]);
+          else { const mp = nrm(i - 1), cross = mp[0] * m[1] - mp[1] * m[0];
+            if (cross > 1e-9) { const a0 = Math.atan2(mp[1], mp[0]); let a1 = Math.atan2(m[1], m[0]); while (a1 < a0) a1 += 2 * Math.PI;
+              const k = Math.max(1, Math.ceil((a1 - a0) / 0.05)); for (let j = 0; j <= k; j++) { const a = a0 + (a1 - a0) * j / k; pts.push([tab[i][0] + t * Math.cos(a), tab[i][1] + t * Math.sin(a)]); } }
+            else pts.push([tab[i][0] + t * m[0], tab[i][1] + t * m[1]]); }
+          pts.push([tab[i + 1][0] + t * m[0], tab[i + 1][1] + t * m[1]]); }
+      } else pts = tab;
+      note = 'Custom profile, ' + tab.length + ' points' + (t ? ', clad ' + t.toFixed(0) + ' off it' : '');
     }
-    else {   // 'trade': the same solve as domeKit
-      H = +p.height; if (!(H > 0 && H <= R + 1e-9)) throw new Error('Dome height must be more than 0 and at most the radius (D/2 = hemisphere).');
-      const a = 2, b = -(D + 2 * H), c = 3 * D * D / 4 - (H - D) * (H - D);
-      Rk = (-b - Math.sqrt(Math.max(0, b * b - 4 * a * c))) / (2 * a); Rc = D - Rk;
-      const Kc = [R - Rk, 0], Cc = [0, H - Rc], dl = Math.hypot(Kc[0] - Cc[0], Kc[1] - Cc[1]);
-      if (dl < 1e-6) { arc(0, 0, R, 0, Math.PI / 2, 240); }
-      else { const T = [Cc[0] + Rc * (Kc[0] - Cc[0]) / dl, Cc[1] + Rc * (Kc[1] - Cc[1]) / dl];
+    else throw new Error('Unknown head profile: ' + kind);
+    const vessel = { dia: D, R, H, Rc, Rk };
+    if (geo) {
+      const Rr = R + t, Rc2 = Rc + t, Rk2 = Rk ? Rk + t : 0, Cc = geo.Cc, Kc = geo.Kc;
+      if (Kc) {   // knuckle from the rim to the tangent point, crown from there to the apex: the same centres, radii + t
+        const dl = Math.hypot(Kc[0] - Cc[0], Kc[1] - Cc[1]) || 1;
+        const T = [Cc[0] + Rc2 * (Kc[0] - Cc[0]) / dl, Cc[1] + Rc2 * (Kc[1] - Cc[1]) / dl];
         const aTk = Math.atan2(T[1] - Kc[1], T[0] - Kc[0]), aTc = Math.atan2(T[1] - Cc[1], T[0] - Cc[0]);
-        if (Rk > 0.5) arc(Kc[0], Kc[1], Rk, 0, aTk, 120);
-        arc(Cc[0], Cc[1], Rc, aTc, Math.PI / 2, 240); }
-      note = 'Trade rule: crown R ' + Rc.toFixed(0) + ' + knuckle R ' + Rk.toFixed(0) + ' = diameter';
-    }
+        arc(Kc[0], Kc[1], Rk2, 0, aTk, 120); arc(Cc[0], Cc[1], Rc2, aTc, Math.PI / 2, 240);
+        arcK = Rk2 * aTk; arcC = Rc2 * (Math.PI / 2 - aTc); H = Cc[1] + Rc2;
+      } else {      // no knuckle: the sphere meets the body cylinder (radius Rr) at a corner, higher than the vessel's own when clad
+        const zr = Cc[1] + Math.sqrt(Math.max(0, Rc2 * Rc2 - Rr * Rr)), a0 = Math.atan2(zr - Cc[1], Rr);
+        arc(Cc[0], Cc[1], Rc2, a0, Math.PI / 2, 240);
+        arcK = 0; arcC = Rc2 * (Math.PI / 2 - a0); rimLift = Math.abs(zr) < 1e-6 ? 0 : zr; H = Cc[1] + Rc2 - zr;
+        if (rimLift) pts = pts.map(q => [q[0], q[1] - rimLift]);
+        pts[0] = [Rr, 0];                                        // the rim point exactly, not a hair off it
+      }
+      Rc = Rc2; Rk = Rk2;
+      if (t) note += ' - clad ' + t.toFixed(0) + ' off: ' + (Rk ? 'crown R ' + Rc.toFixed(0) + ', knuckle R ' + Rk.toFixed(0) : 'R ' + Rc.toFixed(0)) + ', rise ' + H.toFixed(1) + ' on Ø' + (D + 2 * t).toFixed(0) + (rimLift ? ', meeting the body ' + rimLift.toFixed(0) + ' above the vessel corner' : '');
+    } else if (t) H += t;
     // drop repeats, then measure: arc length s and surface area 2*pi*rho*ds, rim to apex
     const stn = []; pts.forEach(q => { if (!stn.length || Math.hypot(q[0] - stn[stn.length - 1][0], q[1] - stn[stn.length - 1][1]) > 1e-9) stn.push(q); });
     const s = [0]; let area = 0;
     for (let i = 1; i < stn.length; i++) { const ds = Math.hypot(stn[i][0] - stn[i - 1][0], stn[i][1] - stn[i - 1][1]); s.push(s[i - 1] + ds); area += Math.PI * (stn[i][0] + stn[i - 1][0]) * ds; }
-    return { kind, dia: D, R, H, Rc, Rk, pts: stn, s, meridian: s[s.length - 1], area, note };
+    return { kind, dia: D + 2 * t, R: R + t, H, Rc, Rk, vessel, offset: t, rimLift, arcC, arcK, pts: stn, s, meridian: s[s.length - 1], area, note };
   }
 
   /* a point on the profile at arc length t from the rim: [rho, z] */
@@ -4105,27 +4163,50 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return [P[lo][0] + (P[hi][0] - P[lo][0]) * u, P[lo][1] + (P[hi][1] - P[lo][1]) * u];
   }
 
+  /* headKit(p): one gore of the head, developed as the orange-peel strip the trade rolls.
+       segments     gores round the head (equal); stations  points up each edge (default
+                    one every 15 mm of meridian, 24 to 96 - the printed curve's resolution)
+       crownOpen    Ø of the hole at the crown (0 = closed)      bodyLap   the lap below the rim
+       jointL / jointR   { type:'swage'|'crimp'|'lap'|'plain', mm, bead, sex }
+                    mm    the strip beyond the nominal seam line, pushed out along the edge's
+                          normal (what the shears cut, perpendicular to the edge)
+                    bead  for a swage: where the bead runs, measured from the CUT edge - the
+                          swager's wheel setting (the 8 and 22 in the Zeppelin video). For a
+                          crimp: how far in from the edge the crimper reaches. 0 or missing =
+                          on the seam line. Two swaged edges nest when the two wheel settings
+                          add up to the two strips (22 + 8 = 19 + 11).
+       rivets, rivetDia, holePitch, holeEndGap, holeCount (per seam, instead of a pitch),
+       rivetEdge    the hole line's distance off the seam, + towards this gore's right-hand
+                    strip (default: the middle of the overlap). It is a distance ALONG THE
+                    PARALLEL on the head, so in the pattern it is a horizontal shift at each
+                    station - the same shift on both edges, which is what makes this gore's
+                    right-hand holes land on the next gore's left-hand holes.
+       widthFactor  a forming factor on every width, 1.0 until a shop has measured its own
+     The strip: true meridian up the middle, each parallel's circumference share across. It
+     is an approximation of a doubly curved surface - every orange-peel gore is - rolled to
+     the dome by hand; the widths and the meridian are exact for the profile. */
   function headKit(p) {
     const prof = headProfile(p);
     const D = prof.dia, R = prof.R, N = Math.max(3, Math.round(+p.segments || 24));
-    const M = Math.max(12, Math.min(96, Math.round(+p.stations || 24)));
-    const kf = +p.widthFactor > 0 ? +p.widthFactor : 1;        // forming factor on the widths, 1 until measured
-    const lap = p.bodyLap == null ? 75 : +p.bodyLap;
+    const kf = +p.widthFactor > 0 ? +p.widthFactor : 1;
+    const lap = p.bodyLap == null ? 75 : Math.max(0, +p.bodyLap || 0);
     const hp = +p.holePitch || 60, eg = +p.holeEndGap || 20;
     const J = side => { const j = (side === 'L' ? p.jointL : p.jointR) || {};
       const type = j.type || (p.swage > 0 ? 'swage' : 'plain');
       const mm = type === 'plain' ? 0 : Math.max(0, +(j.mm != null ? j.mm : p.swage) || 0);
-      return { type, mm, sex: j.sex || (side === 'L' ? 'female' : 'male') }; };
+      const bead = (type === 'swage' || type === 'crimp') && +j.bead > 0 ? +j.bead : mm;
+      return { type, mm, bead, sex: j.sex || (side === 'L' ? 'female' : 'male') }; };
     const jL = J('L'), jR = J('R');
     /* the gore ends where the crown opening starts: find that arc length on the profile */
     const open = Math.max(0, +p.crownOpen || 0) / 2;
     let sTop = prof.meridian, trunc = false;
     if (open > 0) {
-      if (open >= R) throw new Error('The crown opening is as big as the head.');
+      if (open >= R) throw new Error('The crown opening is as big as the head' + (prof.offset ? ' (Ø' + Math.round(D) + ' once clad)' : '') + '.');
       const P = prof.pts, s = prof.s;
       for (let i = P.length - 1; i > 0; i--) if (P[i - 1][0] >= open && P[i][0] <= open) {
         const u = (P[i - 1][0] - open) / ((P[i - 1][0] - P[i][0]) || 1); sTop = s[i - 1] + (s[i] - s[i - 1]) * u; trunc = true; break; }
     }
+    const M = Math.max(12, Math.min(96, Math.round(+p.stations || Math.max(24, sTop / 15))));
     /* stations up the meridian by arc length; the nominal strip: width = that parallel's share */
     const st = []; for (let i = 0; i <= M; i++) { const t = sTop * i / M; const q = _profAt(prof, t); st.push({ s: t, rho: q[0], z: q[1], w: kf * Math.PI * q[0] / N }); }
     const right = st.map(q => [q.w, q.s]), left = st.map(q => [-q.w, q.s]);
@@ -4138,53 +4219,84 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     /* the top: an opening leaves a straight edge across the strip; a closed crown comes to its point
        (or to the little flat the allowances make, as domeKit always drew it) */
     const top = cutR[M][0] > cutL[M][0] ? [cutR[M], cutL[M]] : [[0, cutR[M][1]]];
-    const prim = [], holes = [], ticks = [];
-    const outline = [[cutR[0][0], -lap]].concat(cutR, top.slice(1), cutL.slice().reverse(), [[cutL[0][0], -lap], [cutR[0][0], -lap]]);
+    const prim = [], holes = [], ticks = [], warn = [], R2 = Math.round, r1 = v => Math.round(v * 10) / 10;
+    const outline = [[cutR[0][0], -lap]].concat(cutR, top.slice(1), cutL.slice().reverse(), [[cutL[0][0], -lap], [cutR[0][0], -lap]])
+      .filter((q, i, A) => !i || Math.hypot(q[0] - A[i - 1][0], q[1] - A[i - 1][1]) > 1e-9);   // the top corner is in both edge lists: one copy, no zero-length segment for a CAM table to trip on
     prim.push({ style: 'cut', pts: outline });
     prim.push({ style: 'fold', pts: [[cutL[0][0], 0], [cutR[0][0], 0]] });   // the rim, top of the body lap
-    const edgeNote = j => (j.type === 'swage' ? j.sex.toUpperCase() + ' SWAGE ' + j.mm : j.type === 'crimp' ? 'CRIMP ' + j.mm : j.type === 'lap' ? 'LAP ' + j.mm : '');
-    if (jR.mm > 0) prim.push({ style: jR.type === 'crimp' ? 'fold' : 'swage', pts: right, note: edgeNote(jR) });
-    if (jL.mm > 0) prim.push({ style: jL.type === 'crimp' ? 'fold' : 'swage', pts: left, note: edgeNote(jL) });
+    /* the lines a fabricator works to on each edge: the seam itself (where the gores meet on
+       the head), the bead or crimp line where it is not on the seam, and where the NEXT gore's
+       cut edge lands - the other edge's strip, inboard: the mark to lay the neighbour to */
+    const inboard = (E, Nn, d) => { const out = []; for (let i = 0; i < E.length; i++) { if (Math.abs(E[i][0]) < d + 2) break; out.push([E[i][0] - Nn[i][0] * d, E[i][1] - Nn[i][1] * d]); } return out; };
+    const edgeLines = (E, Nn, j, other) => {
+      if (j.mm <= 0) return;
+      const name = j.type === 'swage' ? j.sex.toUpperCase() + ' SWAGE ' + j.mm : j.type === 'crimp' ? 'CRIMP ' + j.mm : 'LAP ' + j.mm;
+      const beadOff = j.mm - j.bead;                       // + = out in the strip, - = back in the body
+      if (j.type === 'swage' || j.type === 'crimp') {
+        if (Math.abs(beadOff) <= 0.25) prim.push({ style: j.type === 'crimp' ? 'fold' : 'swage', pts: E, note: name });
+        else {
+          const line = beadOff > 0 ? off(E, Nn, beadOff) : inboard(E, Nn, -beadOff);
+          if (line.length > 1) prim.push({ style: j.type === 'crimp' ? 'fold' : 'swage', pts: line, note: (j.type === 'crimp' ? 'CRIMP TO HERE, ' : j.sex.toUpperCase() + ' BEAD, ') + j.bead + ' FROM THE EDGE' });
+          prim.push({ style: 'lap', pts: E, note: name + ' - SEAM' });
+        }
+      } else prim.push({ style: 'lap', pts: E, note: name + ' - SEAM' });
+      if (other.mm > 0) { const line = inboard(E, Nn, other.mm); if (line.length > 1) prim.push({ style: 'lap', pts: line, note: 'NEXT GORE EDGE, ' + other.mm + ' IN' }); }
+    };
+    edgeLines(right, nR, jR, jL); edgeLines(left, nL, jL, jR);
     prim.push({ style: 'centre', pts: [[0, -lap], [0, sTop]] });
     /* the 13 ordinates A..M the old program tabled, at equal arc up the strip - nominal half-widths */
     const AM = 'ABCDEFGHIJKLM', ords = [];
     for (let i = 0; i <= 12; i++) { const t = sTop * i / 12, q = _profAt(prof, t), w = kf * Math.PI * q[0] / N;
       ords.push(Math.round(w)); if (i > 0) prim.push({ style: 'ord', pts: [[-w, t], [w, t]] });
       ticks.push({ x: w, y: t, label: AM[i] + ' ' + Math.round(w) }); }
-    /* rivets up both seams. The hole line sits e off the nominal seam towards the right-hand
-       gore (default: the middle of the overlap), measured along the nominal edge from the rim,
-       so the holes on this gore's right edge land on the next gore's left-edge holes. */
+    /* the two swage beads, in the seam's frame (+ towards the female gore's body): do they nest? */
+    let beads = null;
+    if (jR.type === 'swage' && jL.type === 'swage' && jR.mm > 0 && jL.mm > 0) {
+      beads = { male: jR.mm - jR.bead, female: jL.bead - jL.mm }; beads.gap = Math.abs(beads.male - beads.female);
+      if (beads.gap > 0.5) warn.push(`the two swage beads miss each other by ${r1(beads.gap)}: wheel settings ${jR.bead} + ${jL.bead} should total the ${jR.mm + jL.mm} overlap to nest`);
+    }
+    /* rivets up both seams, on one line e off the seam (a distance along the parallel on the head,
+       so a horizontal shift here), the stations measured along the nominal right edge from the rim.
+       The same shift on both edges is what makes this gore's right-hand holes land on the next
+       gore's left-hand holes. None where the hole would leave the overlap, and none in the crown
+       where the two seams' holes would run into each other. */
     const rivets = p.rivets !== false, rd = +p.rivetDia > 0 ? +p.rivetDia : 4;
     const e = p.rivetEdge != null && p.rivetEdge !== '' ? +p.rivetEdge : (jR.mm - jL.mm) / 2;
+    let nSeam = 0;
     if (rivets && (jR.mm > 0 || jL.mm > 0)) {
-      const edgeLen = []; let acc = 0; for (let i = 0; i < right.length; i++) { if (i) acc += Math.hypot(right[i][0] - right[i - 1][0], right[i][1] - right[i - 1][1]); edgeLen.push(acc); }
-      const span = acc - 2 * eg;
-      if (span > 0) {
-        const n = _nH(span, hp);
-        const at = L => { let i = 0; while (i < edgeLen.length - 2 && edgeLen[i + 1] < L) i++; const u = (L - edgeLen[i]) / ((edgeLen[i + 1] - edgeLen[i]) || 1);
-          const q = [right[i][0] + (right[i + 1][0] - right[i][0]) * u, right[i][1] + (right[i + 1][1] - right[i][1]) * u];
-          const nn = [nR[i][0] + (nR[i + 1][0] - nR[i][0]) * u, nR[i][1] + (nR[i + 1][1] - nR[i][1]) * u]; return { q, nn }; };
-        for (let k = 0; k <= n; k++) { const { q, nn } = at(eg + span * k / n);
-          const w = q[0];                                     // half-width here: too narrow for a rivet near the crown
-          if (w < Math.abs(e) + rd) continue;
-          holes.push([q[0] + nn[0] * e, q[1] + nn[1] * e]);   // right seam
-          holes.push([-q[0] - nn[0] * e, q[1] + nn[1] * e]); } // left seam: the same line, mirrored on this gore
+      const edgeIn = e + jL.mm, edgeOut = jR.mm - e;        // the hole's distance from the female's cut edge, and from the male's
+      if (edgeIn < rd / 2 + 2 - 1e-9 || edgeOut < rd / 2 + 2 - 1e-9) warn.push(`rivet line ${r1(e)} off the seam falls outside the ${jL.mm + jR.mm} overlap (needs ${r1(rd / 2 + 2)} of metal past the hole): no seam holes drawn`);
+      else {
+        const edgeLen = []; let acc = 0; for (let i = 0; i < right.length; i++) { if (i) acc += Math.hypot(right[i][0] - right[i - 1][0], right[i][1] - right[i - 1][1]); edgeLen.push(acc); }
+        const span = acc - 2 * eg;
+        if (span > 0) {
+          const n = +p.holeCount > 1 ? Math.round(+p.holeCount) - 1 : _nH(span, hp);
+          const at = L => { let i = 0; while (i < edgeLen.length - 2 && edgeLen[i + 1] < L) i++; const u = (L - edgeLen[i]) / ((edgeLen[i + 1] - edgeLen[i]) || 1);
+            return [right[i][0] + (right[i + 1][0] - right[i][0]) * u, right[i][1] + (right[i + 1][1] - right[i][1]) * u]; };
+          for (let k = 0; k <= n; k++) { const q = at(eg + span * k / n), w = q[0];
+            if (2 * w < rd + 4) continue;                       // the crown: the two seams' holes would meet
+            holes.push([w + e, q[1]]); holes.push([-w + e, q[1]]); nSeam++; }
+        }
       }
     }
     if (lap > 0) _lineHoles(holes, -(cutR[0][0] - eg), -lap / 2, cutR[0][0] - eg, -lap / 2, hp, eg);   // along the body lap, as always (none without one)
     /* checks a shop can read: the strip's nominal area times N against the surface integral */
     let gA = 0; for (let i = 1; i < st.length; i++) gA += (st[i].w + st[i - 1].w) * (st[i].s - st[i - 1].s);
     const areaGores = gA * N, areaSurf = trunc ? (() => { let a = 0; const P = prof.pts, s = prof.s; for (let i = 1; i < P.length && s[i - 1] < sTop; i++) { const ds = Math.min(s[i], sTop) - s[i - 1]; a += Math.PI * (P[i][0] + P[i - 1][0]) * ds; } return a; })() : prof.area;
-    const R2 = Math.round, base = 2 * st[0].w, plateLen = sTop + lap;
-    const jl = j => j.type === 'plain' ? 'plain' : j.type + ' ' + j.mm + (j.type === 'swage' ? ' (' + j.sex + ')' : '');
-    return [{ kind: 'head', title: 'Vessel Head  -  Gore 1:1',
-      meta: [`Head Ø${D}` + (prof.H != null ? ` × ${R2(prof.H)} high` : '') + `  -  ${N} gores (cut ${N} off)` + (open > 0 ? `  ·  crown opening Ø${R2(2 * open)}` : ''),
-             prof.note,
-             `Gore ${R2(plateLen)} long × ${R2(base)} wide at the rim (nominal) · body lap ${lap}` + (kf !== 1 ? ` · widths × ${kf}` : ''),
-             `Left edge ${jl(jL)} · right edge ${jl(jR)} · allowances pushed out along the curve, not added to the width` + (rivets && (jR.mm > 0 || jL.mm > 0) ? ` · rivets Ø${rd} at ${hp} pitch, ${R2(e)} mm off the seam line` : ''),
-             `Half-widths A to M: ${ords.join(', ')}`,
-             `Surface ${(areaSurf / 1e6).toFixed(3)} m² · gores ${(areaGores / 1e6).toFixed(3)} m² nominal (${((areaSurf / Math.pow(Math.PI * D, 2))).toFixed(3)} × circumference²)`],
-      calc: { profile: prof.kind, dia: D, H: prof.H, Rc: prof.Rc, Rk: prof.Rk, meridian: sTop, plateLen, N, base, ords, areaSurf, areaGores, coefC2: areaSurf / Math.pow(Math.PI * D, 2), open: 2 * open, jL, jR, rivetEdge: e },
+    const base = 2 * st[0].w, plateLen = sTop + lap, V = prof.vessel, t = prof.offset;
+    const jl = j => j.type === 'plain' ? 'plain' : j.type + ' ' + j.mm + (j.type === 'swage' ? ' (' + j.sex + (j.bead !== j.mm ? ', bead ' + j.bead + ' from the edge' : '') + ')' : j.type === 'crimp' && j.bead !== j.mm ? ' (' + j.bead + ' deep)' : '');
+    const meta = [
+      (t ? `Vessel head Ø${R2(V.dia)} + ${R2(t)} insulation  →  clad Ø${R2(D)}` : `Head Ø${R2(D)}`) + (prof.H != null ? ` × ${R2(prof.H)} high` : '') + `  -  ${N} gores (cut ${N} off)` + (open > 0 ? `  ·  crown opening Ø${R2(2 * open)}` : ''),
+      prof.note,
+      `Gore ${R2(plateLen)} long × ${R2(base)} wide at the rim (nominal) · body lap ${lap} · ${M} stations` + (kf !== 1 ? ` · widths × ${kf}` : ''),
+      `Left edge ${jl(jL)} · right edge ${jl(jR)} · strips pushed out along the curve` + (beads ? (beads.gap <= 0.5 ? ` · beads nest ${r1(Math.abs(beads.male))} ${beads.male < -0.25 ? 'into' : beads.male > 0.25 ? 'out from' : 'on'} the seam` : '') : '') + (nSeam ? ` · ${nSeam} rivets Ø${rd} a seam, ${r1(e)} off the seam line` : ''),
+      `Half-widths A to M: ${ords.join(', ')}`,
+      `Surface ${(areaSurf / 1e6).toFixed(3)} m² · gores ${(areaGores / 1e6).toFixed(3)} m² nominal (${(areaSurf / Math.pow(Math.PI * D, 2)).toFixed(3)} × circumference²) · chart blank disc Ø${R2(2 * prof.meridian)} (${(prof.meridian / D).toFixed(3)} × Ø)`
+    ].concat(warn.map(w => 'CHECK: ' + w));
+    return [{ kind: 'head', title: 'Vessel Head  -  Gore 1:1', meta,
+      calc: { profile: prof.kind, dia: D, H: prof.H, Rc: prof.Rc, Rk: prof.Rk, vessel: V, offset: t, rimLift: prof.rimLift, arcC: prof.arcC, arcK: prof.arcK,
+        meridian: sTop, fullMeridian: prof.meridian, blankDia: 2 * prof.meridian, discArea: Math.PI * prof.meridian * prof.meridian,
+        plateLen, N, stations: M, base, ords, areaSurf, areaGores, coefC2: areaSurf / Math.pow(Math.PI * D, 2), open: 2 * open, jL, jR, beads, rivetEdge: e, seamRivets: nSeam, warn },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: `CUT ${N} OFF (gores)` }];
   }
 
@@ -5439,6 +5551,7 @@ const num=(k,l,step)=>({type:'num',k,label:l,step:step||1});
 const pipe=(k,l)=>({type:'pipe',k,label:l});
 const segd=(k,l,opts)=>({type:'seg',k,label:l,opts});
 const sego=(k,l,opts)=>({type:'segopt',k,label:l,opts});
+const sel=(k,l,opts)=>({type:'sel',k,label:l,opts});       // a dropdown: for a list too long for a seg row (string values)
 const hd=(l,sub)=>({type:'hd',label:l,sub});   // full-width section divider inside a form card
 const FAST={type:'seam',k:'seamFromThroat',label:'Fastener / seam position'};
 
@@ -5801,52 +5914,60 @@ F.hemidome={name:'Hemispherical Dome',sub:'Half-ball · gores',icon:I.hemi,
   stats:c=>['Gore '+fmtDim(c.plateLen)+' × '+fmtDim(c.base),'Meridian ¼ circle R '+fmtDim(c.dia/2),c.N+' off'],
   note:'Full half-ball crown — the meridian is a single quarter circle, so the gore runs a quarter of the circumference plus the body lap. Big domes want plenty of gores (36–48 on tank work) so each plate stays rollable. Widths at every station are on the pattern and in Detailed info.'};
 
-/* ---- the general vessel heads (26 Oct 26), on FP.headKit ------------------
-   For the CNC trial (Graeme Bell, Steve Robinson) and the Zeppelin dome video:
-   the real ellipse, the maker's crown and knuckle radii, a cap by its rise;
-   smooth gore edges, a crown opening, a joint on each side with its own
-   allowance, rivets up the seams. Specialist boxes only where they apply. The
-   three older head tiles keep the trade rule and their locked patterns. */
+/* ---- the general vessel heads (26-27 Oct 26), on FP.headKit ---------------
+   For the CNC trial (Graeme Bell, Steve Robinson), his Common Vessel Head Types
+   chart and the Zeppelin dome video: the real ellipse, every head on the chart
+   and the maker's own crown and knuckle radii, a cap by its rise; the vessel Ø
+   with the insulation pushed out along the curve; smooth gore edges, a crown
+   opening, a joint on each side with its own strip and bead setting, rivets up
+   the seams that land on the next gore's. Specialist boxes only where they
+   apply. The three older head tiles keep the trade rule and their locked
+   patterns. */
 const HEADJ=[
   {type:'hd',label:'Joints & rivets',sub:'this head only'},
-  sego('jointRType','Right-hand edge',[{v:'swage',label:'Swage'},{v:'crimp',label:'Crimp'},{v:'lap',label:'Lap'},{v:'plain',label:'Plain'}]),
-  Object.assign(num('jointRmm','Right allowance (mm)'),{when:s=>s.jointRType!=='plain'}),
-  sego('jointLType','Left-hand edge',[{v:'swage',label:'Swage'},{v:'crimp',label:'Crimp'},{v:'lap',label:'Lap'},{v:'plain',label:'Plain'}]),
-  Object.assign(num('jointLmm','Left allowance (mm)'),{when:s=>s.jointLType!=='plain'}),
+  sego('jointRType','Right-hand edge (laps over)',[{v:'swage',label:'Swage'},{v:'crimp',label:'Crimp'},{v:'lap',label:'Lap'},{v:'plain',label:'Plain'}]),
+  Object.assign(num('jointRmm','Right strip past the seam (mm)'),{when:s=>s.jointRType!=='plain'}),
+  Object.assign(num('jointRbead','Right bead from the cut edge (mm, 0 = on the seam)'),{when:s=>s.jointRType==='swage'||s.jointRType==='crimp'}),
+  sego('jointLType','Left-hand edge (goes under)',[{v:'swage',label:'Swage'},{v:'crimp',label:'Crimp'},{v:'lap',label:'Lap'},{v:'plain',label:'Plain'}]),
+  Object.assign(num('jointLmm','Left strip past the seam (mm)'),{when:s=>s.jointLType!=='plain'}),
+  Object.assign(num('jointLbead','Left bead from the cut edge (mm, 0 = on the seam)'),{when:s=>s.jointLType==='swage'||s.jointLType==='crimp'}),
   sego('rivets','Rivets up the seams',[{v:'on',label:'On'},{v:'off',label:'Off'}]),
   Object.assign(num('holePitch','Rivet pitch (mm)'),{when:s=>s.rivets!=='off'}),
-  Object.assign(num('rivetEdge','Rivet line off the seam (mm)'),{when:s=>s.rivets!=='off'}),
+  Object.assign(num('rivetEdge','Rivet line off the seam (mm, + towards the right strip)'),{when:s=>s.rivets!=='off',neg:1}),
   Object.assign(num('rivetDia','Rivet Ø (mm)',0.5),{when:s=>s.rivets!=='off'}),
   num('bodyLap','Body lap at the rim (mm)'),num('crownOpen','Crown opening Ø (mm, 0 = closed)')];
+/* the chart, in the order it is printed; the engine holds the ratios (FP.HEAD_PRESETS) */
+const HEADSEL=[{v:'klopper',label:'Klöpper (DIN) · R = Ø, r = 0.1 Ø'},{v:'korbbogen',label:'Korbbogen (DIN) · 0.8 Ø, 0.154 Ø'},{v:'semi21',label:'2:1 semi-ellipse, bi-radial · 0.905 Ø, 0.173 Ø'},{v:'french19',label:'French 1.9:1 · 0.862 Ø, 0.186 Ø'},{v:'asme100_6',label:'ASME 100/6 · R = Ø, r = 0.06 Ø'},{v:'asme80_10',label:'ASME 80/10 · 0.8 Ø, 0.1 Ø'},{v:'asme80_6',label:'ASME 80/6 · 0.8 Ø, 0.06 Ø'},{v:'dished',label:'Dished only · R = Ø, no knuckle'},{v:'hemi',label:'Hemispherical · R = 0.5 Ø'},{v:'custom',label:'Type the radii off the drawing'}];
 /* the form's keys -> the engine's; the right-hand edge is the male (over) edge, the left the female */
-const headParams=(s,profile)=>Object.assign({},s,{profile,
-  jointR:{type:s.jointRType||'swage',mm:+s.jointRmm||0,sex:'male'}, jointL:{type:s.jointLType||'swage',mm:+s.jointLmm||0,sex:'female'},
+const headParams=(s,profile)=>Object.assign({},s,{profile,insul:Math.max(0,+s.insul||0),
+  jointR:{type:s.jointRType||'swage',mm:+s.jointRmm||0,bead:+s.jointRbead||0,sex:'male'}, jointL:{type:s.jointLType||'swage',mm:+s.jointLmm||0,bead:+s.jointLbead||0,sex:'female'},
   rivets:s.rivets!=='off', crownOpen:+s.crownOpen||0});
-const headMini=c=>['Ø '+fmtDim(c.dia)+(c.H!=null?' × '+fmtDim(c.H):''),c.N+' gores · '+fmtDim(c.plateLen)+' long'];
-const headStats=c=>['Gore '+fmtDim(c.plateLen)+' × '+fmtDim(c.base),c.Rc!=null?'Crown R '+fmtDim(c.Rc)+(c.Rk?' · knuckle R '+fmtDim(c.Rk):''):'True ellipse','Surface '+(c.areaSurf/1e6).toFixed(2)+' m²',c.N+' off'+(c.open?' · opening Ø'+fmtDim(c.open):'')];
+const headMini=c=>['Ø '+fmtDim(c.dia)+(c.H!=null?' × '+fmtDim(c.H):'')+(c.offset?' clad':''),c.N+' gores · '+fmtDim(c.plateLen)+' long'];
+const headStats=c=>['Gore '+fmtDim(c.plateLen)+' × '+fmtDim(c.base),c.Rc!=null?'Crown R '+fmtDim(c.Rc)+(c.Rk?' · knuckle R '+fmtDim(c.Rk):''):'True ellipse'+(c.offset?' + '+fmtDim(c.offset):''),'Surface '+(c.areaSurf/1e6).toFixed(2)+' m² · blank Ø'+fmtDim(c.blankDia),c.N+' off'+(c.open?' · opening Ø'+fmtDim(c.open):'')];
 F.ellipsoidal={name:'2:1 Ellipsoidal Head',sub:'True ellipse · gores',icon:I.ellipsoidal,
-  defaults:{dia:1000,ratio:2,segments:24,bodyLap:75,crownOpen:0,jointRType:'swage',jointRmm:10,jointLType:'swage',jointLmm:10,rivets:'on',holePitch:60,holeEndGap:20,rivetEdge:0,rivetDia:4},
-  fields:[num('dia','Diameter (mm)'),num('ratio','Ratio (Ø : 2 × rise)',0.1),num('segments','Gores')].concat(HEADJ),
+  defaults:{dia:1000,ratio:2,insul:0,segments:24,bodyLap:75,crownOpen:0,jointRType:'swage',jointRmm:10,jointRbead:0,jointLType:'swage',jointLmm:10,jointLbead:0,rivets:'on',holePitch:60,holeEndGap:20,rivetEdge:0,rivetDia:4},
+  fields:[num('dia','Vessel head Ø (mm)'),num('ratio','Ratio (Ø : 2 × rise)',0.1),num('insul','Insulation + clearance (mm)'),num('segments','Gores')].concat(HEADJ),
   build:s=>FP.headKit(headParams(s,'ellipse'))[0], kit:s=>FP.headKit(headParams(s,'ellipse')),
   mini:headMini,stats:headStats,
-  note:'The standard 2:1 ellipsoidal head developed from the real ellipse, not a circle standing in for it - the meridian is integrated, every width is that parallel\'s true share. Change the ratio for a flatter or fuller head. A 1 m head comes to 1.084 m² of metal before laps, which is the old 0.109 × circumference² rule.'};
-F.torihead={name:'Torispherical Head',sub:'Maker\'s crown & knuckle radii',icon:I.torihead,
-  defaults:{dia:1000,preset:'klopper',crownR:1000,knuckleR:100,segments:24,bodyLap:75,crownOpen:0,jointRType:'swage',jointRmm:10,jointLType:'swage',jointLmm:10,rivets:'on',holePitch:60,holeEndGap:20,rivetEdge:0,rivetDia:4},
-  fields:[num('dia','Diameter (mm)'),
-    sego('preset','Head standard',[{v:'klopper',label:'Klöpper'},{v:'korbbogen',label:'Korbbogen'},{v:'asme',label:'ASME F&D'},{v:'custom',label:'Radii'}]),
+  note:'The 2:1 ellipsoidal head developed from the real ellipse, not a circle standing in for it: the meridian is integrated, every width is that parallel\'s true share. The Ø is the vessel head\'s; the insulation is pushed out along the curve (the clad surface is the ellipse\'s parallel curve, which is not quite an ellipse). A 1 m head is 1.084 m² before laps - the old 0.109 × circumference² rule. Working to the finished clad Ø? Type that and put 0 in insulation.'};
+F.torihead={name:'Torispherical Head',sub:'The chart · maker\'s radii',icon:I.torihead,
+  defaults:{dia:1000,preset:'klopper',crownR:1000,knuckleR:100,insul:0,segments:24,bodyLap:75,crownOpen:0,jointRType:'swage',jointRmm:10,jointRbead:0,jointLType:'swage',jointLmm:10,jointLbead:0,rivets:'on',holePitch:60,holeEndGap:20,rivetEdge:0,rivetDia:4},
+  fields:[num('dia','Vessel head Ø (mm)'),
+    sel('preset','Head type (Common Vessel Head Types chart)',HEADSEL),
     Object.assign(num('crownR','Crown radius (mm)'),{when:s=>s.preset==='custom'}),
-    Object.assign(num('knuckleR','Knuckle radius (mm)'),{when:s=>s.preset==='custom'}),
+    Object.assign(num('knuckleR','Knuckle radius (mm, 0 = none)'),{when:s=>s.preset==='custom'}),
+    num('insul','Insulation + clearance (mm)'),
     num('segments','Gores')].concat(HEADJ),
   build:s=>FP.headKit(toriParams(s))[0], kit:s=>FP.headKit(toriParams(s)),
   mini:headMini,stats:headStats,
-  note:'A bi-radial head from the radii on the maker\'s drawing. Klöpper (DIN 28011: crown = Ø, knuckle = 0.1 Ø), Korbbogen (DIN 28013: 0.8 Ø and 0.154 Ø) and ASME F&D (crown = Ø, 6% knuckle) are the published ratios - check them against the drawing, the app cannot know which head is on the vessel. Radii lets you type the two figures straight in. The rise falls out of the tangency, so it is worth comparing with the drawing too.'};
+  note:'A bi-radial head from the published ratios on the Common Vessel Head Types chart, or the two radii off the maker\'s drawing; the rise falls out of the tangency, so compare it with the drawing. The Ø is the one the radii are figured on (the vessel head); if the maker\'s radii are inside figures, add the wall to the insulation box. The clad surface is made the way the chart\'s key says: same centres, every radius grown by the insulation - not the ratios re-run on a bigger Ø, which is a different curve. Dished-only and hemispherical are in the list too, so the whole chart is in one place.'};
 const toriParams=s=>{ const D=+s.dia||0, P=FP.HEAD_PRESETS[s.preset]; return headParams(Object.assign({},s,P?{crownR:D*P.crown,knuckleR:D*P.knuckle}:{}),'tori'); };
 F.spherecap={name:'Spherical Cap',sub:'One radius · rise you give it',icon:I.spherecap,
-  defaults:{dia:1000,height:150,segments:24,bodyLap:75,crownOpen:0,jointRType:'swage',jointRmm:10,jointLType:'swage',jointLmm:10,rivets:'on',holePitch:60,holeEndGap:20,rivetEdge:0,rivetDia:4},
-  fields:[num('dia','Diameter (mm)'),num('height','Rise (mm)'),num('segments','Gores')].concat(HEADJ),
+  defaults:{dia:1000,height:150,insul:0,segments:24,bodyLap:75,crownOpen:0,jointRType:'swage',jointRmm:10,jointRbead:0,jointLType:'swage',jointLmm:10,jointLbead:0,rivets:'on',holePitch:60,holeEndGap:20,rivetEdge:0,rivetDia:4},
+  fields:[num('dia','Vessel head Ø (mm)'),num('height','Rise (mm)'),num('insul','Insulation + clearance (mm)'),num('segments','Gores')].concat(HEADJ),
   build:s=>FP.headKit(headParams(s,'cap'))[0], kit:s=>FP.headKit(headParams(s,'cap')),
   mini:headMini,stats:headStats,
-  note:'A plain dished cap: one sphere radius worked from the diameter and the rise (the Kalotte of the German tables). Shallow caps roll easily and want fewer gores; a rise of half the diameter is the hemisphere.'};
+  note:'A plain dished cap: one sphere radius worked from the diameter and the rise (the Kalotte of the German tables). The clad cap is the same sphere grown by the insulation; with no knuckle it meets the body band a little above the vessel\'s corner, and the pattern says how far. Shallow caps roll easily and want fewer gores; a rise of half the diameter is the hemisphere.'};
 /* Hybrid lap: every fitting that uses a seam lap gets an editable "Lap" field,
    pre-filled from Settings (freshState) and then overridable right on the
    fitting - refresh()'s own() check stops Settings clobbering it. Fittings that
@@ -6090,7 +6211,7 @@ const SYN={ elbow:'two piece mitre cut bend 90 45 pipe',
   dome:'dome head torispherical vessel end gores cap',
   dishedend:'dished end shallow head vessel cap',
   hemidome:'hemispherical dome half ball head vessel cap',
-  ellipsoidal:'ellipsoidal elliptical 2:1 head vessel end dome gores', torihead:'torispherical klopper korbbogen asme dished head crown knuckle radius vessel end', spherecap:'spherical cap kalotte dished dome shallow vessel end' };
+  ellipsoidal:'ellipsoidal elliptical 2:1 head vessel end dome gores', torihead:'torispherical klopper korbbogen asme french flanged dished head crown knuckle radius vessel end chart', spherecap:'spherical cap kalotte dished dome shallow vessel end' };
 /* Recently used, oldest dropped. The home screen used to open on seven shut
    drawers and nothing else - a man who cuts elbows all week had to go digging
    for the elbow every single time. */
@@ -7298,17 +7419,24 @@ const t3dishedend=s=>t3dome(Object.assign({},s,{__H:(+s.dia||3500)*(1-Math.sqrt(
 /* the general heads (26 Oct 26): the same profiles FP.headProfile draws, kept here in
    the t3 block too because this block runs on its own for the tile icons. A finer
    station list than the printed one, truncated at the crown opening like the gore. */
+const T3HEADP={klopper:[1,.1],korbbogen:[.8,.154],semi21:[.905,.173],french19:[.862,.186],asme100_6:[1,.06],asme:[1,.06],asme80_10:[.8,.1],asme80_6:[.8,.06],dished:[1,0],hemi:[.5,0]};
 function t3headProfile(kind,s){
-  const D=Math.max(1,+s.dia||1000), R=D/2, pts=[];
+  const D=Math.max(1,+s.dia||1000), t=Math.max(0,+s.insul||0), R=D/2, Rr=R+t, pts=[];
   const arc=(cx,cz,r,a0,a1,m)=>{ for(let i=0;i<=m;i++){ const a=a0+(a1-a0)*i/m; pts.push([cx+r*Math.cos(a),cz+r*Math.sin(a)]); } };
-  if(kind==='ellipsoidal'){ const ratio=+s.ratio>0?+s.ratio:2, c=D/(2*ratio); for(let i=0;i<=40;i++){ const t=Math.PI/2*i/40; pts.push([R*Math.cos(t),c*Math.sin(t)]); } }
-  else if(kind==='spherecap'){ const H=Math.max(1,Math.min(R,+s.height||150)), Rc=(R*R+H*H)/(2*H); arc(0,H-Rc,Rc,Math.atan2(Rc-H,R),Math.PI/2,40); }
-  else { const P={klopper:[1,0.1],korbbogen:[0.8,0.154],asme:[1,0.06]}[s.preset]; const Rc=P?D*P[0]:Math.max(R,+s.crownR||D), Rk=P?D*P[1]:Math.min(R*0.95,Math.max(0,+s.knuckleR||0));
-    const dx=R-Rk, dz=Math.sqrt(Math.max(0,(Rc-Rk)*(Rc-Rk)-dx*dx)), aT=Math.atan2(dz,dx); if(Rk>0.5) arc(dx,0,Rk,0,aT,14); arc(0,-dz,Rc,aT,Math.PI/2,26); }
+  if(kind==='ellipsoidal'){ const ratio=+s.ratio>0?+s.ratio:2, c=D/(2*ratio); for(let i=0;i<=40;i++){ const th=Math.PI/2*i/40, cs=Math.cos(th), sn=Math.sin(th), nx=c*cs, nz=R*sn, L=Math.hypot(nx,nz)||1; pts.push([R*cs+t*nx/L, c*sn+t*nz/L]); } }
+  else { let Rc,Rk,Cc;
+    if(kind==='spherecap'){ const H=Math.max(1,Math.min(R,+s.height||150)); Rc=(R*R+H*H)/(2*H); Rk=0; Cc=[0,H-Rc]; }
+    else { const P=T3HEADP[s.preset]; Rc=P?D*P[0]:Math.max(R,+s.crownR||D); Rk=P?D*P[1]:Math.min(R*0.95,Math.max(0,+s.knuckleR||0)); if(Rk<0.5) Rk=0;
+      const dx=R-Rk, dz=Math.sqrt(Math.max(0,(Rc-Rk)*(Rc-Rk)-dx*dx)); Cc=[0,-dz]; }
+    // the clad surface: the same centres, every radius grown by the insulation (as the engine does it)
+    const Rc2=Rc+t, Rk2=Rk?Rk+t:0;
+    if(Rk){ const Kc=[R-Rk,0], dl=Math.hypot(Kc[0]-Cc[0],Kc[1]-Cc[1])||1, T=[Cc[0]+Rc2*(Kc[0]-Cc[0])/dl, Cc[1]+Rc2*(Kc[1]-Cc[1])/dl];
+      arc(Kc[0],Kc[1],Rk2,0,Math.atan2(T[1]-Kc[1],T[0]-Kc[0]),14); arc(Cc[0],Cc[1],Rc2,Math.atan2(T[1]-Cc[1],T[0]-Cc[0]),Math.PI/2,26); }
+    else { const zr=Cc[1]+Math.sqrt(Math.max(0,Rc2*Rc2-Rr*Rr)); arc(Cc[0],Cc[1],Rc2,Math.atan2(zr-Cc[1],Rr),Math.PI/2,40); if(Math.abs(zr)>1e-9) for(const q of pts) q[1]-=zr; } }
   // the knuckle arc ends where the crown arc starts: drop the repeat, a zero-length row breaks the development
   for(let i=pts.length-1;i>0;i--) if(Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1])<1e-9) pts.splice(i,1);
   const open=Math.max(0,+s.crownOpen||0)/2;
-  if(open>0&&open<R){ const out=[]; for(let i=0;i<pts.length;i++){ if(pts[i][0]>=open) out.push(pts[i]); else { const a=pts[i-1], u=(a[0]-open)/((a[0]-pts[i][0])||1); out.push([open,a[1]+(pts[i][1]-a[1])*u]); break; } } return out; }
+  if(open>0&&open<Rr){ const out=[]; for(let i=0;i<pts.length;i++){ if(pts[i][0]>=open) out.push(pts[i]); else { const a=pts[i-1], u=(a[0]-open)/((a[0]-pts[i][0])||1); out.push([open,a[1]+(pts[i][1]-a[1])*u]); break; } } return out; }
   return pts;
 }
 function t3head(kind){ return s=>{ const stn=t3headProfile(kind,s), N=Math.max(3,Math.min(60,Math.round(+s.segments||24))), half=Math.PI/N;
@@ -8914,6 +9042,7 @@ function fieldHTML(f,s,after){
       return `<label>${/mm/.test(lbl)?lbl:lbl+' (mm)'}</label><input type="number" inputmode="decimal" data-k="${f.k}" value="${+cur||0}" step="0.1" placeholder="${ph}">`; }
     return `<label>${f.label}</label><select data-pipe="${f.k}">${f.none?`<option value="0" ${none?'selected':''}>No hole</option>`:''}${FP.PIPE_CHART.map(p=>`<option value="${p.od}" ${(p.od==cur&&!isc)?'selected':''}>${p.inch}" · DN${p.dn} · ${p.od}mm</option>`).join('')}<option value="custom" ${isc?'selected':''}>Custom…</option></select><div data-cuswrap="${f.k}" class="${isc?'':'hide'}"><input type="number" inputmode="decimal" data-cus="${f.k}" value="${cur}" step="0.1" style="margin-top:8px"></div>`; }
   if(f.type==='seg') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
+  if(f.type==='sel') return `<label>${f.label}</label><select data-selk="${f.k}">${f.opts.map(o=>`<option value="${o.v}" ${s[f.k]==o.v?'selected':''}>${o.label}</option>`).join('')}</select>`;
   if(f.type==='segopt') return `<label>${f.label}</label><div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='abcd'){ const cur=/^[ABCD]$/.test(s[f.k]||'')?s[f.k]:'A';
     /* A B C D - WHERE THE BEND SITS, drawn from Craig's own picture (11 Sep):
@@ -9115,8 +9244,9 @@ function form(kind, presetParams){
   app.querySelectorAll('[data-seg]').forEach(el=>{ const k=el.dataset.seg; el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     el.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     if(k==='__page'){ SET.page=b.dataset.v; saveSet(); } else { touch(); const nv=parseFloat(b.dataset.v); s[k]=isNaN(nv)?b.dataset.v:nv; if(fit.onSet) fit.onSet(s,k); }
-    if(el.dataset.reflow) return repage(()=>form(kind));
+    if(el.dataset.reflow){ readAll(); return repage(()=>form(kind)); }   // a number typed a moment ago is still only in its box: read it before the form is rebuilt
     refresh(); }); });
+  app.querySelectorAll('[data-selk]').forEach(el=>el.onchange=()=>{ touch(); readAll(); s[el.dataset.selk]=el.value; if(fit.onSet) fit.onSet(s,el.dataset.selk); repage(()=>form(kind)); });
   function rebuildCr(){ cradFields.forEach(f=>{
     const cs=app.querySelector(`[data-crsel="${f.k}"]`); if(!cs) return;
     const wasCustom=cs.value==='custom', opts=crOpts(s,f), keep=s[crK(f,'_xd')]||1.5;
@@ -9306,6 +9436,7 @@ function form(kind, presetParams){
       const raw=(e.value||'').trim(), v=parseFloat(raw), empty=(raw===''||isNaN(v));
       e.classList.toggle('bad',empty);
       if(empty){ if(e.dataset.opt){ s[e.dataset.k]=null; e.classList.remove('bad'); return; } blanks.push(labelOf(e)); } else s[e.dataset.k]=v; });
+    app.querySelectorAll('[data-selk]').forEach(e=>{ s[e.dataset.selk]=e.value; });
     fit.fields.filter(f=>f.type==='pipe').forEach(f=>{ const sel=app.querySelector(`[data-pipe="${f.k}"]`); if(!sel)return;
       if(sel.value==='custom'){ const c=app.querySelector(`[data-cus="${f.k}"]`); const v=parseFloat(c.value);
         const empty=isNaN(v); c.classList.toggle('bad',empty);
@@ -9696,7 +9827,7 @@ function settingsPage(){
     <div class="hint" style="text-align:left">Saves your jobs, settings and licence to a file. Keep a copy off the phone — a lost or wiped phone takes its jobs with it.</div></details>
    <div class="card" style="text-align:center">
     <img src="${MARKURI}" alt="" style="width:56px;height:56px;display:block;margin:2px auto 10px">
-    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.76.0</span></div>
+    <div style="font-weight:800;font-size:16px">${BRAND.name} <span style="color:var(--sub);font-weight:600;font-size:12px">v4.77.0</span></div>
     <div style="font-size:13px;color:var(--sub);margin-top:2px">1:1 flat patterns for industrial insulation cladding</div>
     ${BRAND.email||BRAND.site?`<div style="font-size:13.5px;margin-top:12px;line-height:1.6">${BRAND.site?`<a href="https://${BRAND.site}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.site}</a><br>`:''}${BRAND.email?`<a href="mailto:${BRAND.email}" style="color:var(--acc);font-weight:600;text-decoration:none">${BRAND.email}</a>`:''}</div>`:''}
     <div style="font-size:11px;color:var(--sub);margin-top:10px;line-height:1.5">${BRAND.owner}${BRAND.company?' · company no. '+BRAND.company:''}${BRAND.office?'<br>'+BRAND.office:''}</div>
@@ -9742,7 +9873,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.76.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.77.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Backup saved - keep a copy off the phone.'); };
