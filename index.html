@@ -1516,6 +1516,64 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     #flyScrim[hidden]{display:none}
   }
 
+  /* ===== 4.81 the tablet pass =====
+     Android tablets (the Play build) and iPads (the browser), both ways up,
+     by finger. Layout and touch only: the look and every figure stand. */
+  /* the search's clear button takes a gloved thumb too */
+  @media(pointer:coarse){ .findx{width:44px;height:44px} }
+  /* Pieces: a tall piece (a head's gore) drew its thumbnail as tall as the
+     piece, and the strip crushed the drawing to a sliver at every width */
+  .kitpc svg{max-height:96px}
+  /* the DXF dialog: the summary and Save DXF held at its foot at every
+     width; two columns on anything 720 wide, so it fits a landscape tablet */
+  .modal.dxm{max-height:calc(100vh - 44px);max-height:calc(100dvh - 32px);overflow:auto;padding-bottom:0}
+  .dxfoot{position:sticky;bottom:0;z-index:2;background:var(--panel);padding:0 0 16px;margin-top:8px;border-top:1px solid var(--line)}
+  @media(min-width:720px){
+    .modal.dxm{max-width:720px}
+    .dxcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 24px;align-items:start}
+    .dxb>label:first-child{margin-top:12px!important}
+  }
+  /* the docked row under a narrow drawing (a 1024 landscape tablet, or a
+     column dragged wide) used to run off the end - Fit off the screen, the
+     layout chip over + Job. Now the layout chip goes first, then Share,
+     DXF and + Job stack their icon over a small label as on a phone; and if
+     it still cannot fit, the row scrolls rather than lose a button. */
+  @media(min-width:880px){
+    .actrow{overflow-x:auto;scrollbar-width:none}
+    .actrow::-webkit-scrollbar{display:none}
+    @container pv (max-width:760px){
+      .actrow .laych{display:none}
+      .actrow{gap:6px;padding:0 12px}
+      .actrow #pvRot{margin-left:auto}
+    }
+    @container pv (max-width:660px){
+      .actrow .btn.ghost{width:52px;padding:0;flex-direction:column;gap:3px;font:600 10px/1 var(--fs)}
+      .actrow .btn.ghost svg{display:block}
+    }
+  }
+  /* a finger's bigger buttons crowd the layout summary sooner */
+  @media(min-width:880px) and (pointer:coarse){
+    @container pv (max-width:1000px){ .laych .lay{display:none} }
+  }
+  /* the column's drag edge by finger: a 24px strip that holds the touch
+     (no page pan), with a grip you can see - it used to be a 6px line that
+     only showed on a mouse hover and lost the drag to a scroll */
+  .coldrag{touch-action:none}
+  @media(pointer:coarse){
+    .coldrag{width:24px;margin:0 -12px;background:transparent!important}
+    .coldrag::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:48px;margin:-24px 0 0 -3px;
+        border-radius:3px;background:var(--line2)}
+    .coldrag.on::after{background:var(--acc)}
+  }
+  /* an upright tablet (600-879): the seam and bend-type sheet sits in the
+     same 600px as the rows, its clock and A B C D drawn bigger (not a phone
+     on its side - 390 tall has no room for the bigger clock) */
+  @media(min-width:600px) and (max-width:879px) and (min-height:600px){
+    .bsheet{margin:0 auto;max-width:600px}
+    .bscol svg{max-width:220px}
+    .bscol .abcdpick{max-width:200px}
+  }
+
 </style>
 </head>
 <body>
@@ -6543,7 +6601,10 @@ const PVZoom=(()=>{ let box=null,v={s:1,x:0,y:0,r:0},ptrs=new Map(),last=null,pi
            the pattern horizontal so we can see it better"). Only the view
            turns; the print and the DXF are untouched. The turn button flips
            the choice; phones never turn. */
-        const auto=DESK()&&bw>bh*1.1&&h>w*1.15, r=auto!==flip;
+        /* 4.81: a tablet held upright lays a tall pattern down as well - its
+           drawing is wider than tall above the inputs sheet, and a head gore
+           stood on end there was a sliver at 10% */
+        const auto=(DESK()||(TAB_DEV()&&innerWidth>=600))&&bw>bh*1.1&&h>w*1.15, r=auto!==flip;
         if(r){ const s=Math.min(1,bw/h,bh/w); v={s:s, x:(bw-h*s)/2, y:T+(bh+w*s)/2, r:1}; }
         else { const s=Math.min(1,bh/h); v={s:s, x:(bw-w*s)/2, y:T+(bh-h*s)/2, r:0}; } } }
     apply(); }
@@ -7353,6 +7414,10 @@ const DESK=()=>matchMedia('(min-width:1024px)').matches;
 /* three layouts: the phone's canvas + sheet (<880), the tablet's two panes
    (880-1023) and the desktop's rail + column + drawing (1024 up) */
 const WIDE=()=>matchMedia('(min-width:880px)').matches;
+/* a tablet-sized SCREEN (both sides 600 or more): it does not change when
+   the device turns or a keyboard takes half the window, so a phone on its
+   side is never mistaken for a tablet */
+const TAB_DEV=()=>Math.min(screen.width||0,screen.height||0)>=600;
 let _railKind=null;        // the fitting on screen, 'chart', or null
 const RAILL={'Bends':'Bends','Tees & Branches':'Tees','Reducers & Cones':'Cones','Transitions':'Transitions','Watershed Tops':'Tops','Vessel Ends':'Ends'};
 const RAILI={
@@ -7429,6 +7494,16 @@ function syncRail(){ const rail=document.getElementById('rail'); if(!rail||!rail
   else if(_railKind){ const gi=GROUPS.findIndex(g=>g.k.indexOf(_railKind)>=0); on(gi>=0?'[data-fam="'+gi+'"]':'[data-rail="fit"]'); }
   else on('[data-rail="fit"]'); }
 railInit();
+/* 4.81: a keyboard that shrinks the window (Android Chrome before 108, the
+   Play build's WebView) can leave the box being typed in under it - in the
+   desktop column, a dialog, Settings or a job. Whatever has the focus is
+   brought back into view once the window settles. (The phone sheet does
+   its own lifting first.) */
+addEventListener('resize',e=>{ if(e&&e.isTrusted===false) return; const a=document.activeElement;
+  if(!a||a===document.body||!a.matches||!a.matches('input,select,textarea')) return;
+  clearTimeout(window._kbT); window._kbT=setTimeout(()=>{ if(!a.isConnected||document.activeElement!==a) return;
+    const r=a.getBoundingClientRect(), vv=window.visualViewport, H=vv?vv.height+vv.offsetTop:innerHeight;
+    if(r.top<0||r.bottom>H) try{ a.scrollIntoView({block:'center'}); }catch(_){} },150); });
 
 /* ================= home ================= */
 /* HOMEQ: the search box survives opening a fitting and coming back */
@@ -10391,7 +10466,7 @@ function allowFor(kind,s){ const A={}; if(!s) return A;
   return A; }
 function printSidecar(kind,s,job,qty){ const fit=F[kind];
   return {inputs:inputsFor(kind,s), allow:allowFor(kind,s), fitting:fit?(fit.name+(fit.sub?' · '+fit.sub:'')):kind, job:job||null, qty:qty||1}; }
-function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.80.0'}; }
+function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.81.0'}; }
 function form(kind, presetParams){
   CUR=()=>form(kind);
   stopFormAnims();
@@ -10481,7 +10556,7 @@ function form(kind, presetParams){
       <div class="pvx h"></div><div class="pvx v"></div>
       <div id="pvscale" class="pvscale" style="display:none"><span class="bar"></span><span class="lab"></span></div>
       ${has3d?`<div class="pvbar b3d"><button type="button" class="tb" id="pvSq" title="Straight elevation">${IC.sq}Square on</button><button type="button" class="tb" id="pvBe" title="Straight down from above">${IC.be}Bird’s eye</button><span class="sp"></span><span class="pvhint2">Drag to spin · pinch to zoom</span>${seamBtn}</div>`:''}
-      ${desk?'':`<div class="pvbar bpat">${locked?'':zoomHtml}<span class="sp"></span>${!has3d?seamBtn:''}${locked?'':(!has3d&&seamBtn?`<button type="button" class="tb sq" id="layersBtn" aria-label="Layers" title="Layers">${IC.layers}</button>`:`<button type="button" class="tb" id="layersBtn">${IC.layers}Layers</button>`)}</div>`}
+      ${desk?'':`<div class="pvbar bpat">${locked?'':zoomHtml}${!locked&&TAB_DEV()?`<button type="button" class="tb sq" id="pvRot" aria-label="Turn the pattern" title="Turn the pattern">${IC.turn}</button>`:''}<span class="sp"></span>${!has3d?seamBtn:''}${locked?'':(!has3d&&seamBtn?`<button type="button" class="tb sq" id="layersBtn" aria-label="Layers" title="Layers">${IC.layers}</button>`:`<button type="button" class="tb" id="layersBtn">${IC.layers}Layers</button>`)}</div>`}
     </div>
     ${pvCtlHtml}
     ${desk?'':legendHtml}
@@ -10496,7 +10571,7 @@ function form(kind, presetParams){
       <button class="btn ghost" id="shareBtn">${IC.share}<span>Share</span></button>
       <button class="btn ghost" id="dxfBtn"${PRO?'':' title="DXF is part of Pro"'}>${PRO?IC.dxf:IC.lock}<span>DXF</span>${PRO?'':'<span class="ptag">Pro</span>'}</button>
       <button class="btn ghost" id="jobBtn"${PRO?'':' title="Jobs are part of Pro"'}>${PRO?IC.job:IC.lock}<span>+ Job</span>${PRO?'':'<span class="ptag">Pro</span>'}</button>
-      ${wide?`<div class="laych"><div class="lay"><span class="eb">Sheet layout</span><span class="mono" id="laysum">${SET.sheetW} × ${SET.sheetH}</span></div><button type="button" class="laybtn" id="layBtn" title="Lay the pieces out on a sheet - coming in a later release"><span class="gl">Lay out on a sheet</span><span class="gs">Lay out</span>${IC.right}</button></div>`:''}${desk?`<button type="button" class="tb sq" id="pvRot" aria-label="Turn the pattern" title="Turn the pattern">${IC.turn}</button>${zoomHtml}`:''}
+      ${wide?`<div class="laych"><div class="lay"><span class="eb">Sheet layout</span><span class="mono" id="laysum">${SET.sheetW} × ${SET.sheetH}</span></div><button type="button" class="laybtn" id="layBtn" title="Lay every piece out on a sheet for the CNC (DXF)"><span class="gl">Lay out on a sheet</span><span class="gs">Lay out</span>${IC.right}</button></div>`:''}${desk?`<button type="button" class="tb sq" id="pvRot" aria-label="Turn the pattern" title="Turn the pattern">${IC.turn}</button>${zoomHtml}`:''}
     </div>${store.get('cm_seen_scale',false)?'<div class="scalecap">'+SCALECAP+'</div>':''}</div>`;
   /* Phone: the drawing owns the top of the screen and the inputs live in the
      sheet underneath (handle, readout, the rows, the action bar). Tablet and
@@ -10550,16 +10625,25 @@ function form(kind, presetParams){
      new width */
   let rfT=0; const refit=()=>{ clearTimeout(rfT); rfT=setTimeout(()=>{ dispatchEvent(new Event('resize'));
     const pv=document.getElementById('pv'); if(pv&&pv.isConnected&&pv.classList.contains('pv3d')) t3mount(pv,kind,eff(),Math.max(300,Math.min(560,pv.clientWidth-24))); },60); };
-  form._onvv=null; form._sheetBack=null;
+  form._onvv=null; form._sheetBack=null; form._colFit=null;
   if(desk) deskForm(); else if(!wide) phoneSheet();
   /* DESKTOP (4.78.0): fold or widen the inputs column, and refit the drawing
      whenever the column changes width. */
   function deskForm(){
     const col=app.querySelector('.pane-ctl'), drag=app.querySelector('.coldrag'), tog=document.getElementById('colTog');
     if(!ws||!col) return;
-    const D=store.get('cm_desk',{}), clampW=px=>Math.max(300,Math.min(640,px));
+    /* 4.81: the column never leaves the drawing under 600px - on a 1024
+       tablet a wide column squeezed the drawing to a strip and pushed the
+       docked row off the screen */
+    const D=store.get('cm_desk',{}), clampW=px=>Math.max(300,Math.min(640,innerWidth-72-600,px));
     const setW=px=>ws.style.setProperty('--colw',Math.round(clampW(px))+'px');
     if(D.w) setW(D.w);
+    /* turned round inside the desktop layout (a 1366 tablet stood upright):
+       the column is held to the new window, the remembered width kept */
+    form._colFit=()=>{ if(!ws.isConnected){ form._colFit=null; return; }
+      const nw=Math.round(clampW(store.get('cm_desk',{}).w||348))+'px';
+      if((ws.style.getPropertyValue('--colw')||'348px')!==nw){ ws.style.setProperty('--colw',nw); refit(); } };
+    if(!window._colHook){ window._colHook=1; addEventListener('resize',e=>{ if(e&&e.isTrusted===false) return; if(form._colFit) form._colFit(); }); }
     col.classList.toggle('closed',!!D.closed);
     const lbl=()=>{ if(!tog) return; const t=col.classList.contains('closed')?'Show the inputs':'Hide the inputs'; tog.title=t; tog.setAttribute('aria-label',t); };
     lbl();
@@ -10588,8 +10672,15 @@ function form(kind, presetParams){
     /* a phone on its side (under 500px tall) has no room for a useful half:
        it opens at peek, the drawing gets the screen, and a tap goes to full */
     const shortL=()=>innerWidth>innerHeight&&innerHeight<500;
+    /* 4.81: on a tablet the half detent stops at the foot of the rows - an
+       elbow's five rows on an 820 tablet left a band of empty sheet the
+       drawing could have had */
     const hts=()=>{ const bar=sh.querySelector('.genwrap'), peek=hd.offsetHeight+(bar?bar.offsetHeight:0), h=H(), full=Math.max(peek,h-48);
-      return {peek, half:shortL()?full:Math.max(peek,Math.round(h*0.54)), full}; };
+      let half=Math.max(peek,Math.round(h*0.54));
+      if(TAB_DEV()&&innerWidth>=600){ const bd=sh.querySelector('.shbody'); if(bd){ const b0=bd.getBoundingClientRect().top-bd.scrollTop; let bot=0;
+        for(const el of bd.children){ const r=el.getBoundingClientRect(); if(r.height) bot=Math.max(bot,r.bottom+(parseFloat(getComputedStyle(el).marginBottom)||0)); }
+        if(bot>0) half=Math.max(peek,Math.min(half,peek+Math.ceil(bot-b0)+16)); } }
+      return {peek, half:shortL()?full:half, full}; };
     if(shortL()&&det==='half') det='peek';
     let cur=0;
     const put=(h,anim)=>{ ws.classList.toggle('anim',!!anim); cur=h; const D=hts();
@@ -10615,18 +10706,36 @@ function form(kind, presetParams){
       if(det==='peek') go('half',true);
       setTimeout(()=>{ try{ t.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){} },240); });
     const vv=window.visualViewport;
+    /* 4.81: an Android keyboard (Chrome before 108, the Play build's
+       WebView) shrinks the WINDOW, not the visual viewport, so kb stays 0
+       and the sheet used to fall to half of a half-height window with the
+       box being typed in under it. A window that loses a fifth of its height
+       while a box in the sheet has focus is that keyboard: the sheet goes
+       to full and the box is scrolled into view. The base height follows
+       the window whenever nothing is being typed, and resets on a turn. */
+    let baseW=innerWidth, baseH=innerHeight;
+    const typing=()=>{ const a=document.activeElement; return !!(a&&a!==document.body&&sh.contains(a)&&a.matches&&a.matches('input,select,textarea')); };
     const onvv=()=>{ if(!ws.isConnected){ form._onvv=null; return; }
       if(ws.classList.contains('seamup')) return;   // the seam sheet holds the layout while it is up
       if(on) return;                                // a finger on the handle owns --sheet until it lets go
       const kb=vv?Math.max(0,Math.round(innerHeight-vv.height-vv.offsetTop)):0; ws.style.setProperty('--kb',kb+'px');
+      if(innerWidth!==baseW||!typing()){ baseW=innerWidth; baseH=innerHeight; }
+      const squeezed=kb===0&&typing()&&innerHeight<baseH*0.8;
       const D=hts();
       /* only a keyboard that really took room lifts the sheet; a hardware
          keyboard or a desktop focus leaves it where it was */
       if(kb===0&&shortL()&&det==='half'){ det='peek'; sh.dataset.det=det; }   // turned on its side: the drawing gets the room
       if(kb>0) put(Math.min(D.full,Math.max(D.peek,H()-kb-48)),false);
+      else if(squeezed){ if(Math.abs(cur-D.full)>1) put(D.full,false);
+        const a=document.activeElement; setTimeout(()=>{ try{ a.scrollIntoView({block:'center'}); }catch(_){} },60); }
       else if(Math.abs(cur-D[det])>1){ put(D[det],false); clearTimeout(form._shT); form._shT=setTimeout(refit,0); } };
     form._onvv=onvv;
     form._sheetBack=()=>go(det,false,false);
+    /* the tablet's content-high half detent follows the rows as they come
+       and go (the mark-out panel appears once the pattern is drawn) */
+    if(TAB_DEV()&&window.ResizeObserver){ const bd=sh.querySelector('.shbody'); if(bd){ let t=0;
+      const ro=new ResizeObserver(()=>{ clearTimeout(t); t=setTimeout(()=>{ if(!ws.isConnected){ ro.disconnect(); return; } if(form._onvv===onvv) onvv(); },60); });
+      [...bd.children].forEach(c=>ro.observe(c)); } }
     /* only a real resize reaches the sheet: refit() itself dispatches a
        synthetic 'resize' for the pattern and the zoom, and answering that
        with another refit was an endless loop (15 3D remounts a second) */
@@ -10717,7 +10826,10 @@ function form(kind, presetParams){
     if(ws2&&!wide){ const bs=bg.querySelector('.bsheet'); ws2.classList.add('seamup');
       ws2.style.setProperty('--pvb',Math.round(bs.getBoundingClientRect().height)+'px'); setTimeout(refit,0); }
   }
-  { const lb2=document.getElementById('layBtn'); if(lb2) lb2.onclick=()=>toast('Sheet layout is coming in a later release — for now the DXF lays every piece in a row.'); }
+  { const lb2=document.getElementById('layBtn'); if(lb2) lb2.onclick=()=>{ if(!PRO) return showUnlock();
+    /* 4.81: the nest landed in 4.80 (the DXF dialog), so this opens that dialog
+       already on "Nested on a sheet" instead of promising a later release */
+    form._lay='nest'; try{ const d=document.getElementById('dxfBtn'); if(d) d.click(); } finally { form._lay=null; } }; }
 
   /* --- the viewport instrument --- */
   PVZoom.attach(app.querySelector('#pv'));
@@ -10907,7 +11019,7 @@ function form(kind, presetParams){
     /* 27 Oct 26: the table's questions, the layout and the sheet all live in
        dxfModal now - the same door the job page uses. Every kit piece goes in
        as many times as its CUT n OFF says (the 4.78 row wrote each once). */
-    dxfModal(pats.map(p=>({pat:p, qty:cutCount(p), label:kitCaption(p)})), name, {single}); };
+    dxfModal(pats.map(p=>({pat:p, qty:cutCount(p), label:kitCaption(p)})), name, {single, layout:form._lay||null}); };
   const jb=document.getElementById('jobBtn'); if(jb) jb.onclick=()=>{ if(!PRO) return showUnlock(); flushRefresh(); saveToJob(kind); };
   refresh();
 
@@ -11177,12 +11289,15 @@ const NEST_SHEETS=[['2500x1250','2500 × 1250'],['2000x1000','2000 × 1000'],['3
 function dxfModal(parts, name, opt){
   opt=opt||{};
   const o={holes:SET.dxfHoles||'circle', holeDia:+SET.dxfHoleDia||4, kerf:+SET.dxfKerf||0,
-    layout:SET.nestLayout==='nest'?'nest':'row', sheet:NEST_SHEETS.some(s=>s[0]===SET.nestSheet)?SET.nestSheet:'2500x1250',
+    layout:opt.layout||(SET.nestLayout==='nest'?'nest':'row'), sheet:NEST_SHEETS.some(s=>s[0]===SET.nestSheet)?SET.nestSheet:'2500x1250',
     W:+SET.nestW||2500, H:+SET.nestH||1250, gap:+SET.nestGap>=0?+SET.nestGap:8, margin:+SET.nestMargin>=0?+SET.nestMargin:10, rot:SET.nestGrain?'keepGrain':'any'};
   const dims=()=>o.sheet==='custom'?[o.W,o.H]:o.sheet.split('x').map(Number);
   const total=parts.reduce((a,p)=>a+(opt.single?1:p.qty),0);
   const seg=(id,opts,cur)=>`<div class="seg" id="${id}">${opts.map(([v,l])=>`<button data-v="${v}" ${cur===v?'class="on"':''}>${l}</button>`).join('')}</div>`;
-  const bg=modal(`<h3>DXF for the table</h3>
+  /* a tablet or wider gets two columns (the sheet left, holes and kerf
+     right) and every width holds the summary and Save at the foot, so Save
+     DXF is on screen without scrolling on a 768px-tall landscape tablet */
+  const bg=modal(`<h3>DXF for the table</h3><div class="dxcols"><div class="dxa">
     <label style="display:block">Layout</label>${seg('dxLayout',[['row','Parts in a row'],['nest','Nested on a sheet']],o.layout)}
     <div id="dxNest" style="${o.layout==='nest'?'':'display:none'}">
       <label style="display:block;margin-top:10px">Sheet (mm)</label><select id="dxSheet">${NEST_SHEETS.map(s=>`<option value="${s[0]}" ${o.sheet===s[0]?'selected':''}>${s[1]}</option>`).join('')}</select>
@@ -11190,14 +11305,13 @@ function dxfModal(parts, name, opt){
       <div class="row" style="margin-top:10px"><div><label>Gap (mm)</label><input type="number" id="dxGap" value="${o.gap}" step="1" inputmode="decimal"></div><div><label>Edge margin (mm)</label><input type="number" id="dxMargin" value="${o.margin}" step="1" inputmode="decimal"></div></div>
       <label style="display:block;margin-top:10px">Grain</label>${seg('dxGrain',[['any','Any way round'],['keepGrain','Keep the grain']],o.rot)}
       <div class="hint" style="text-align:left;margin:6px 0 0">Keep the grain lays every strip along the sheet's length — turned end for end at most, never across — for the rollers, and for stucco or Plastisol that shows its direction. Any way round also tries across. One file per sheet.</div>
-    </div>
+    </div></div><div class="dxb">
     <label style="display:block;margin-top:10px">Holes</label>${seg('dxHoles',[['circle','Cut Ø'],['mark','Centre marks'],['none','None']],o.holes)}
     <div class="row" style="margin-top:10px"><div><label>Hole Ø (mm)</label><input type="number" id="dxDia" value="${o.holeDia}" step="0.5" inputmode="decimal"></div><div><label>Kerf (mm)</label><input type="number" id="dxKerf" value="${o.kerf}" step="0.1" inputmode="decimal"></div></div>
     <div class="hint" style="text-align:left;margin:6px 0 0">Kerf is the torch or beam width. Leave it 0 if your table or CAM adds it; otherwise type it and every cut line is pushed out by half, so the part comes out at size. Laps, swages and holes are already on the drawing.</div>
     <div class="hint" style="text-align:left;margin:6px 0 0">Layers: CUT is the cut. FOLD, SWAGE, LAP and HOLES are there to scribe or ignore; SHEET is the stock, LABEL the part names. Cut order and lead-ins are your CAM's.</div>
-    <div class="hint" id="dxSum" style="margin:10px 0 12px;font-family:var(--fm);color:var(--ink)"></div>
-    <button class="btn primary" id="dxGo">Save DXF</button>`);
-  bg.querySelector('.modal').style.cssText+=';max-height:calc(100vh - 44px);overflow:auto';
+    </div></div><div class="dxfoot"><div class="hint" id="dxSum" style="margin:10px 0 12px;font-family:var(--fm);color:var(--ink)"></div>
+    <button class="btn primary" id="dxGo">Save DXF</button></div>`,'dxm');
   const q=id=>bg.querySelector('#'+id), sum=q('dxSum');
   let res=null;
   const rd=()=>{ o.holeDia=Math.min(50,Math.max(1,+q('dxDia').value||4)); o.kerf=Math.min(10,Math.max(0,+q('dxKerf').value||0));
@@ -11417,7 +11531,7 @@ function settingsPage(){
     +row('Jobs, settings and licence','Keep a copy off the phone — a lost or wiped phone takes its jobs with it.','<button type="button" class="btn" id="sExport">Export</button><button type="button" class="btn" id="sImport">Restore</button>')
     +`</div><input type="file" id="sImportFile" accept=".json,application/json" class="hide">`
     +grp('About')+`<div class="slist">`
-    +row('Version','',`<span class="val">v4.80.0</span>`,null,'kv')
+    +row('Version','',`<span class="val">v4.81.0</span>`,null,'kv')
     +(BRAND.site?row('Website','',`<a href="https://${BRAND.site}" target="_blank" rel="noopener">${BRAND.site}</a>`,null,'kv'):'')
     +(BRAND.email?row('Support','',`<a href="mailto:${BRAND.email}">${BRAND.email}</a>`,null,'kv'):'')
     +row(esc(BRAND.owner),(BRAND.company?'Company no. '+BRAND.company:'')+(BRAND.office?' · '+BRAND.office:''),'')
@@ -11462,7 +11576,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.80.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.81.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     toast('Backup saved - keep a copy off the phone.'); };   // saveOut revokes its own URL (the old line here threw a ReferenceError 4 s later)
