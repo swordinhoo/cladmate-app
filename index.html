@@ -1075,6 +1075,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .codebox input{font-size:16px;letter-spacing:.04em;text-transform:uppercase}
   .codebox .btn{width:auto;flex:none}
   .mbtns{display:flex;flex-direction:column;gap:8px}
+  /* the Workshop sheet (4.82) and the Pro screen's line about it */
+  .modal .wslead{color:var(--ink)}
+  .wsm #wsSite{margin:0 0 4px}
+  .wsline{font:400 13px/1.45 var(--fs);color:var(--sub);margin:-8px 0 12px}
+  .wsline a{color:var(--acc-text);font-weight:600;text-decoration:none}
+  .ptag.ws{letter-spacing:.02em;padding:0 3px}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));
         background:var(--ink);color:var(--bg);font:500 14px/1.3 var(--fs);padding:12px 16px;border-radius:var(--r2);
         z-index:60;animation:toastin .18s cubic-bezier(.2,.7,.25,1);max-width:88vw}
@@ -6385,30 +6391,115 @@ const STORE = ('' || null);
 /* RevenueCat's PUBLIC sdk key - it ships inside the APK by design and can do
    nothing but read this app's offerings. Empty in every web build. */
 const RC_KEY = '';
+/* Workshop's page on the site (4.82). tools/build.js stamps it into the web
+   builds only; the store build gets '' - no link, no address, nothing that
+   points at buying outside Play. */
+const WS_URL = 'https://turboclad.co.uk/pricing#workshop';
 const renewHint = (sep) => (BRAND.site && !STORE) ? (sep||' ')+'Renew at '+BRAND.site+'.' : '';
 const LIC_URL = (!OWNER && BRAND.site) ? 'https://'+BRAND.site+'/api/licence' : null;
 const LIC_TTL = 24*3600*1000, LIC_TRUST = 45*24*3600*1000;
-function expFromVerdict(v){ if(v.expires) return Date.parse(v.expires+'T23:59:59Z'); return v.valid ? null : 0; }
+function expFromVerdict(v){ if(!v.valid && v.reason==='seats') return 0;   // not this device - nothing from this code, and never "expired"
+  if(v.expires) return Date.parse(v.expires+'T23:59:59Z'); return v.valid ? null : 0; }
+/* WORKSHOP (4.82, 27 Oct 26). DXF left Pro for a tier of its own, Workshop:
+   one licence per workshop on up to 10 devices (a DXF file cannot be tied to
+   a machine, so the licence is the shop, not the table). CNC is the flag
+   every DXF door asks, and it is never true without PRO. It comes from:
+     a Workshop code   CW2-..., the CM2 scheme with its own residue (checkCode)
+     the daily check   the verdict's cnc field - the site says which CM / CM2
+                       codes carry DXF
+     Google Play       RevenueCat's 'cnc' entitlement, or a 'pro' first bought
+                       before CUTOVER
+   GRANDFATHERED, the hard rule: nobody who paid for Pro before this release
+   loses DXF to it. A verdict cached by 4.81 or earlier has no cnc field at
+   all - an existing customer - and counts as yes until the next daily check
+   replaces it; so does a licence unlocked before codes were kept (cm_pro, no
+   code, no Play record) and a cm_spro written before 4.82. A CM / CM2 code
+   with no verdict yet (just typed, offline) is no until the site answers.
+   Printed metal is untouched: this is the licence and the screens only. */
+const CUTOVER = Date.parse('2026-10-28T00:00:00Z');   // Play: a 'pro' first bought before this keeps DXF
+let CNC = false;
+/* the verdict the boot check trusts: this code's, and younger than LIC_TRUST */
+function codeVerdict(){ const c=store.get('cm_pro_code',null), v=store.get('cm_lic',null);
+  return (c && v && v.code===c && Date.now()-v.at < LIC_TRUST) ? v : null; }
+/* Pro from the code alone, exactly as applyVerdict / boot work it out */
+function proCodeActive(){ const v=codeVerdict();
+  if(v){ const e=expFromVerdict(v); return e===null || Date.now() <= e + PRO_GRACE_MS; }
+  return proFromCode(); }
+function cncFromCode(){ const c=store.get('cm_pro_code',null);
+  if(!c) return !!store.get('cm_pro',false) && !store.get('cm_spro',null);   // unlocked before codes were kept
+  let r=null; try{ r=checkCode(c); }catch(e){ r=null; }
+  if(!r) return false;
+  if(r.cnc) return true;
+  const v=codeVerdict(); if(!v) return false;
+  return !('cnc' in v) || v.cnc===true; }
+function cncFromStore(v){ v = v || store.get('cm_spro', null);
+  if(!v || !v.active) return false;
+  if(v.cnc && (v.cncExp == null || Date.now() <= v.cncExp + PRO_GRACE_MS)) return true;
+  if(!proFromStore(v)) return false;
+  return !('cnc' in v) || !!v.gf; }
+function cncCalc(){ return !!(OWNER || cncFromStore() || (PRO && proCodeActive() && cncFromCode())); }
+function syncCNC(){ CNC = cncCalc(); return CNC; }
+/* RevenueCat's customer info -> the cm_spro record. Same shape as before
+   ({active, exp, at}) with cnc / cncExp / gf / orig added. 'cnc' on its own
+   still makes active true: Workshop includes Pro. */
+function sproFromInfo(ci){
+  let a=null; try{ a = ci && ci.entitlements && ci.entitlements.active; }catch(err){ a=null; }
+  const p=(a && a.pro) || null, w=(a && a.cnc) || null, at=Date.now();
+  if(!p && !w) return { active:false, exp:0, at, cnc:false, cncExp:null, gf:false, orig:null };
+  const ex=e=>e.expirationDateMillis==null ? null : +e.expirationDateMillis;
+  const exps=[p,w].filter(Boolean).map(ex);
+  const exp=exps.some(x=>x===null) ? null : Math.max.apply(null, exps);
+  let orig=null;
+  if(p){ const m=p.originalPurchaseDateMillis; if(m!=null && isFinite(+m)) orig=+m;
+    else if(p.originalPurchaseDate){ const d=Date.parse(p.originalPurchaseDate); if(isFinite(d)) orig=d; } }
+  /* no purchase date at all (it is always sent) reads as an existing customer:
+     a payer never loses DXF to missing data */
+  const gf=!!p && (orig==null || orig < CUTOVER);
+  return { active:true, exp, at, cnc:!!w, cncExp:w?ex(w):null, gf, orig }; }
+/* this install's device id: 32 random hex, made once, never derived from the
+   person or the phone. Sent only with a Workshop code, so the site can hold a
+   licence to its number of devices. */
+function devId(){ let d=store.get('cm_dev',null);
+  if(typeof d==='string' && /^[0-9a-f]{32}$/.test(d)) return d;
+  const b=new Uint8Array(16); crypto.getRandomValues(b);
+  d=Array.from(b,x=>x.toString(16).padStart(2,'0')).join(''); store.set('cm_dev',d); return d; }
+/* the site said this licence is on its full number of devices and this is
+   not one of them: plain words, never "expired" or "refunded" */
+function seatsBlocked(){ const v=codeVerdict(); return (v && !v.valid && v.reason==='seats') ? v : null; }
+function seatsMsg(v){ return 'This Workshop licence is already in use on '+(v && v.seats!=null ? v.seats+' devices' : 'all its devices')
+  +'. Ask whoever manages it to free one up, or use one of those devices.'; }
 function applyVerdict(v){ const exp=expFromVerdict(v); store.set('cm_pro_exp',exp);
   /* a live Play purchase outranks a lapsed code: never take Pro off a man who
      is paying Google for it because the code he typed last year ran out */
   PRO = OWNER || (exp===null) || Date.now() <= exp + PRO_GRACE_MS || proFromStore();
-  if(PRO) store.set('cm_pro',true); }
+  if(PRO) store.set('cm_pro',true); syncCNC(); }
 (function(){ if(OWNER) return; const v=store.get('cm_lic',null), code=store.get('cm_pro_code',null);
   if(v && code && v.code===code && Date.now()-v.at < LIC_TRUST) applyVerdict(v); })();
+syncCNC();
 async function refreshLicence(force){
   if(!LIC_URL) return false; const code=store.get('cm_pro_code',null); if(!code) return false;
   const v=store.get('cm_lic',null);
   if(!force && v && v.code===code && Date.now()-v.at < LIC_TTL) return false;
   if(navigator.onLine===false) return false;
   try{
-    const r=await fetch(LIC_URL+'?code='+encodeURIComponent(code),{cache:'no-store'});
+    /* a Workshop code carries this install's device id (d) so the site can
+       hold the licence to its devices; a Pro code never sends one */
+    let ws=false; try{ const r0=checkCode(code); ws=!!(r0 && r0.cnc); }catch(e){ ws=false; }
+    const r=await fetch(LIC_URL+'?code='+encodeURIComponent(code)+(ws?'&d='+devId():''),{cache:'no-store'});
     if(!r.ok) return false;
     const j=await r.json(); if(typeof j.valid!=='boolean') return false;
-    const verdict={code, at:Date.now(), valid:j.valid, expires:j.expires||null, reason:j.reason||null};
+    const toNum=x=>(x==null || !isFinite(+x)) ? null : +x;
+    const verdict={code, at:Date.now(), valid:j.valid, expires:j.expires||null, reason:j.reason||null, seats:toNum(j.seats), used:toNum(j.used)};
+    /* cnc only when the site says it outright: a verdict without it reads as
+       a pre-4.82 customer's (see WORKSHOP above) */
+    if(typeof j.cnc==='boolean') verdict.cnc=j.cnc;
     store.set('cm_lic',verdict);
-    const was=PRO; applyVerdict(verdict);
-    if(was!==PRO){ renderPro(); route(); toast(PRO ? BRAND.name+' Pro is active' : BRAND.name+' Pro has ended.'+renewHint()); }
+    const was=PRO, wasC=CNC; applyVerdict(verdict);
+    const moved=was!==PRO || wasC!==CNC;
+    if(moved){ renderPro(); route(); }
+    if(!verdict.valid && verdict.reason==='seats'){ if(moved || force) toast(seatsMsg(verdict)); }
+    else if(was!==PRO) toast(PRO ? BRAND.name+' Pro is active' : BRAND.name+' Pro has ended.'+renewHint());
+    else if(wasC!==CNC) toast(CNC ? 'Workshop is active — DXF is on.' : 'Workshop has ended — DXF is off. Pro carries on.'+renewHint());
     return true;
   }catch(e){ return false; } }
 let JOBS = store.get('cm_jobs',[]);
@@ -6422,16 +6513,20 @@ function saveJobs(){ store.set('cm_jobs',JOBS); }
        of that month, UTC). The checksum runs over all 12 chars WITH residue 11
        - the expiry included, so nudging the date breaks the code. Normalised
        lengths keep the schemes apart: v1 is 10 chars, v2 is 15.
+   CW2-EEXX-XXXX-XXXX  Workshop (4.82): exactly the CM2 scheme with residue
+       13, so a CM2 body under a CW2 prefix fails. {cnc:true} rides on it;
+       CM and CM2 answer {cnc:false} - whether one of those carries DXF is the
+       site's call (the daily check), see WORKSHOP above.
    Issued by the STX site; verify/sanity-licence.js and the site's generator
    share fixed test vectors so the two ends cannot drift. */
 function checkCode(c){ c=(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   const wsum=(b,n)=>{ let s=0; for(let i=0;i<n;i++){ const v=parseInt(b[i],36); if(isNaN(v)) return -1; s+=v*(i+3); } return s; };
-  if(c.startsWith('CM2')&&c.length===15){ const b=c.slice(3);
-    if(wsum(b,12)%36!==11) return false;
+  if((c.startsWith('CM2')||c.startsWith('CW2'))&&c.length===15){ const b=c.slice(3), cnc=c.startsWith('CW2');
+    if(wsum(b,12)%36!==(cnc?13:11)) return false;
     const mi=parseInt(b.slice(0,2),36);
-    return { exp: Date.UTC(2024, mi+1, 1)-1 }; }
+    return { exp: Date.UTC(2024, mi+1, 1)-1, cnc }; }
   if(c.startsWith('CM')&&c.length===10){ const b=c.slice(2);
-    return wsum(b,8)%36===7 ? { exp:null } : false; }
+    return wsum(b,8)%36===7 ? { exp:null, cnc:false } : false; }
   return false; }
 
 /* ================= helpers ================= */
@@ -6439,7 +6534,7 @@ const app=document.getElementById('app'), backBtn=document.getElementById('backB
 const ttl=document.getElementById('ttl'), subttl=document.getElementById('subttl'), proBadge=document.getElementById('proBadge');
 const PM=10, OV=20;
 function renderPro(){ proBadge.textContent=PRO?'PRO':'GO PRO'; proBadge.classList.toggle('pro',!!PRO);
-  proBadge.title=PRO?BRAND.name+' Pro is active on this device':'Unlock every fitting, DXF and Jobs'; }
+  proBadge.title=PRO?BRAND.name+(CNC?' Pro + Workshop':' Pro')+' is active on this device':'Unlock every fitting, printable PDFs and Jobs'; }
 proBadge.onclick=()=>{ if(PRO) tabTo('set'); else showUnlock(); };
 /* the header sun/moon: same switch as Settings > Appearance, one tap from
    anywhere, because the moment you need it you are stood in the sun. */
@@ -6449,6 +6544,7 @@ document.getElementById('themeTog').onclick=()=>{ SET.appearance = (SET.appearan
    no flags to go stale. Silent for owner builds and perpetual v1 codes. */
 function licBannerHTML(){
   if(OWNER) return '';
+  { const sv=seatsBlocked(); if(sv && !PRO) return '<div class="note">'+seatsMsg(sv)+'</div>'; }
   const exp=store.get('cm_pro_exp',null);
   if(!exp||!store.get('cm_pro',false)) return '';
   const now=Date.now(), day=86400000;
@@ -7225,18 +7321,18 @@ function unlocked(k){ return PRO || isFree(k); }
    Reached through window.Capacitor.Plugins, same as Filesystem and Share, so
    this is still one file with no bundler. Web and owner builds never see it. */
 const PLAY=(()=>{
-  const ENT='pro';
+  /* 'pro' and, from 4.82, 'cnc' (Workshop - not in Play Console yet; when
+     Craig adds it, it works with no app release). sproFromInfo reads both. */
   const plugin=()=>{ try{ return (STORE==='play' && window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Purchases) || null; }catch(e){ return null; } };
   let ready=false;
   function apply(ci){
-    let e=null; try{ e = ci && ci.entitlements && ci.entitlements.active && ci.entitlements.active[ENT]; }catch(err){ e=null; }
-    const v = e ? { active:true, exp:(e.expirationDateMillis==null?null:+e.expirationDateMillis), at:Date.now() }
-                : { active:false, exp:0, at:Date.now() };
+    const v=sproFromInfo(ci);
     store.set('cm_spro',v);
-    const was=PRO;
+    const was=PRO, wasC=CNC;
     PRO = OWNER || proFromCode() || proFromStore(v);
     if(PRO) store.set('cm_pro',true);
-    if(was!==PRO){ renderPro(); route(); }
+    syncCNC();
+    if(was!==PRO || wasC!==CNC){ renderPro(); route(); }
     return PRO; }
   async function init(){
     const p=plugin(); if(!p || ready || !RC_KEY) return false;
@@ -7280,9 +7376,11 @@ function applyCode(raw){ const r=checkCode(raw);
   PRO=true; store.set('cm_pro',true);
   store.set('cm_pro_exp',r.exp||null);   // a perpetual v1 code clears any old expiry (sub -> lifetime upgrade)
   store.set('cm_pro_code',String(raw).trim().toUpperCase()); store.set('cm_lic',null);
-  renderPro();
+  syncCNC(); renderPro();
   refreshLicence(true);   // a subscription code carries its TRUE expiry on the site, not the month baked in
   return ''; }
+/* what to say when a code takes */
+const unlockMsg=()=>CNC ? 'Workshop unlocked — Pro and DXF are on.' : 'Pro unlocked — nice one!';
 /* The Pro screen (4.79). One primary Buy, the code behind "I have a code",
    a close button and Escape, the free tier named so it never reads as a
    wall. The web build sells straight into checkout and never sends anyone to
@@ -7295,7 +7393,8 @@ function showUnlock(){
   const PQ={monthly:'a month',annual:'a year',lifetime:'once'};
   const card=(p,on)=>`<button type="button" class="plan${on?' on':''}" data-plan="${p}" aria-pressed="${on}"><span class="pn">${p[0].toUpperCase()+p.slice(1)}</span><span class="pp">–</span><span class="pq">${PQ[p]}</span></button>`;
   const bg=modal(`${mhead(BRAND.name+' Pro')}
-    <ul class="prolist">${['All '+NALL+' fittings','DXF export for plasma and laser','Jobs — save and reprint','Your company name on templates','Area and sheet fit on every pattern'].map(t=>`<li>${UIC.check}<span>${t}</span></li>`).join('')}</ul>
+    <ul class="prolist">${['All '+NALL+' fittings','Printable 1:1 PDFs','Jobs — save and reprint','Your company name on templates','Area and sheet fit on every pattern'].map(t=>`<li>${UIC.check}<span>${t}</span></li>`).join('')}</ul>
+    <div class="wsline">DXF cut files for a CNC table are part of Workshop, a licence for the whole shop.${web&&WS_URL?` <a href="${WS_URL}" target="_blank" rel="noopener">About Workshop</a>`:''}</div>
     ${play?`<div class="plans" id="rcPlans"><div class="hint" style="grid-column:1/-1;margin:0;text-align:left">Asking Google Play for today’s prices…</div></div>`:''}
     ${web?`<div class="plans" id="webPlans">${['monthly','annual','lifetime'].map(p=>card(p,p==='annual')).join('')}</div><div class="plansale" id="planSale"></div>`:''}
     <div class="mbtns">
@@ -7366,9 +7465,39 @@ function showUnlock(){
   bg.querySelector('#licGo').onclick=()=>{
     const err=applyCode(li.value);
     if(err){ toast(err); return; }
-    bg.remove(); toast('Pro unlocked — nice one!'); route(); };
+    bg.remove(); toast(unlockMsg()); route(); };
   if(!play&&!web) setTimeout(()=>li.focus(),60);
 }
+/* The Workshop sheet (4.82): what a Pro user gets on tapping a DXF door.
+   What it is for in plain words, and the code box - a Workshop code typed
+   here goes the same road as anywhere (applyCode). The web build may point
+   at the site (WS_URL, the free trial); the store build says nothing about
+   buying anywhere - no link, no address, no price (Play policy, see STORE). */
+function showWorkshop(){
+  const web=!STORE && !!WS_URL, sv=seatsBlocked();
+  const bg=modal(`${mhead('DXF is part of Workshop')}
+    <p class="wslead">Cut files for a CNC plasma, laser or router table. Every piece of a fitting, or a whole job, goes out as a DXF - nested on your sheet size, or in a row for your own nesting software.</p>
+    <ul class="prolist">${['DXF for every fitting and every job','Nested on your sheet size, every copy counted','One licence per workshop, on up to 10 devices','Everything in Pro comes with it'].map(t=>`<li>${UIC.check}<span>${t}</span></li>`).join('')}</ul>
+    ${sv?`<div class="note" style="margin:0 0 12px">${seatsMsg(sv)}</div>`:''}
+    ${web?`<p class="wslead">Try it free for 14 days on the website.</p><a class="btn primary" id="wsSite" href="${WS_URL}" target="_blank" rel="noopener">See Workshop at ${BRAND.site}</a>`:''}
+    <div class="codebox"><label for="wsIn">Have a Workshop code? Enter it here.</label>
+      <div class="codein"><input id="wsIn" placeholder="CW2-XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false"><button type="button" class="btn${web?'':' primary'}" id="wsGo">Unlock</button></div></div>
+    <div class="freeline">Your Pro carries on as it is - every fitting, printable PDFs and Jobs.</div>`,'prom wsm');
+  const li=bg.querySelector('#wsIn'), go=bg.querySelector('#wsGo');
+  li.onkeydown=e=>{ if(e.key==='Enter') go.click(); };
+  go.onclick=()=>{ const raw=li.value, r=checkCode(raw);
+    /* your own Pro code again: nothing to do (re-applying it would drop the
+       verdict that keeps a grandfathered DXF) */
+    const norm=x=>String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(r && !r.cnc && norm(raw)===norm(store.get('cm_pro_code',''))){ toast('That code is already on this device. DXF needs a Workshop code - they start CW2.'); refreshLicence(true); return; }
+    const err=applyCode(raw);
+    if(err){ toast(err); return; }
+    bg.remove(); toast(CNC ? unlockMsg() : 'That is a Pro code - it does not include DXF. Workshop codes start CW2.'); route(); };
+  if(!web) setTimeout(()=>li.focus(),60);
+}
+/* every DXF door asks this first (4.82): Workshop opens it; a Pro user gets
+   the Workshop sheet, a free user the Pro screen */
+function dxfGate(){ if(CNC) return true; if(PRO) showWorkshop(); else showUnlock(); return false; }
 
 /* ================= tabs / routing ================= */
 let TAB='fit', CUR=null;
@@ -10466,7 +10595,7 @@ function allowFor(kind,s){ const A={}; if(!s) return A;
   return A; }
 function printSidecar(kind,s,job,qty){ const fit=F[kind];
   return {inputs:inputsFor(kind,s), allow:allowFor(kind,s), fitting:fit?(fit.name+(fit.sub?' · '+fit.sub:'')):kind, job:job||null, qty:qty||1}; }
-function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.81.0'}; }
+function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.82.0'}; }
 function form(kind, presetParams){
   CUR=()=>form(kind);
   stopFormAnims();
@@ -10569,9 +10698,9 @@ function form(kind, presetParams){
     : `<div class="genwrap"><div class="prob" id="probbox" hidden></div><div class="actrow">
       <button class="btn primary" id="genBtn">${IC.print}<span class="gl">Generate printable PDF</span><span class="gs">Generate PDF</span></button>
       <button class="btn ghost" id="shareBtn">${IC.share}<span>Share</span></button>
-      <button class="btn ghost" id="dxfBtn"${PRO?'':' title="DXF is part of Pro"'}>${PRO?IC.dxf:IC.lock}<span>DXF</span>${PRO?'':'<span class="ptag">Pro</span>'}</button>
+      <button class="btn ghost" id="dxfBtn"${CNC?'':' title="DXF is part of Workshop"'}>${CNC?IC.dxf:IC.lock}<span>DXF</span>${CNC?'':'<span class="ptag ws">Workshop</span>'}</button>
       <button class="btn ghost" id="jobBtn"${PRO?'':' title="Jobs are part of Pro"'}>${PRO?IC.job:IC.lock}<span>+ Job</span>${PRO?'':'<span class="ptag">Pro</span>'}</button>
-      ${wide?`<div class="laych"><div class="lay"><span class="eb">Sheet layout</span><span class="mono" id="laysum">${SET.sheetW} × ${SET.sheetH}</span></div><button type="button" class="laybtn" id="layBtn" title="Lay every piece out on a sheet for the CNC (DXF)"><span class="gl">Lay out on a sheet</span><span class="gs">Lay out</span>${IC.right}</button></div>`:''}${desk?`<button type="button" class="tb sq" id="pvRot" aria-label="Turn the pattern" title="Turn the pattern">${IC.turn}</button>${zoomHtml}`:''}
+      ${wide?`<div class="laych"><div class="lay"><span class="eb">Sheet layout</span><span class="mono" id="laysum">${SET.sheetW} × ${SET.sheetH}</span></div><button type="button" class="laybtn" id="layBtn" title="Lay every piece out on a sheet for the CNC (DXF)${CNC?'':' - part of Workshop'}"><span class="gl">Lay out on a sheet</span><span class="gs">Lay out</span>${IC.right}</button></div>`:''}${desk?`<button type="button" class="tb sq" id="pvRot" aria-label="Turn the pattern" title="Turn the pattern">${IC.turn}</button>${zoomHtml}`:''}
     </div>${store.get('cm_seen_scale',false)?'<div class="scalecap">'+SCALECAP+'</div>':''}</div>`;
   /* Phone: the drawing owns the top of the screen and the inputs live in the
      sheet underneath (handle, readout, the rows, the action bar). Tablet and
@@ -10605,7 +10734,7 @@ function form(kind, presetParams){
     +`</div>`:'';
   if(seamF) html+=`<div class="card diagcard">${seamRows}${noDiag(fieldHTML(seamF,s,abcdF?fieldHTML(abcdF,s):''))}${hand2Html}${kind==='bendonbend'?'<div class="hint" id="dbseam" style="text-align:center;margin-top:8px"></div>':''}</div>`;
   else if(!boxHero&&!T3B[kind]) html+=`<div class="card diagcard" style="display:flex;justify-content:center;padding:10px"><div id="fitdiag"></div></div>`;
-  if(locked) html+=`<div class="hint">Free shows the fitting in 3D with the basic sizes. Pro unlocks the flat 1:1 pattern, the mark-out figures, the printable PDF, DXF and Jobs.</div>`;
+  if(locked) html+=`<div class="hint">Free shows the fitting in 3D with the basic sizes. Pro unlocks the flat 1:1 pattern, the mark-out figures, the printable PDF and Jobs. DXF for a CNC table is part of Workshop.</div>`;
   if(!locked) html+=`<details class="fitnote" id="mkwrap" hidden><summary>Mark out by hand — no printer</summary><div id="mkbody"></div></details>`;
   if(fit.note) html+=`<details class="fitnote"><summary>How this fitting works</summary><div>${fit.note}</div></details>`;
   if(wide) html+=`</div>${desk?'<div class="coldrag" title="Drag to resize the inputs"></div>':''}<div class="pane-pv${boxHero?'':' pv-stick'}">`;
@@ -10826,7 +10955,7 @@ function form(kind, presetParams){
     if(ws2&&!wide){ const bs=bg.querySelector('.bsheet'); ws2.classList.add('seamup');
       ws2.style.setProperty('--pvb',Math.round(bs.getBoundingClientRect().height)+'px'); setTimeout(refit,0); }
   }
-  { const lb2=document.getElementById('layBtn'); if(lb2) lb2.onclick=()=>{ if(!PRO) return showUnlock();
+  { const lb2=document.getElementById('layBtn'); if(lb2) lb2.onclick=()=>{ if(!dxfGate()) return;
     /* 4.81: the nest landed in 4.80 (the DXF dialog), so this opens that dialog
        already on "Nested on a sheet" instead of promising a later release */
     form._lay='nest'; try{ const d=document.getElementById('dxfBtn'); if(d) d.click(); } finally { form._lay=null; } }; }
@@ -11004,7 +11133,7 @@ function form(kind, presetParams){
   const sb=document.getElementById('shareBtn'); if(sb) sb.onclick=()=>{
     if(busy()||!preflight()) return;
     scaleCheck('Got it — share the PDF', ()=>shareIt(sb)); };
-  const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!PRO) return showUnlock();
+  const db=document.getElementById('dxfBtn'); if(db) db.onclick=()=>{ if(!dxfGate()) return;
     flushRefresh();
     if(form._problem){ toast(form._problem); return; }
     /* A kit is EVERY piece, not the one the tile builds (12 Sep 26, #11): the
@@ -11074,8 +11203,9 @@ function form(kind, presetParams){
       if(msg){ pb.innerHTML='<span class="pi">!</span><span></span>'; pb.lastChild.textContent=msg; } }
     const gb=document.getElementById('genBtn'); if(gb) gb.disabled=!!msg;
     const sh=document.getElementById('shareBtn'); if(sh) sh.disabled=!!msg;
-    /* a free user's DXF and + Job stay live: a tap opens the Pro screen (they
-       used to be disabled, so the tap did nothing at all) */
+    /* a locked DXF and + Job stay live: a tap opens the Pro screen, or the
+       Workshop sheet for DXF on Pro (they used to be disabled, so the tap did
+       nothing at all) */
     const dx=document.getElementById('dxfBtn'); if(dx) dx.disabled=!!msg;
     const jb=document.getElementById('jobBtn'); if(jb) jb.disabled=!!msg;
     form._problem=msg||null;
@@ -11287,6 +11417,7 @@ const cutCount=p=>{ const m=/\bCUT (\d+)\b/i.exec((p&&p.cutNote)||''); return m?
 const pieceCaption=p=>{ const t=String((p&&p.title)||'Part').replace(/\s*1:1\s*$/,'').trim(), ps=t.split(/\s+-\s+/); return (ps.length>1?ps.slice(1).join(' - '):t).trim(); };
 const NEST_SHEETS=[['2500x1250','2500 × 1250'],['2000x1000','2000 × 1000'],['3000x1500','3000 × 1500'],['3000x1250','3000 × 1250'],['3000x1240','3000 × 1240 · Plastisol flat'],['custom','Custom']];
 function dxfModal(parts, name, opt){
+  if(!dxfGate()) return null;   // Workshop (4.82) - whoever calls it
   opt=opt||{};
   const o={holes:SET.dxfHoles||'circle', holeDia:+SET.dxfHoleDia||4, kerf:+SET.dxfKerf||0,
     layout:opt.layout||(SET.nestLayout==='nest'?'nest':'row'), sheet:NEST_SHEETS.some(s=>s[0]===SET.nestSheet)?SET.nestSheet:'2500x1250',
@@ -11419,7 +11550,7 @@ function jobDetail(id){
     <div class="qty"><button type="button" data-q="-1" data-qi="${i}" aria-label="One fewer">${UIC.minus}</button><span>${it.qty||1}</span><button type="button" data-q="1" data-qi="${i}" aria-label="One more">${UIC.plus}</button></div>
     <button type="button" class="more" data-mi="${i}" aria-label="More for ${esc(it.name)}">${UIC.more}</button></div>`).join('')}</div>
     <div class="hint" style="text-align:left;margin:8px 4px 0">Tap a fitting to open it with its saved sizes. − / + is how many of it the job needs (each pattern prints once, marked ×N; the DXF lays every copy out on sheets).</div>
-    <div class="stickact two"><button type="button" class="btn primary" id="jobPdf">${UIC.print}Print job</button><button type="button" class="btn" id="jobDxf" title="Every piece of the job, nested on sheets for the table">DXF${PRO?'':' · Pro'}</button></div>`;
+    <div class="stickact two"><button type="button" class="btn primary" id="jobPdf">${UIC.print}Print job</button><button type="button" class="btn" id="jobDxf" title="Every piece of the job, nested on sheets for the table${CNC?'':' - part of Workshop'}">DXF${CNC?'':PRO?' · Workshop':' · Pro'}</button></div>`;
   app.querySelectorAll('[data-i]').forEach(r=>{ r.onclick=e=>{ if(e.target.closest('.qty,.more')) return;
     const it=job.items[+r.dataset.i]; if(!F[it.kind]){ toast('That fitting is no longer in the app - it was saved by an older version.'); return; }
     navPush(); TAB='fit'; syncTabs(); repage(()=>form(it.kind, it.params)); };
@@ -11462,7 +11593,7 @@ function jobDetail(id){
     toast('Job pack — '+out.pieces+' patterns, '+out.sheets+' sheets'); });
   /* the whole job for the table (27 Oct 26): every item's kit, each piece
      CUT n OFF x the job's qty, through the same modal as a fitting's DXF */
-  document.getElementById('jobDxf').onclick=()=>{ if(!PRO) return showUnlock();
+  document.getElementById('jobDxf').onclick=()=>{ if(!dxfGate()) return;
     const parts=[];
     for(const it of job.items){ const f=F[it.kind]; if(!f) continue;
       const p=Object.assign({},it.params); if(it.kind==='inctee'||it.kind==='teereducer') p.flange=SET.flange;
@@ -11502,6 +11633,10 @@ function settingsPage(){
     const until = exp===null ? 'never expires' : ('good until '+new Date(exp).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}));
     const chk = v ? ('checked '+new Date(v.at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})) : 'not checked online yet';
     return 'Licence '+until+' · '+chk+'.'; })();
+  /* which licence: Pro, or Pro + Workshop; a seat-counted Workshop says how
+     many of its devices are in use */
+  const lv=codeVerdict(), sv=seatsBlocked();
+  const seatTxt=(CNC && lv && lv.valid && lv.seats!=null && lv.used!=null) ? 'Workshop · '+lv.used+' of '+lv.seats+' devices.' : '';
   app.innerHTML=
     grp('Paper &amp; printing')+`<div class="slist">`
     +row('Paper','Templates always print black on white, whatever the theme.',segHTML('sPage',SET.page,[['a3','A3'],['a4','A4'],['letter','Letter'],['legal','Legal'],['tabloid','Tabloid']]))
@@ -11524,14 +11659,14 @@ function settingsPage(){
     +row('Preview info','Basic shows Ø and circumference; detailed adds mitre angles, ordinates, area and sheets.',segHTML('sDetail',SET.detail?1:0,[[0,'Basic'],[1,'Detailed']]),null,'wideonly')
     +`</div>`
     +grp('Pro &amp; licence')+`<div class="slist">`
-    +(PRO?`<div class="srow"><div class="sl"><span class="okline">${UIC.check}${BRAND.name} Pro is active</span><span class="sh">All fittings, DXF, Jobs and branding on this device.${lic?' '+lic:''}</span></div><div class="sc">${lic?'<button type="button" class="btn" id="sLicChk">Check now</button>':''}</div></div>`
-        :row(BRAND.name+' Free','Free keeps '+freeList()+'. One code unlocks everything else on this device.','<button type="button" class="btn primary" id="sUp">Go Pro</button>'))
+    +(PRO?`<div class="srow"><div class="sl"><span class="okline">${UIC.check}${BRAND.name} ${CNC?'Pro + Workshop (DXF)':'Pro'} is active</span><span class="sh">${CNC?'All fittings, DXF, Jobs and branding on this device.':'All fittings, printable PDFs, Jobs and branding on this device. DXF is part of Workshop.'}${seatTxt?' '+seatTxt:''}${lic?' '+lic:''}</span></div><div class="sc">${lic?'<button type="button" class="btn" id="sLicChk">Check now</button>':''}</div></div>`
+        :row(BRAND.name+' Free',(sv?seatsMsg(sv)+' ':'')+'Free keeps '+freeList()+'. A Pro code unlocks every other fitting, printable PDFs and Jobs on this device; DXF is part of Workshop.',`${sv?'<button type="button" class="btn" id="sLicChk">Check now</button>':''}<button type="button" class="btn primary" id="sUp">Go Pro</button>`))
     +`</div>`
     +grp('Backup')+`<div class="slist">`
     +row('Jobs, settings and licence','Keep a copy off the phone — a lost or wiped phone takes its jobs with it.','<button type="button" class="btn" id="sExport">Export</button><button type="button" class="btn" id="sImport">Restore</button>')
     +`</div><input type="file" id="sImportFile" accept=".json,application/json" class="hide">`
     +grp('About')+`<div class="slist">`
-    +row('Version','',`<span class="val">v4.81.0</span>`,null,'kv')
+    +row('Version','',`<span class="val">v4.82.0</span>`,null,'kv')
     +(BRAND.site?row('Website','',`<a href="https://${BRAND.site}" target="_blank" rel="noopener">${BRAND.site}</a>`,null,'kv'):'')
     +(BRAND.email?row('Support','',`<a href="mailto:${BRAND.email}">${BRAND.email}</a>`,null,'kv'):'')
     +row(esc(BRAND.owner),(BRAND.company?'Company no. '+BRAND.company:'')+(BRAND.office?' · '+BRAND.office:''),'')
@@ -11576,7 +11711,7 @@ function settingsPage(){
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.81.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.82.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     toast('Backup saved - keep a copy off the phone.'); };   // saveOut revokes its own URL (the old line here threw a ReferenceError 4 s later)
@@ -11605,7 +11740,7 @@ function settingsPage(){
         if(!PRO && (d.proCode||d.pro)){ const r=checkCode(d.proCode);
           if(r && !(r.exp && Date.now()>r.exp+PRO_GRACE_MS)){
             PRO=true; store.set('cm_pro',true); store.set('cm_pro_exp',r.exp||null);
-            store.set('cm_pro_code',String(d.proCode).trim().toUpperCase()); store.set('cm_lic',null); renderPro(); refreshLicence(true); }
+            store.set('cm_pro_code',String(d.proCode).trim().toUpperCase()); store.set('cm_lic',null); syncCNC(); renderPro(); refreshLicence(true); }
           else proMsg = r ? ' - the Pro code in it has expired' : ' - enter your Pro code under Settings to unlock Pro'; }
         ORDER.forEach(k=>{ if(!states[k].__touched) states[k]=freshState(k); });
         toast('Backup restored'+proMsg); repage(settingsPage);
@@ -11678,7 +11813,7 @@ function takeHash(boot){
   const hs=location.hash||'', mU=/^#unlock=([A-Za-z0-9-]{8,32})$/.exec(hs), mF=/^#f=([a-z0-9]+)$/i.exec(hs);
   if(mU||mF){ try{ history.replaceState(history.state,'',location.pathname+location.search); }catch(e){} }
   let msg='';
-  if(mU && !STORE && !OWNER){ const err=applyCode(mU[1]); msg=err||'Pro unlocked — nice one!'; }
+  if(mU && !STORE && !OWNER){ const err=applyCode(mU[1]); msg=err||unlockMsg(); }
   if(boot||mU) route();
   if(mF){ const k=mF[1]; if(F[k] && GROUPS.some(g=>g.k.indexOf(k)>=0)){ pushRecent(k); navPush(); TAB='fit'; syncTabs(); repage(()=>form(k)); } }
   if(msg) setTimeout(()=>toast(msg),boot?400:0); }
