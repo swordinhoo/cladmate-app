@@ -1,8 +1,10 @@
-const CACHE = 'turboclad-6bb9320c';
+const CACHE = 'turboclad-c73dd1f1';
 /* three.min.js is in the install list on purpose: the whole promise is that the
    app works with no signal, and a renderer that only turned up on the second
    open would break that on the one day it mattered. 132KB gzipped. */
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './three.min.js'];
+/* the fonts are listed by tools/build.js in place of the comment, so a build
+   with a new face precaches it; served unbuilt, the comment is nothing */
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './three.min.js', './fonts/barlow-400.woff2', './fonts/barlow-500.woff2', './fonts/barlow-600.woff2', './fonts/barlow-condensed-600.woff2', './fonts/barlow-condensed-700.woff2', './fonts/roboto-mono-500.woff2', './fonts/roboto-mono-600.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 /* Only a real copy of the app goes into the cache. 12 Sep 26, finding 28: the
