@@ -613,6 +613,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .tile:hover{background:var(--panel2)}
   .tile:active{background:var(--panel2)}
   .ticon{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+  /* the measure-up picture (29 Oct 26): the fitting, its sizes named, on the right of the row */
+  .tile.haspic{min-height:100px;padding-top:6px;padding-bottom:6px}
+  .tile .tpic{flex:none;width:150px;height:100px;display:block}
+  .tile.haspic .t{white-space:normal;line-height:1.08}
+  .tile.haspic .d{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  @media(max-width:370px){ .tile .tpic{width:128px;height:86px} .tile.haspic{min-height:88px} }
+  .mpcard{padding:4px}
+  .mpcard canvas{display:block;width:100%;aspect-ratio:16/9;max-height:300px}
+  .boxhero #fitdiag canvas.mpbox{width:100%;max-width:460px;aspect-ratio:3/2;display:block}
   .tile svg{width:40px;height:36px;display:block}
   .tmeta{flex:1;min-width:0;padding:0}
   .tile .t{font:600 17px/1.1 var(--fd);color:var(--ink);letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -8092,7 +8101,7 @@ const LOCALE_PAGE=(()=>{ try{ return /-(US|CA|MX|PH)\b/i.test(navigator.language
 const INCH_PAGE=p=>p==='letter'||p==='legal'||p==='tabloid';
 let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:LOCALE_PAGE, swage:3, flange:15, nDiv:12, detail:false,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model', sizeMode:'pipeins',
-  lockform:22.5, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10, shade3d:'solid',
+  lockform:22.5, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10, shade3d:'solid', picStyle:'steel',
   lapA:null, lapB:null, swageM:null, swageF:null, holeInset:null, dxfHoles:'circle', dxfHoleDia:4, dxfKerf:0,
   nestLayout:'row', nestSheet:'2500x1250', nestW:2500, nestH:1250, nestGap:8, nestMargin:10, nestGrain:false }, store.get('cm_settings',{}));
 /* Lockform 22.5 a joint (Craig, 28 Oct 26: 'an extra 22.5mm of metal per joint ... it needs to be changable'). It was 25 and
@@ -8127,6 +8136,7 @@ function applyTheme(){ const r=document.documentElement;
   r.setAttribute('data-theme', dark?'dark':'light');
   SET.canvas = dark?'model':'paper';
   const mt=document.querySelector('meta[name="theme-color"]'); if(mt) mt.setAttribute('content', dark?'#0d0e10':'#ecebe7');
+  if(typeof mpRefresh==='function') setTimeout(mpRefresh,0);
   /* the header switch shows where a tap takes you: the sun in the dark, the moon in the light */
   const tt=document.getElementById('themeTog'); if(tt) tt.innerHTML=dark?THEME_SUN:THEME_MOON;
   applyCanvas(); }
@@ -9717,7 +9727,8 @@ function home(){
   document.body.dataset.home='1';   // lets the catalogue spread out on a desktop
   const famOf=k=>{ const g=GROUPS.find(x=>x.k.indexOf(k)>=0); return g?g.t:''; };
   const mark=k=>PRO?'':unlocked(k)?'<span class="tag">Free</span>':`<span class="lockg" title="Pro">${UIC.lock}</span>`;
-  const tile=(k,fam)=>`<div class="tile" data-go="${k}" role="button" tabindex="0" aria-label="${esc(F[k].name)}${unlocked(k)?'':' (Pro)'}"><div class="ticon">${F[k].icon}</div><div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${fam?esc(fam)+' · ':''}${F[k].sub}</div></div>${mark(k)}</div>`;
+  const pic=k=>T3B[k]&&MPSPEC[k];
+  const tile=(k,fam)=>`<div class="tile${pic(k)?' haspic':''}" data-go="${k}" role="button" tabindex="0" aria-label="${esc(F[k].name)}${unlocked(k)?'':' (Pro)'}">${pic(k)?'':`<div class="ticon">${F[k].icon}</div>`}<div class="tmeta"><div class="t">${F[k].name}</div><div class="d">${fam?esc(fam)+' · ':''}${F[k].sub}</div></div>${pic(k)?`<canvas class="tpic" data-pic="${k}" aria-hidden="true"></canvas>`:''}${mark(k)}</div>`;
   const chartTile=`<div class="tile" data-go="chart" role="button" tabindex="0" aria-label="Standard Pipe Chart"><div class="ticon">${I.chart}</div><div class="tmeta"><div class="t">Standard Pipe Chart</div><div class="d">DN · OD · 1D to 5D radii</div></div></div>`;
   const sec=(t,n,body,cls)=>`<section class="cat${cls?' '+cls:''}"><div class="famhd"><span class="eb">${t}</span>${n!=null?`<span class="n">${n}</span>`:''}</div><div class="grid">${body}</div></section>`;
   const cats=GROUPS.map(g=>sec(g.t,g.k.length,g.k.map(k=>tile(k)).join(''))).join('')+sec('Reference',1,chartTile);
@@ -9745,11 +9756,12 @@ function home(){
     findRes.innerHTML=hits.length
       ? sec(hits.length+' match'+(hits.length===1?'':'es'),null,hits.map(k=>tile(k,famOf(k))).join(''),'res')
       : `<div class="card" style="text-align:center;color:var(--sub);font-size:14px">Nothing matches “${esc(HOMEQ)}”.<br>Try a shape word — bend, cone, tee, transformer, dome.</div>`;
-    bindGo(findRes); };
+    bindGo(findRes); mpHydrate(findRes); };
   findIn.oninput=runFind;
   findX.onclick=()=>{ findIn.value=''; runFind(); findIn.focus(); };
   if(HOMEQ) runFind();
   bindGo(app);
+  mpHydrate(homeBody);
   const ub=document.getElementById('upBtn'); if(ub) ub.onclick=showUnlock;
   // the install button waits until the first-run card has been read: the two stacked on a fresh phone (reviewers, 14 Sep 26)
   if(window._installEvt && store.get('cm_seen_intro',false)){ const w=document.getElementById('installWrap'); w.classList.remove('hide');
@@ -10879,10 +10891,12 @@ function t3ybranch(s){
   const Lm=Math.max(10,+s.mainLen||250), Lb=Math.max(10,+s.branchLen||250);
   const u=[0,0,1], d1=[Math.sin(A),0,Math.cos(A)], d2=[-Math.sin(A),0,Math.cos(A)];
   const n1=t3unit([u[0]+d1[0],u[1]+d1[1],u[2]+d1[2]]), n2=t3unit([u[0]+d2[0],u[1]+d2[1],u[2]+d2[2]]);
-  const ring=t3dProfile(r,0,'none',0,T3N);
-  const main=t3cutTube(ring,[0,0,-(Lm+r)],u,[1,0,0],[0,1,0],0,[{n:n1,d:0},{n:n2,d:0}],false);
+  /* each row starts at the seam, where the engine starts its wrap (_yWrap psi0): the main from its crotch line,
+     a branch from the inside of the fork - leg 2 is leg 1 mirrored, so its angle runs the other way */
+  const sm=(+s.seamFromThroat||0)*Math.PI/180;
+  const main=t3cutTube(t3dProfile(r,0,'none',sm,T3N),[0,0,-(Lm+r)],u,[1,0,0],[0,1,0],0,[{n:n1,d:0},{n:n2,d:0}],false);
   const leg=(dv,n,sx)=>{ const e1=t3unit([dv[2],0,-dv[0]]);
-    return t3cutTube(ring,[0,0,0],dv,e1,[0,1,0],Lb+r,[{n,d:0},{n:[sx,0,0],d:0}],true); };
+    return t3cutTube(t3dProfile(r,0,'none',sx>0?Math.PI+sm:-sm,T3N),[0,0,0],dv,e1,[0,1,0],Lb+r,[{n,d:0},{n:[sx,0,0],d:0}],true); };
   return t3parts([main, leg(d1,n1,1), leg(d2,n2,-1)]);
 }
 function t3witcheshat(s){
@@ -10954,7 +10968,8 @@ function t3flattee(s){
 function t3breeches(s){
   const ins=+s.insulation||0, Rb=((+s.baseOD||508)+2*ins)/2, rt=((+s.legOD||323.9)+2*ins)/2, H=Math.max(1,+s.height||500), xc=Math.max(rt+1,(+s.spread||550)/2);
   const leg=sx=>{ const lo=[], up=[];
-    for(let i=0;i<=T3N;i++){ const t=2*Math.PI*i/T3N, b=[Rb*Math.cos(t),Rb*Math.sin(t),0], u=[xc+rt*Math.cos(t),rt*Math.sin(t),H];
+    /* from the seam round, as breechesKit walks it: its angle a (0 = the inside) is t = 180 - a */
+    for(let i=0;i<=T3N;i++){ const t=(180-(+s.seamDeg||0))*Math.PI/180-2*Math.PI*i/T3N, b=[Rb*Math.cos(t),Rb*Math.sin(t),0], u=[xc+rt*Math.cos(t),rt*Math.sin(t),H];
       let p=b; if(b[0]<0){ const k=-b[0]/(u[0]-b[0]); p=[0,b[1]+k*(u[1]-b[1]),k*H]; }
       lo.push([sx*p[0],p[1],p[2]]); up.push([sx*u[0],u[1],u[2]]); }
     return t3stations([lo,up]); };
@@ -11194,13 +11209,16 @@ function t3elbowgusset(s){
    and the round with its flat (the chord at r - depth, corners on the circle).
    The transition is struck exactly as the engine strikes it - fans from each
    corner to the round edge, a flat triangle between - so it unrolls true. */
-function t3flatRing(r,d,z,n){ const af=Math.acos(Math.max(-1,Math.min(1,(r-d)/r))), row=[];
-  for(let i=0;i<=n;i++){ const a=Math.PI/2+2*Math.PI*i/n, m=((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI), ang=m>Math.PI?m-2*Math.PI:m;
+/* s0: where the row starts round the pipe, the same angle the engine starts its pattern at (the seam) -
+   the 3D draws the seam down the first column, so the row has to start there (Craig, 29 Oct 26: the seam
+   never moved on the 3D) */
+function t3flatRing(r,d,z,n,s0){ if(s0==null) s0=Math.PI/2; const af=Math.acos(Math.max(-1,Math.min(1,(r-d)/r))), row=[];
+  for(let i=0;i<=n;i++){ const a=s0+2*Math.PI*i/n, m=((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI), ang=m>Math.PI?m-2*Math.PI:m;
     if(Math.abs(ang)<af){ const x=r*Math.sin(ang), y=r-d; row.push([x,y,z]); } else row.push([r*Math.sin(a),r*Math.cos(a),z]); }
   return row; }
-function t3flatTrans(r,d,z0,h,flip){ const af=Math.acos((r-d)/r), B=a=>[r*Math.sin(a),r*Math.cos(a)], fL=[-r*Math.sin(af),r-d], fR=[r*Math.sin(af),r-d];
+function t3flatTrans(r,d,z0,h,flip,s0){ if(s0==null) s0=Math.PI/2; const af=Math.acos((r-d)/r), B=a=>[r*Math.sin(a),r*Math.cos(a)], fL=[-r*Math.sin(af),r-d], fR=[r*Math.sin(af),r-d];
   const lo=[], hi=[], push=(b,t)=>{ lo.push([b[0],b[1],flip?z0+h:z0]); hi.push([t[0],t[1],flip?z0:z0+h]); };
-  const s0=Math.PI/2, aIn=2*Math.PI-af, aOut=2*Math.PI+af, nD=12;
+  const aIn=2*Math.PI-af, aOut=2*Math.PI+af, nD=12;
   for(let i=0;i<=24;i++){ const a=s0+(aIn-s0)*i/24; push(B(a),B(a)); }
   for(let k=1;k<=nD;k++){ const a=aIn+af*k/nD; push(B(a),fL); }
   for(let k=1;k<12;k++) push(B(0),[fL[0]+(fR[0]-fL[0])*k/12,fL[1]]);
@@ -11210,17 +11228,19 @@ function t3flatTrans(r,d,z0,h,flip){ const af=Math.acos((r-d)/r), B=a=>[r*Math.s
 function t3flatten(s){
   const r=((+s.pipeOD||219.1)+2*((+s.insulation||0)+(+s.cladGap||0)))/2, d=Math.max(1,Math.min(r*0.95,+s.depth||50));
   const h=Math.max(10,+s.transLen||150), Ls=Math.max(0,+s.flatLen||0), Lr=Math.max(0,+s.landLen||0), N=T3N;
-  const ring=z=>t3flatRing(r,0.0001,z,N), fr=z=>t3flatRing(r,d,z,N), list=[];
+  const sa=s.flatSeam==='bottom'?Math.PI:Math.PI/2;   // the engine's _flatSeam
+  const ring=z=>t3flatRing(r,0.0001,z,N,sa), fr=z=>t3flatRing(r,d,z,N,sa), list=[];
   if(Lr>0) list.push(t3stations([ring(-Lr),ring(0)]));
-  list.push(t3flatTrans(r,d,0,h,false));
+  list.push(t3flatTrans(r,d,0,h,false,sa));
   if(Ls>0) list.push(t3stations([fr(h),fr(h+Ls)]));
-  list.push(t3flatTrans(r,d,h+Ls,h,true));
+  list.push(t3flatTrans(r,d,h+Ls,h,true,sa));
   if(Lr>0) list.push(t3stations([ring(2*h+Ls),ring(2*h+Ls+Lr)]));
   return t3parts(list);
 }
 function t3recess(s){
   const r=((+s.pipeOD||219.1)+2*((+s.insulation||0)+(+s.cladGap||0)))/2, d=Math.max(1,Math.min(r*0.95,+s.depth||40)), L=Math.max(10,+s.length||600);
-  return t3parts([t3stations([t3flatRing(r,d,0,T3N),t3flatRing(r,d,L,T3N)])]);
+  const sa=s.flatSeam==='bottom'?Math.PI:Math.PI/2;
+  return t3parts([t3stations([t3flatRing(r,d,0,T3N,sa),t3flatRing(r,d,L,T3N,sa)])]);
 }
 const T3B={elbow:s=>t3place(t3elbow(s),s),lobster:s=>t3place(t3lobster(s),s),reducer:t3reducer,flatback:t3flatback,
   oblique:t3oblique,anglecone:t3anglecone,roundtop:t3roundtop,bendonbend:t3bendonbend,
@@ -11992,6 +12012,502 @@ function t3mount(pv, kind, s, w){
 // split angles round the barrel (degrees clockwise from the TOP), matching
 // engine _boxSplits: 2 = sides, 3 = half + two quarters (3/6/9 o'clock),
 // 4 = four quarters. frontback preset puts a 2-split on top/bottom instead.
+/* ================= measure-up pictures (29 Oct 26) ==========================
+   Craig, 29 Oct 26, of the shop calculator's new labelled pictures: "those
+   images he uses, we need our own versions like this" - and of our 2D
+   schematics, "I dont like the 2d images either". So every fitting gets a
+   picture drawn from its OWN 3D builder (the same T3B the 3D pane runs), shaded
+   like clad sheet, the lagging and the pipe showing at a cut end that faces
+   you, and the sizes you type drawn on it as measure lines with our field
+   names. On the home list it is the fitting at its starting size, names only;
+   at the top of a fitting it is drawn live from your sizes, the figures on it.
+   Two looks (Settings - Fitting pictures): Steel, and Hi-vis orange. Light
+   theme gets the paper version of each. Pure canvas: nothing here touches the
+   engine or the printed metal. */
+const MPPAL={
+  steel:{dark:{ramp:['#3b4550','#4d5864','#606c79','#76838f','#8e9ba7','#a9b6c1','#c7d2db','#e2e9ee'],edge:'rgba(16,22,28,.55)',rim:'#eef3f6',lag:'#d8b04a',lagLine:'rgba(150,112,30,.5)',pipe:'#4a535d',bore:'#101418',dim:'#ff7a1a',ext:'rgba(255,122,26,.55)',ink:'#ffffff',split:'#ff4d4d',splitUnder:'rgba(20,6,6,.55)'},
+         light:{ramp:['#6c7885','#808c98','#94a0ab','#a9b4be','#bdc6ce','#cfd6dc','#dfe5e9','#edf1f3'],edge:'rgba(60,72,84,.55)',rim:'#5d6874',lag:'#e2b84c',lagLine:'rgba(150,112,30,.5)',pipe:'#5a636d',bore:'#1c2127',dim:'#e85f00',ext:'rgba(232,95,0,.55)',ink:'#1b2128',split:'#d6332b',splitUnder:'rgba(255,255,255,.7)'}},
+  hivis:{dark:{ramp:['#5c2200','#7c3000','#9f4000','#c25200','#e26509','#f97f22','#ff9d52','#ffc08a'],edge:'rgba(60,20,0,.6)',rim:'#ffd9b8',lag:'#cfc8b8',lagLine:'rgba(110,100,80,.5)',pipe:'#3a4048',bore:'#0d1014',dim:'#ffffff',ext:'rgba(255,255,255,.45)',ink:'#ffffff',split:'#7ee0ff',splitUnder:'rgba(0,20,30,.6)'},
+         light:{ramp:['#8a3300','#a84100','#c65200','#de6106','#f2741a','#fb8d3e','#ffab6e','#ffc896'],edge:'rgba(90,30,0,.55)',rim:'#7a2c00',lag:'#cfc8b8',lagLine:'rgba(110,100,80,.5)',pipe:'#4a535d',bore:'#1c2127',dim:'#1b2128',ext:'rgba(27,33,40,.45)',ink:'#1b2128',split:'#0a7fb0',splitUnder:'rgba(255,255,255,.7)'}}};
+const mpS=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], mpA=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], mpM=(a,k)=>[a[0]*k,a[1]*k,a[2]*k];
+const mpD=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2], mpX=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const mpL=a=>Math.hypot(a[0],a[1],a[2]), mpN=a=>{ const l=mpL(a)||1; return [a[0]/l,a[1]/l,a[2]/l]; };
+/* a shade along a ramp, blended rather than stepped */
+const mpHex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const mpShade=(ramp,t)=>{ const x=Math.max(0,Math.min(1,t))*(ramp.length-1), i=Math.min(ramp.length-2,Math.floor(x)), f=x-i, a=mpHex(ramp[i]), b=mpHex(ramp[i+1]);
+  return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')'; };
+const mpCl=(R)=>{ const n=R.length; return n>2&&mpL(mpS(R[0],R[n-1]))<1e-6?R.slice(0,-1):R; };   // a closed ring repeats its first point
+/* the per-fitting drawing: the camera (az, el as the tiles), which rows are cut ends, and the measure lines.
+   Each dims() gets G - the parts and helpers - and returns lines; every label goes through G.L so the
+   home list shows names and the live picture shows your figures. */
+const MPSPEC={};
+function mpGeo(kind,s,o){
+  const sp=MPSPEC[kind]||{}, geo=T3B[kind](s), skip=sp.skip||[];
+  let parts=(geo.parts||[geo]).map((P,i)=>({R:P.rows3,fade:!!P.fade,i})).filter(P=>skip.indexOf(P.i)<0);
+  if(sp.tf&&(!sp.tfIf||sp.tfIf(s))) parts=parts.map(P=>Object.assign({},P,{R:P.R.map(r=>r.map(sp.tf))}));
+  const v=typeof sp.v==='function'?sp.v(s):(sp.v||[0.78,0.30]), az=v[0], el=v[1];
+  const ca=Math.cos(az), sa=Math.sin(az), ce=Math.cos(el), se=Math.sin(el), E=[sa*ce,ca*ce,se];
+  const pj=p=>{ const x=p[0]*ca-p[1]*sa, y=p[0]*sa+p[1]*ca; return {x, y:-(p[2]*ce-y*se), d:y*ce+p[2]*se}; };
+  const byI=i=>parts.find(P=>P.i===i)||parts[0];
+  const rows=(p,j)=>{ const R=byI(p).R; return mpCl(R[j<0?R.length+j:j]); };
+  const ctr=(p,j)=>{ const R=byI(p).R, row=R[j<0?R.length+j:j], q=mpCl(row);
+    if(q.length<row.length){ let c=[0,0,0]; q.forEach(t=>{ c=mpA(c,t); }); return mpM(c,1/q.length); }
+    return mpM(mpA(row[0],row[row.length-1]),0.5); };
+  const nr=(p)=>byI(p).R.length;
+  const ax=(p,j)=>{ const n=nr(p), jj=j<0?n+j:j; return mpN(mpS(ctr(p,jj),ctr(p,jj===0?1:jj-1))); };
+  const sil=a=>{ let n=mpX(a,E); if(mpL(n)<0.15) n=mpX(a,[0,0,1]); if(mpL(n)<0.15) n=mpX(a,[1,0,0]); return mpN(n); };
+  let lo=[1e9,1e9,1e9], hi=[-1e9,-1e9,-1e9];
+  parts.forEach(P=>P.R.forEach(r=>r.forEach(q=>{ for(let k=0;k<3;k++){ if(q[k]<lo[k]) lo[k]=q[k]; if(q[k]>hi[k]) hi[k]=q[k]; } })));
+  const vals=o.labels==='values';
+  const G={parts,E,pj,rows,ctr,ax,sil,lo,hi,s,nr,names:!vals,
+    L:(name,val,unit)=>{ if(!vals||val==null||!isFinite(+val)) return name; return name+' '+(unit==='°'?Math.round(+val)+'°':unit==='n'?String(Math.round(+val)):unit==='r'?fmtDim(+val)+':1':fmtDim(+val)); },
+    // a diameter across row j of part p: the two points furthest apart across your line of sight
+    dia:(p,j,label,op)=>{ op=op||{}; const c=op.c||ctr(p,j), a=op.ax||ax(p,j), pts=rows(p,j), R=byI(p).R, row=R[j<0?R.length+j:j];
+      if(pts.length===row.length&&!op.n){ const A=row[0], B=row[row.length-1];   // a half ring: its two ends are the sides of the pipe
+        return {t:'lin',a:A,b:B,side:op.side||a,off:op.off==null?0.55:op.off,label,clear:pts,clearAll:op.clearAll}; }
+      const n=op.n||sil(a); let mn=1e9,mx=-1e9; pts.forEach(q=>{ const t=mpD(mpS(q,c),n); if(t<mn) mn=t; if(t>mx) mx=t; });
+      return {t:'lin',a:mpA(c,mpM(n,mx)),b:mpA(c,mpM(n,mn)),along:n,side:op.side||a,off:op.off==null?0.55:op.off,label,clear:pts,clearAll:op.clearAll}; },
+    lin:(a,b,label,op)=>Object.assign({t:'lin',a,b,label,off:0.6},op||{}),
+    lead:(at,label,dx,dy)=>({t:'lead',at,label,dx,dy}),
+    cl:(a,b)=>({t:'cl',a,b}),
+    // the bend angle at M: leg A's centre line carried on through M, round to leg B's
+    bend:(cA,M,cB,label,rho)=>{ const u=mpN(mpS(M,cA)), d2=mpN(mpS(cB,M)); let w=mpS(d2,mpM(u,mpD(u,d2)));
+      if(mpL(w)<1e-6) w=mpX(u,[0,1,0]); const vv=mpN(w), a1=Math.acos(Math.max(-1,Math.min(1,mpD(u,d2))));
+      return {t:'arc',c:M,u,v:vv,r:rho,a0:0,a1,lr:rho*0.45,label,anchor:'start',rays:[[cA,mpA(M,mpM(u,rho*1.25))],[M,cB]]}; },
+    arc:(c,u,vv,r,a0,a1,label,op)=>Object.assign({t:'arc',c,u,v:vv,r,a0,a1,lr:r*0.3,label,anchor:'start'},op||{}),
+    // the centre a bend turns about, off three points on its centre line
+    centre3:(A,B,C)=>{ const ab=mpS(B,A), ac=mpS(C,A), n=mpX(ab,ac), nn=mpD(n,n)||1e-9;
+      return mpA(A,mpM(mpA(mpM(mpX(n,ab),mpD(ac,ac)),mpM(mpX(ac,n),mpD(ab,ab))),1/(2*nn))); },
+    // where two centre lines come closest
+    meet:(p1,d1,p2,d2)=>{ const w=mpS(p1,p2), a=mpD(d1,d1), b=mpD(d1,d2), c=mpD(d2,d2), d=mpD(d1,w), e=mpD(d2,w), den=a*c-b*b;
+      if(Math.abs(den)<1e-9) return mpM(mpA(p1,p2),0.5); const t=(b*e-c*d)/den, u=(a*e-b*d)/den; return mpM(mpA(mpA(p1,mpM(d1,t)),mpA(p2,mpM(d2,u))),0.5); },
+    // a point on a flat: the row's points that sit in from the round, averaged
+    flatAt:(p,j)=>{ const c=ctr(p,j), pts=rows(p,j); let r=0; pts.forEach(q=>{ r=Math.max(r,mpL(mpS(q,c))); });
+      const f=pts.filter(q=>mpL(mpS(q,c))<r*0.96); if(!f.length) return null; let m=[0,0,0]; f.forEach(q=>{ m=mpA(m,q); }); return mpM(m,1/f.length); }};
+  return {G,sp,pj,E,parts};
+}
+/* draws kind at sizes s onto canvas cv (CSS w x h): o.labels 'names' | 'values', o.style, o.theme, o.halo */
+function mpDraw(cv,kind,s,o){
+  o=o||{};
+  if(!T3B[kind]) return false;
+  const pal=(MPPAL[o.style]||MPPAL.steel)[o.theme==='light'?'light':'dark'];
+  let gg; try{ gg=mpGeo(kind,s,o); }catch(e){ return false; }
+  const {G,sp,pj,E,parts}=gg;
+  { const cn=sp.cone?sp.cone(G,s):null; if(cn){ const N=48, top=[0,0,cn.z+cn.rise], pts=[];
+      for(let k=0;k<=N;k++){ const a=2*Math.PI*k/N; pts.push([cn.R*Math.cos(a),cn.R*Math.sin(a),cn.z]); }
+      parts.push({R:[pts,pts.map(()=>top)],fade:false,i:99}); } }
+  const W=o.w||cv.clientWidth||160, H=o.h||cv.clientHeight||106, dpr=Math.min(3,o.dpr||window.devicePixelRatio||1);
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const FS=o.fs||Math.max(10,Math.min(14,W/13.5)), FONT='700 '+FS+'px "Barlow Condensed","Arial Narrow",sans-serif';
+  ctx.font=FONT;
+  let dims=[]; try{ dims=(sp.dims?sp.dims(G,s):[]).filter(Boolean); }catch(e){ dims=[]; }
+  /* the facets - cut short along the length so the painter's order stays local (a 600 long wrap
+     sorted as one strip draws over a branch in front of it), shaded like clad sheet */
+  const diag=Math.max(1,mpL(mpS(G.hi,G.lo))), Lmax=diag/14, items=[];
+  parts.forEach(P=>{ const R=P.R, N=R[0].length-1; let C=[0,0,0], n=0;
+    R.forEach(r=>r.forEach(q=>{ C=mpA(C,q); n++; })); C=mpM(C,1/n);
+    for(let j=0;j<R.length-1;j++) for(let i=0;i<N;i++){
+      const a=R[j][i], b=R[j][i+1], c=R[j+1][i+1], d=R[j+1][i];
+      let nn=mpX(mpS(c,a),mpS(d,b)); const nl=mpL(nn); if(!(nl>1e-9)) continue; nn=mpM(nn,1/nl);
+      const mid=mpS(mpM(mpA(mpA(a,b),mpA(c,d)),0.25),C), md=mpD(nn,mid), out=Math.abs(md)<1e-3*(mpL(mid)+1)?(mpD(nn,E)>=0?1:-1):(md>=0?1:-1), nv=pj(mpM(nn,out)), q0=pj([0,0,0]);
+      const nx=nv.x-q0.x, ny=nv.y-q0.y, nd=nv.d-q0.d, lam=-0.58*nx-0.72*ny+0.38*nd;
+      const col=mpShade(pal.ramp,0.50+0.80*lam);
+      const m=Math.max(1,Math.min(24,Math.ceil(Math.max(mpL(mpS(d,a)),mpL(mpS(c,b)))/Lmax)));
+      for(let k=0;k<m;k++){ const t0=k/m, t1=(k+1)/m, L=(p,q,t)=>[p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t,p[2]+(q[2]-p[2])*t];
+        const Q=[L(a,d,t0),L(b,c,t0),L(b,c,t1),L(a,d,t1)].map(pj), dep=(Q[0].d+Q[1].d+Q[2].d+Q[3].d)/4;
+        items.push({k:0,d:dep,Q,col}); } } });
+  // the edges: every row of a fitting part (and the corners of a box), the half that faces you
+  const lineBias=Lmax*0.6, endKey={};
+  (sp.ends||[]).forEach(e=>{ const P=parts.find(p=>p.i===e[0]); if(P) endKey[e[0]+':'+(e[1]<0?P.R.length+e[1]:e[1])]=1; });
+  const pushLine=(pts,col,w,dash)=>{ for(let k=0;k<pts.length-1;k++){ const A=pts[k], B=pts[k+1]; if(!A||!B) continue;
+    const m=Math.max(1,Math.min(40,Math.ceil(mpL(mpS(B,A))/(Lmax*0.5))));
+    for(let q=0;q<m;q++){ const pa=pj(mpA(A,mpM(mpS(B,A),q/m))), pb=pj(mpA(A,mpM(mpS(B,A),(q+1)/m)));
+      items.push({k:1,d:(pa.d+pb.d)/2+lineBias*(w>1.5?1.15:1),a:pa,b:pb,col,w,dash,run:q}); } } };
+  parts.forEach(P=>{ if(P.fade&&!(sp.hostEdges)) return; const R=P.R;
+    let C=[0,0,0], n=0; R.forEach(r=>r.forEach(q=>{ C=mpA(C,q); n++; })); C=mpM(C,1/n);
+    R.forEach((row,j)=>{ if(endKey[P.i+':'+j]) return; const q=mpCl(row), closed=q.length<row.length;
+      let c=[0,0,0]; q.forEach(t=>{ c=mpA(c,t); }); c=mpM(c,1/q.length);
+      const vis=row.map(t=>mpD(mpS(t,closed?c:C),E)>-1e-6);
+      for(let k=0;k<row.length-1;k++) if(vis[k]||vis[k+1]) pushLine([row[k],row[k+1]],pal.edge,1); });
+    if(R[0].length<=6) for(let i=0;i<R[0].length;i++){ const col=R.map(r=>r[i]); if(mpD(mpS(col[0],C),E)>-1e-6||mpD(mpS(col[col.length-1],C),E)>-1e-6) pushLine(col,pal.edge,1); } });
+  (sp.meridians?sp.meridians(G,s):[]).forEach(m=>pushLine(m,pal.edge,0.9));
+  (sp.caps?sp.caps(G,s):[]).forEach(poly3=>{ if(!poly3||poly3.length<3) return; let c=[0,0,0]; poly3.forEach(q=>{ c=mpA(c,q); }); c=mpM(c,1/poly3.length);
+    let nn=[0,0,0]; for(let k=0;k<poly3.length;k++){ const a=poly3[k], b=poly3[(k+1)%poly3.length]; nn=mpA(nn,[(a[1]-b[1])*(a[2]+b[2]),(a[2]-b[2])*(a[0]+b[0]),(a[0]-b[0])*(a[1]+b[1])]); }
+    nn=mpN(nn); const mc=mpM(mpA(G.lo,G.hi),0.5); if(mpD(nn,mpS(c,mc))<0) nn=mpM(nn,-1); if(mpD(nn,E)<=0.01) return;
+    const nv=pj(nn), q0=pj([0,0,0]), lam=-0.58*(nv.x-q0.x)-0.72*(nv.y-q0.y)+0.38*(nv.d-q0.d), sh=Math.max(0,Math.min(1,0.50+0.80*lam));
+    const Q=poly3.map(pj); items.push({k:0,d:pj(c).d,Q,col:mpShade(pal.ramp,sh)});
+    pushLine(poly3.concat([poly3[0]]),pal.edge,1); });
+  (sp.splits?sp.splits(G,s):[]).forEach(m=>{ if(m&&m.length>1){ pushLine(m,pal.splitUnder,3.4); pushLine(m,pal.split,2,[6,3.5]); } });
+  // cut ends that face you: the lagging and the pipe in it
+  const ins=s.insulation!=null?+s.insulation:(s.insul!=null?+s.insul:0);
+  (sp.ends||[]).forEach(([pi,j])=>{ const P=parts.find(p=>p.i===pi); if(!P) return; const R=P.R, jj=j<0?R.length+j:j;
+    const row=mpCl(R[jj]); let c=[0,0,0]; row.forEach(t=>{ c=mpA(c,t); }); c=mpM(c,1/row.length);
+    const nb=mpCl(R[jj===0?1:jj-1]); let c2=[0,0,0]; nb.forEach(t=>{ c2=mpA(c2,t); }); c2=mpM(c2,1/nb.length);
+    if(mpD(mpN(mpS(c,c2)),E)<=0.02) return;
+    let r=0; row.forEach(t=>{ r+=mpL(mpS(t,c))/row.length; });
+    const lagT=ins>0?Math.min(r*0.6,ins):r*0.22, rp=Math.max(r*0.3,r-lagT);
+    const circ=k=>row.map(t=>pj(mpA(c,mpM(mpS(t,c),k))));
+    items.push({k:2,d:pj(c).d+lineBias,outer:row.map(pj),pipe:circ(rp/r),bore:circ((rp-Math.max(2,rp*0.08))/r)}); });
+  { let acc=0, prev=null; items.forEach(it=>{ if(it.k!==1||!it.dash) return; if(it.run===0||!prev) acc=0; it._len=Math.hypot(it.b.x-it.a.x,it.b.y-it.a.y); it._acc=acc; acc+=it._len; prev=it; }); }
+  // fit the picture, measure lines and their words in the box
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  items.forEach(it=>{ (it.Q||it.outer||[it.a,it.b]).forEach(p=>{ if(p.x<x0) x0=p.x; if(p.x>x1) x1=p.x; if(p.y<y0) y0=p.y; if(p.y>y1) y1=p.y; }); });
+  if(!(x1>x0)) return false;
+  let sc=Math.min((W-FS*6)/(x1-x0),(H-FS*3)/(y1-y0)), ox=0, oy=0, out=[];
+  const P2=p=>{ const q=pj(p); return [q.x*sc+ox,q.y*sc+oy]; };
+  const d2=v=>{ const a=pj([0,0,0]), b=pj(v); return [b.x-a.x,b.y-a.y]; };
+  const tw=t=>ctx.measureText(t).width;
+  function layout(){ out=[]; let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9; const inc=(x,y)=>{ if(x<bx0) bx0=x; if(x>bx1) bx1=x; if(y<by0) by0=y; if(y>by1) by1=y; };
+    items.forEach(it=>{ (it.Q||it.outer||[it.a,it.b]).forEach(p=>inc(p.x*sc+ox,p.y*sc+oy)); });
+    const box=(x,y,w,anc)=>{ const ax=anc==='start'?x:anc==='end'?x-w:x-w/2; inc(ax-2,y-FS*0.62); inc(ax+w+2,y+FS*0.5); };
+    dims.forEach(D=>{
+      if(D.t==='lin'){ const A=P2(D.a), B=P2(D.b); let u=D.along?d2(D.along):[B[0]-A[0],B[1]-A[1]]; const ul=Math.hypot(u[0],u[1]); if(ul<1e-9) return; u=[u[0]/ul,u[1]/ul];
+        let n=[-u[1],u[0]]; const hv=d2(D.side||[0,0,1]); if(n[0]*hv[0]+n[1]*hv[1]<0) n=[-n[0],-n[1]];
+        const pa=A[0]*n[0]+A[1]*n[1], pb=B[0]*n[0]+B[1]*n[1]; let top=Math.max(pa,pb);
+        if(D.clear) D.clear.forEach(p=>{ const q=P2(p); top=Math.max(top,q[0]*n[0]+q[1]*n[1]); });
+        if(D.clearAll) items.forEach(it=>{ if(it.k!==0) return; it.Q.forEach(p=>{ top=Math.max(top,(p.x*sc+ox)*n[0]+(p.y*sc+oy)*n[1]); }); });
+        const base=top+(D.off==null?0.6:D.off)*FS, A2=[A[0]+n[0]*(base-pa),A[1]+n[1]*(base-pa)], B2=[B[0]+n[0]*(base-pb),B[1]+n[1]*(base-pb)];
+        const anc=Math.abs(n[0])>0.6?(n[0]>0?'start':'end'):'middle';
+        const lx=(A2[0]+B2[0])/2+n[0]*(anc==='middle'?FS*0.7:FS*0.35), ly=(A2[1]+B2[1])/2+n[1]*FS*0.7;
+        out.push({t:'lin',A,B,A2,B2,n,lx,ly,label:D.label,anc,cl:D.ext==='cl'}); inc(A2[0],A2[1]); inc(B2[0],B2[1]); box(lx,ly,tw(D.label),anc); }
+      if(D.t==='arc'){ const pts=[]; for(let k=0;k<=24;k++){ const th=D.a0+(D.a1-D.a0)*k/24; pts.push(P2(mpA(D.c,mpA(mpM(D.u,D.r*Math.cos(th)),mpM(D.v,D.r*Math.sin(th)))))); }
+        const tm=(D.a0+D.a1)/2, mid=P2(mpA(D.c,mpA(mpM(D.u,(D.r+D.lr)*Math.cos(tm)),mpM(D.v,(D.r+D.lr)*Math.sin(tm))))), cc=P2(D.c);
+        const anc=mid[0]>=cc[0]-1?'start':'end', rays=(D.rays||[]).map(([p,q])=>[P2(p),P2(q)]);
+        out.push({t:'arc',pts,lx:mid[0],ly:mid[1],label:D.label,anc,rays}); pts.forEach(p=>inc(p[0],p[1])); rays.forEach(([p,q])=>{ inc(p[0],p[1]); inc(q[0],q[1]); }); box(mid[0],mid[1],tw(D.label),anc); }
+      if(D.t==='lead'){ let dx=D.dx||0, dy=D.dy||0; if(D.dir3){ const v2=d2(D.dir3), l=Math.hypot(v2[0],v2[1]); if(l>1e-9){ dx=v2[0]/l*(D.len||1.4); dy=v2[1]/l*(D.len||1.4); } else dy=-(D.len||1.4); }
+        const A=P2(D.at), L=[A[0]+dx*FS,A[1]+dy*FS], anc=dx>=-0.05?'start':'end';
+        out.push({t:'lead',A,L,label:D.label,anc}); inc(A[0],A[1]); box(L[0]+(D.dx>=0?4:-4),L[1],tw(D.label),anc); }
+      if(D.t==='cl'){ const A=P2(D.a), B=P2(D.b); out.push({t:'cl',A,B}); inc(A[0],A[1]); inc(B[0],B[1]); } });
+    return [bx0,bx1,by0,by1]; }
+  const pad=Math.max(3,FS*0.25);
+  for(let it=0;it<10;it++){ const [bx0,bx1,by0,by1]=layout(); const k=Math.min((W-2*pad)/(bx1-bx0),(H-2*pad)/(by1-by0));
+    const cx=(bx0+bx1)/2, cy=(by0+by1)/2; if(Math.abs(k-1)<0.002&&Math.abs(cx-W/2)<0.3&&Math.abs(cy-H/2)<0.3) break;
+    sc*=k; ox=W/2+(ox-cx)*k; oy=H/2+(oy-cy)*k; }
+  items.forEach(it=>{ if(it.k===1&&it.dash) it.off=(it._acc||0)*sc; });
+  // paint, back to front
+  items.sort((a,b)=>a.d-b.d);
+  const X=p=>p.x*sc+ox, Y=p=>p.y*sc+oy, U=Math.max(0.5,FS/12);
+  const poly=(pts)=>{ ctx.beginPath(); pts.forEach((p,i)=>{ if(i) ctx.lineTo(X(p),Y(p)); else ctx.moveTo(X(p),Y(p)); }); ctx.closePath(); };
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  items.forEach(it=>{
+    if(it.k===0){ poly(it.Q); ctx.fillStyle=it.col; ctx.fill(); ctx.strokeStyle=it.col; ctx.lineWidth=0.6; ctx.setLineDash([]); ctx.stroke(); }
+    else if(it.k===1){ ctx.beginPath(); ctx.moveTo(X(it.a),Y(it.a)); ctx.lineTo(X(it.b),Y(it.b)); ctx.strokeStyle=it.col; ctx.lineWidth=it.w*U;
+      if(it.dash){ ctx.setLineDash(it.dash.map(v=>v*U)); ctx.lineDashOffset=-(it.off||0); } else ctx.setLineDash([]); ctx.stroke(); ctx.lineDashOffset=0; }
+    else { ctx.setLineDash([]); poly(it.outer); ctx.fillStyle=pal.lag; ctx.fill(); ctx.strokeStyle=pal.rim; ctx.lineWidth=1.3*U; ctx.stroke();
+      const st=Math.max(1,Math.floor(it.outer.length/22)); ctx.strokeStyle=pal.lagLine; ctx.lineWidth=0.7*U; ctx.beginPath();
+      for(let k=0;k<it.outer.length;k+=st){ ctx.moveTo(X(it.outer[k]),Y(it.outer[k])); ctx.lineTo(X(it.pipe[k]),Y(it.pipe[k])); } ctx.stroke();
+      poly(it.pipe); ctx.fillStyle=pal.pipe; ctx.fill(); poly(it.bore); ctx.fillStyle=pal.bore; ctx.fill(); } });
+  ctx.setLineDash([]);
+  const halo=o.halo||'#161b21';
+  const arrow=(x,y,ux,uy)=>{ const L=FS*0.55, Wd=FS*0.2; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-ux*L-uy*Wd,y-uy*L+ux*Wd); ctx.lineTo(x-ux*L+uy*Wd,y-uy*L-ux*Wd); ctx.closePath(); ctx.fillStyle=pal.dim; ctx.fill(); };
+  const text=(x,y,t,anc)=>{ ctx.font=FONT; ctx.textAlign=anc==='start'?'left':anc==='end'?'right':'center'; ctx.textBaseline='middle';
+    ctx.lineWidth=FS*0.3; ctx.strokeStyle=halo; ctx.strokeText(t,x,y); ctx.fillStyle=pal.ink; ctx.fillText(t,x,y); };
+  const dash=(A,B)=>{ ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.strokeStyle=pal.dim; ctx.globalAlpha=0.85; ctx.lineWidth=0.9*U; ctx.setLineDash([7*U,2.5*U,1.5*U,2.5*U]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; };
+  out.forEach(D=>{
+    if(D.t==='cl') dash(D.A,D.B);
+    if(D.t==='lin'){ const g=FS*0.15, ex=FS*0.25;
+      if(D.cl){ dash(D.A,[D.A2[0]+D.n[0]*ex,D.A2[1]+D.n[1]*ex]); dash(D.B,[D.B2[0]+D.n[0]*ex,D.B2[1]+D.n[1]*ex]); }
+      else { ctx.beginPath(); ctx.moveTo(D.A[0]+D.n[0]*g,D.A[1]+D.n[1]*g); ctx.lineTo(D.A2[0]+D.n[0]*ex,D.A2[1]+D.n[1]*ex);
+        ctx.moveTo(D.B[0]+D.n[0]*g,D.B[1]+D.n[1]*g); ctx.lineTo(D.B2[0]+D.n[0]*ex,D.B2[1]+D.n[1]*ex); ctx.strokeStyle=pal.ext; ctx.lineWidth=0.8*U; ctx.stroke(); }
+      const ux=D.B2[0]-D.A2[0], uy=D.B2[1]-D.A2[1], ul=Math.hypot(ux,uy)||1;
+      ctx.beginPath(); ctx.moveTo(D.A2[0],D.A2[1]); ctx.lineTo(D.B2[0],D.B2[1]); ctx.strokeStyle=pal.dim; ctx.lineWidth=1.3*U; ctx.stroke();
+      if(ul>FS*1.3){ arrow(D.B2[0],D.B2[1],ux/ul,uy/ul); arrow(D.A2[0],D.A2[1],-ux/ul,-uy/ul); }
+      text(D.lx,D.ly,D.label,D.anc); }
+    if(D.t==='arc'){ D.rays.forEach(([p,q])=>dash(p,q));
+      ctx.beginPath(); D.pts.forEach((p,i)=>{ if(i) ctx.lineTo(p[0],p[1]); else ctx.moveTo(p[0],p[1]); }); ctx.strokeStyle=pal.dim; ctx.lineWidth=1.3*U; ctx.stroke();
+      const P=D.pts, a=(p1,p0)=>{ const ux=p1[0]-p0[0], uy=p1[1]-p0[1], l=Math.hypot(ux,uy)||1; arrow(p1[0],p1[1],ux/l,uy/l); };
+      a(P[P.length-1],P[P.length-2]); a(P[0],P[1]); text(D.lx,D.ly,D.label,D.anc); }
+    if(D.t==='lead'){ ctx.beginPath(); ctx.arc(D.A[0],D.A[1],FS*0.17,0,2*Math.PI); ctx.fillStyle=pal.dim; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(D.A[0],D.A[1]); ctx.lineTo(D.L[0],D.L[1]); ctx.strokeStyle=pal.dim; ctx.lineWidth=1.1*U; ctx.stroke();
+      text(D.L[0]+(D.anc==='start'?4:-4),D.L[1],D.label,D.anc); } });
+  return true;
+}
+
+/* ---- what each picture measures. Camera v:[az,el]; ends: rows that are cut pipe ends; skip: parts left
+   out (a gore drawn on its own dome). Sizes are the cladding: pipe + 2 x insulation, as the patterns. */
+const mpCd=(s,x)=>(+x||0)+2*(+s.insulation||0);
+const mpCol=(G,p,i)=>{ const P=G.parts.find(q=>q.i===p)||G.parts[0], n=P.R[0].length; return P.R.map(r=>r[i<0?n+i:i]); };
+const mpLow=(G,p,j)=>G.rows(p,j).reduce((a,q)=>q[2]<a[2]?q:a);
+const mpFront=(G,p,j)=>{ const c=G.ctr(p,j); return G.rows(p,j).reduce((a,q)=>mpD(mpS(q,c),G.E)>mpD(mpS(a,c),G.E)?q:a); };
+const mpMid=(a,b)=>mpM(mpA(a,b),0.5);
+const mpDown=(G,v)=>{ const a=G.pj([0,0,0]), b=G.pj(v); return b.y-a.y>=0?v:mpM(v,-1); };    // the way of v that points down the screen
+const mpRight=(G,v)=>{ const a=G.pj([0,0,0]), b=G.pj(v); return b.x-a.x>=0?v:mpM(v,-1); };
+const mpFlatMid=(G,p)=>{ const n=G.nr(p), f=[]; for(let j=0;j<n;j++){ const q=G.flatAt(p,j); if(q) f.push(q); } if(!f.length) return null; let m=[0,0,0]; f.forEach(q=>{ m=mpA(m,q); }); return mpM(m,1/f.length); };
+// split lines along a box: rays from c (in the end's x-z) at clock angles, hitting the end profile prof
+function mpRays(prof,c,angles,y0,y1){ const out=[];
+  angles.forEach(t=>{ const dx=Math.sin(t*Math.PI/180), dz=Math.cos(t*Math.PI/180); let best=null;
+    for(let i=0;i<prof.length;i++){ const A=prof[i], B=prof[(i+1)%prof.length], ex=B[0]-A[0], ez=B[1]-A[1], den=dx*ez-dz*ex;
+      if(Math.abs(den)<1e-9) continue; const t1=((A[0]-c[0])*ez-(A[1]-c[1])*ex)/den, u=((A[0]-c[0])*dz-(A[1]-c[1])*dx)/den;
+      if(t1>1e-6&&u>=-1e-6&&u<=1+1e-6&&(best==null||t1<best)) best=t1; }
+    if(best!=null){ const x=c[0]+dx*best, z=c[1]+dz*best; out.push([[x,y0,z],[x,y1,z]]); } });
+  return out; }
+const mpLoop=(G,p,j)=>{ const h=G.rows(p,j); return h.concat(h.slice().reverse().map(q=>[-q[0],q[1],q[2]])); };   // a mirrored half, closed
+const mpEnds=(G,p)=>{ const a=mpLoop(G,p,0), b=mpLoop(G,p,-1); return [a,b]; };
+const mpHalfProf=(G,p)=>{ const h=G.rows(p,0).map(q=>[q[0],q[2]]); return h.concat(h.slice().reverse().map(q=>[-q[0],q[1]])); };
+const mpBend=(G,s,o)=>{ o=o||{}; const n=G.nr(0), c0=G.ctr(0,0), cm=G.ctr(0,Math.floor((n-1)/2)), cN=G.ctr(0,-1), C=G.centre3(c0,cm,cN);
+  const u=mpN(mpS(cN,C)), w=mpN(mpS(c0,C)), vv=mpN(mpS(w,mpM(u,mpD(u,w)))), a1=Math.acos(Math.max(-1,Math.min(1,mpD(u,w)))), R=mpL(mpS(cN,C));
+  return [G.dia(0,0,G.L('Pipe Ø',mpCd(s,s.pipeOD))),
+    G.lin(C,cN,G.L(o.crName||'Centre radius',s.centreRadius),{along:u,side:mpN(mpS(C,c0)),clearAll:true,off:0.6,ext:'cl'}),
+    G.arc(C,u,vv,R*0.32,0,a1,G.L('Angle',s.bendDeg,'°'),{lr:R*0.12,rays:[[C,mpA(C,mpM(u,R*0.55))],[C,mpA(C,mpM(w,R*0.55))]]})]; };
+const mpTeeMB=(G,s,main,branch)=>[G.dia(0,0,G.L('Main Ø',mpCd(s,main))),G.dia(1,0,G.L('Branch Ø',mpCd(s,branch)),{side:G.ax(1,0)})];
+const mpBox=(G,s,o)=>{ const lo=G.lo, hi=G.hi; o=o||{};
+  return [G.lin([hi[0],lo[1],lo[2]],[hi[0],hi[1],lo[2]],G.L(o.Ln||'Length',o.L),{along:[0,1,0],side:[1,0,0],off:0.6}),
+    G.lin([lo[0],hi[1],lo[2]],[hi[0],hi[1],lo[2]],G.L(o.Wn||'Width',o.W),{along:[1,0,0],side:[0,1,0],off:0.6}),
+    o.H==null?null:G.lin([hi[0],lo[1],lo[2]],[hi[0],lo[1],hi[2]],G.L(o.Hn||'Height',o.H),{along:[0,0,1],side:[1,-1,0],off:0.6})]; };
+const mpVessel=(G,s,extra)=>{ const rim=[0,0,G.lo[2]], R=Math.max(G.hi[0]-0,0-G.lo[0],G.hi[1],-G.lo[1]), nn=mpRight(G,G.sil([0,0,1]));
+  const out=[G.lin(mpA(rim,mpM(nn,R)),mpA(rim,mpM(nn,-R)),G.L('Ø',s.dia),{along:nn,side:[0,0,-1],off:0.7,clearAll:true})];
+  return out.concat(extra||[]); };
+const mpMerid=(G,s)=>{ const P=G.parts.find(q=>q.i===0); if(!P) return []; const N=P.R[0].length-1, seg=Math.max(3,Math.round(+s.segments||24)), out=[];
+  let C=[0,0,0], k=0; P.R.forEach(r=>r.forEach(q=>{ C=mpA(C,q); k++; })); C=mpM(C,1/k); const step=N/seg;
+  for(let g=0;g<seg;g++){ const i=Math.round(g*step); if(i>N) continue; const col=P.R.map(r=>r[i]);
+    const vis=col.map(q=>mpD(mpS(q,[C[0],C[1],0]),G.E)>0); let run=[]; col.forEach((q,j)=>{ if(vis[j]) run.push(q); else { if(run.length>1) out.push(run); run=[]; } }); if(run.length>1) out.push(run); }
+  return out; };
+Object.assign(MPSPEC,{
+  elbow:{v:[-0.28,0.30],ends:[[0,0],[0,-1]],dims:(G,s)=>{ const c0=G.ctr(0,0), cm=G.ctr(0,1), c2=G.ctr(0,-1);
+    return [G.dia(0,0,G.L('Pipe Ø',mpCd(s,s.pipeOD))),G.bend(c0,cm,c2,G.L('Angle',s.bendDeg,'°'),mpL(mpS(cm,c0))*0.55)]; }},
+  flatelbow:{v:[0.62,0.42],ends:[[1,-1]],dims:(G,s)=>{ const c0=G.ctr(0,0), cm=G.ctr(0,-1), c2=G.ctr(1,-1), f=mpFlatMid(G,1)||mpFlatMid(G,0);
+    return [G.dia(1,-1,G.L('Pipe Ø',mpCd(s,s.pipeOD))),G.bend(c0,cm,c2,G.L('Angle',s.bendDeg,'°'),mpL(mpS(cm,c2))*0.5),
+      f?Object.assign(G.lead(f,G.L('Flat',s.recessDepth),0,0),{dir3:mpN(mpS(f,mpMid(G.ctr(1,0),G.ctr(1,-1)))),len:1.6}):null]; }},
+  spacerelbow:{v:[0.62,0.34],ends:[[2,-1]],dims:(G,s)=>{ const a0=G.ctr(0,0), a1=G.ctr(0,-1), b0=G.ctr(2,0), b1=G.ctr(2,-1);
+    const M=G.meet(a0,mpN(mpS(a1,a0)),b1,mpN(mpS(b0,b1))), s0=G.ctr(1,0), s1=G.ctr(1,-1), sc=mpMid(s0,s1);
+    return [G.dia(2,-1,G.L('Pipe Ø',mpCd(s,s.pipeOD))),
+      G.lin(s0,s1,G.L('Spacer',s.spacerWidth),{side:mpN(mpS(M,sc)),clear:G.rows(1,0).concat(G.rows(1,-1)),off:0.5,ext:'cl'}),
+      G.bend(a0,M,b1,G.L('Angle',s.bendDeg,'°'),mpL(mpS(M,a0))*0.35)]; }},
+  elbowgusset:{v:[0.45,0.28],dims:(G,s)=>{ const r=mpCd(s,s.pipeOD)/2, o=+s.opposite||0, d=+s.adjacent||0;
+    const T=[r,0,-r], B=[r,0,-r-o], C=[r+d,0,-r];
+    return [G.dia(3,0,G.L('Pipe Ø',mpCd(s,s.pipeOD))),G.cl(T,B),G.cl(T,C),G.cl(B,C),
+      Object.assign(G.lead(mpMid(T,B),G.L('Opposite',o),0,0),{dir3:[-1,0,0],len:1.4}),
+      Object.assign(G.lead(mpMid(T,C),G.L('Adjacent',d),0,0),{dir3:[0,0,-1],len:1.2})]; }},
+  lobster:{v:[-0.55,0.34],ends:[[0,0],[0,-1]],dims:(G,s)=>mpBend(G,s)},
+  flatlobster:{v:[-0.55,0.42],ends:[[0,0],[0,-1]],dims:(G,s)=>{ const b=mpBend(G,s), n=G.nr(0); let jm=Math.floor((n-1)/2), f=G.flatAt(0,jm);
+    for(let j=0;!f&&j<n;j++){ f=G.flatAt(0,j); jm=j; }
+    { const C=G.centre3(G.ctr(0,0),G.ctr(0,jm),G.ctr(0,-1)), row=G.rows(0,jm), c=G.ctr(0,jm); let sd=mpN(mpX(mpS(G.ctr(0,-1),C),mpS(G.ctr(0,0),C))); if(mpD(sd,G.E)<0) sd=mpM(sd,-1);
+      const sc=q=>s.recessAt==='throat'?-mpL(mpS(q,C)):s.recessAt==='side'?mpD(mpS(q,c),sd):mpL(mpS(q,C)); f=row.reduce((a,q)=>sc(q)>sc(a)?q:a); }
+    if(f){ const c=G.ctr(0,jm); b.push(Object.assign(G.lead(f,G.L('Flat',s.recessDepth),0,0),{dir3:mpN(mpS(f,c)),len:1.5})); }
+    return b; }},
+  bendgusset:{v:[0.12,0.25],dims:(G,s)=>mpBend(G,s)},
+  bendet:{v:[0.62,0.30],ends:[],dims:(G,s)=>{ const F1=G.ctr(0,0), a1=G.ax(0,0), F2=G.ctr(4,-1), a2=G.ax(4,-1), M=G.meet(F1,a1,F2,a2);
+    let bk=[0,0,0]; G.rows(0,0).forEach(q=>{ bk=mpA(bk,q); }); bk=mpM(bk,1/G.rows(0,0).length);
+    return [G.dia(0,0,G.L('Pipe Ø',mpCd(s,s.pipeOD))),
+      G.lin(M,F1,G.L('Centre to face',s.centreToFace),{along:a1,side:mpN(mpS(bk,F1)),clearAll:true,off:0.5,ext:'cl'}),
+      G.bend(F1,M,F2,G.L('Angle',s.bendDeg,'°'),mpL(mpS(M,F1))*0.3)]; }},
+  weldseg:{v:[0.12,0.22],ends:[[0,0],[3,-1]],dims:(G,s)=>{ const C=G.centre3(G.ctr(0,0),G.ctr(1,0),G.ctr(3,-1)), P=G.parts.find(q=>q.i===1); if(!P) return [];
+    const R0=P.R[0], R1=P.R[P.R.length-1]; let bi=0, ti=0, bd=-1, td=1e12;
+    for(let i=0;i<R0.length-1;i++){ const d=mpL(mpS(mpMid(R0[i],R1[i]),C)); if(d>bd){ bd=d; bi=i; } if(d<td){ td=d; ti=i; } }
+    const bm=mpMid(R0[bi],R1[bi]), tm=mpMid(R0[ti],R1[ti]);
+    return [G.dia(0,0,G.L('Pipe Ø',mpCd(s,s.pipeOD))),
+      G.lin(R0[bi],R1[bi],G.L('Back',s.backLen),{side:mpN(mpS(bm,C)),off:0.5}),
+      G.lin(R0[ti],R1[ti],G.L('Throat',s.throatLen),{side:mpN(mpS(C,tm)),off:0.5})]; }},
+  bendonbend:{v:[0.55,0.30],ends:[[0,0],[0,-1]],dims:(G,s)=>{ const n=G.nr(0), j1=Math.round((n-1)*0.25), j2=Math.round((n-1)*0.75), jm=Math.round((n-1)*0.5);
+    return [G.dia(0,0,G.L('Pipe Ø',mpCd(s,s.pipeOD))),
+      Object.assign(G.lead(mpFront(G,0,j1),G.L('Bend 1',s.bendDeg1,'°'),0,0),{dir3:mpN(mpS(mpFront(G,0,j1),G.ctr(0,j1))),len:1.4}),
+      Object.assign(G.lead(mpFront(G,0,j2),G.L('Bend 2',s.bendDeg2,'°'),0,0),{dir3:mpN(mpS(mpFront(G,0,j2),G.ctr(0,j2))),len:1.4}),
+      (+s.twist||G.names)?Object.assign(G.lead(mpFront(G,0,jm),G.L('Twist',s.twist,'°'),0,0),{dir3:mpN(mpS(mpFront(G,0,jm),G.ctr(0,jm))),len:1.4}):null]; }},
+  inctee:{v:[0.62,0.30],ends:[[0,-1],[1,0]],dims:(G,s)=>{ const m0=G.ctr(0,0), m1=G.ctr(0,-1), md=mpN(mpS(m1,m0)), bt=G.ctr(1,0), bd=G.ax(1,0);
+    const M=G.meet(m0,md,bt,bd), u=mpD(bd,md)>=0?md:mpM(md,-1), ue=mpD(mpS(m1,M),u)>0?m1:m0, Rm=mpCd(s,s.mainPipeOD)/2;
+    const rho=Math.max(mpL(mpS(bt,M)),mpL(mpS(ue,M)))+Rm*0.3, vv=mpN(mpS(bd,mpM(u,mpD(u,bd)))), a1=Math.acos(Math.max(-1,Math.min(1,mpD(u,bd))));
+    return mpTeeMB(G,s,s.mainPipeOD,s.branchPipeOD).concat([G.arc(M,u,vv,rho,0,a1,G.L('Angle',s.angle||90,'°'),{lr:Rm*0.15,
+      rays:[[mpA(ue,mpM(u,Rm*0.1)),mpA(M,mpM(u,rho*1.08))],[mpA(bt,mpM(bd,Rm*0.1)),mpA(M,mpM(bd,rho*1.08))]]})]); }},
+  flattee:{v:[0.62,0.32],ends:[[0,-1],[1,0]],dims:(G,s)=>{ const d=mpTeeMB(G,s,s.mainPipeOD,s.branchPipeOD);
+    if(s.flatOn!=='main'){ const f=mpFlatMid(G,1); if(f) d.push(Object.assign(G.lead(f,G.L('Flat',s.brDepth),0,0),{dir3:mpN(mpS(f,mpMid(G.ctr(1,0),G.ctr(1,-1)))),len:1.4})); }
+    if(s.flatOn!=='branch'){ const f=mpFlatMid(G,0); if(f) d.push(Object.assign(G.lead(f,G.L('Main flat',s.mainDepth),0,0),{dir3:mpN(mpS(f,mpMid(G.ctr(0,0),G.ctr(0,-1)))),len:1.4})); }
+    return d; }},
+  shoetee:{v:[0.62,0.30],hostEdges:1,ends:[[0,-1]],dims:(G,s)=>{ const R=mpCd(s,s.mainPipeOD)/2, top=G.rows(2,0), a=top[0], b=top[top.length-1], xl=Math.min(...top.map(q=>q[0]));
+    return [G.dia(0,0,G.L('Main Ø',mpCd(s,s.mainPipeOD))),G.lin(a,b,G.L('Branch Ø',mpCd(s,s.branchPipeOD)),{side:[0,0,1],off:0.5,clear:top}),
+      G.lin([xl,0,R],[xl,0,R+(+s.shoeHeight||0)],G.L('Shoe top',s.shoeHeight),{along:[0,0,1],side:[-1,0,0],off:0.6,clearAll:true})]; }},
+  offtee:{v:[0.62,0.32],ends:[[0,-1],[1,0]],dims:(G,s)=>{ const bt=G.ctr(1,0), m0=G.ctr(0,0), R=mpCd(s,s.mainPipeOD)/2;
+    return mpTeeMB(G,s,s.mainPipeOD,s.branchPipeOD).concat([G.lin([bt[0],m0[1],bt[2]],bt,G.L('Offset',s.mainOffset),{along:[0,1,0],side:[0,0,1],off:2.6,clear:G.rows(1,0),ext:'cl'}),
+      G.cl([bt[0],m0[1],R],[bt[0],m0[1],bt[2]])]); }},
+  tangtee:{v:[0.62,0.32],ends:[[0,-1],[1,0]],dims:(G,s)=>mpTeeMB(G,s,s.mainPipeOD,s.branchPipeOD)},
+  eurotee:{v:[0.40,0.42],dims:(G,s)=>{ const R=mpCd(s,s.mainPipeOD)/2, L=+s.mainLength||600, H=+s.branchHeight||250, lo=G.lo, hi=G.hi;
+    return [G.lin([lo[0],-R,0],[lo[0],R,0],G.L('Main Ø',2*R),{along:[0,1,0],side:[-1,0,0],off:0.6}),
+      G.lin([lo[0],0,-R],[hi[0],0,-R],G.L('Length',L),{along:[1,0,0],side:[0,0,-1],off:0.6,clearAll:true}),
+      G.lin([hi[0],0,0],[0,0,H],G.L('Branch height',H),{along:[0,0,1],side:[1,0,0],off:0.6,clearAll:true,ext:'cl'})]; }},
+  ybranch:{v:[0.30,0.24],ends:[[0,0],[1,-1],[2,-1]],dims:(G,s)=>{ const m0=G.ctr(0,0), u=mpN(mpS(G.ctr(0,-1),m0)), b1=G.ctr(1,-1), bd=mpN(mpS(b1,G.ctr(1,0)));
+    const M=G.meet(m0,u,b1,bd), r=mpCd(s,s.pipeOD)/2, rho=mpL(mpS(b1,M))+r*0.45, vv=mpN(mpS(bd,mpM(u,mpD(u,bd)))), a1=Math.acos(Math.max(-1,Math.min(1,mpD(u,bd))));
+    return [G.dia(0,0,G.L('Pipe Ø',2*r)),
+      G.arc(M,u,vv,rho,0,a1,G.L('Angle',s.branchAngle,'°'),{lr:r*0.15,rays:[[mpA(M,mpM(u,r*1.6)),mpA(M,mpM(u,rho*1.08))],[mpA(b1,mpM(bd,r*0.1)),mpA(M,mpM(bd,rho*1.08))]]}),
+      G.lin(m0,mpA(m0,mpM(u,+s.mainLen||0)),G.L('Main',s.mainLen),{along:u,side:[-1,0,0],clearAll:true,off:0.5,ext:'cl'})]; }},
+  breeches:{v:[0.25,0.24],ends:[[0,-1],[1,-1]],dims:(G,s)=>{ const Rb=mpCd(s,s.baseOD)/2, n=mpRight(G,G.sil([0,0,1])), t0=G.ctr(0,-1), t1=G.ctr(1,-1);
+    return [G.lin(mpM(n,Rb),mpM(n,-Rb),G.L('Base Ø',2*Rb),{along:n,side:[0,0,-1],off:0.6,clearAll:true}),
+      G.dia(0,-1,G.L('Leg Ø',mpCd(s,s.legOD)),{side:[0,0,1]}),
+      G.lin([-Rb,0,0],[-Rb,0,+s.height||0],G.L('Height',s.height),{along:[0,0,1],side:[-1,0,0],off:0.6,clearAll:true}),
+      G.lin(t1,t0,G.L('Centres',s.spread),{along:[1,0,0],side:[0,0,1],off:1.6,clear:G.rows(0,-1).concat(G.rows(1,-1)),ext:'cl'})]; }},
+  teebend:{v:[0.78,0.30],hostEdges:1,ends:[[0,0],[0,-1]],dims:(G,s)=>{ const se=G.ctr(1,0), up=mpM(G.ax(1,0),-1), B=mpA(se,mpM(up,+s.height||0));
+    return [G.dia(0,0,G.L('Bend Ø',mpCd(s,s.mainPipeOD))),G.dia(1,0,G.L('Stub Ø',mpCd(s,s.stubPipeOD))),
+      G.lin(se,B,G.L('Height',s.height),{along:up,side:[-1,0,0],off:0.6,clearAll:true,ext:'cl'})]; }},
+  teeoncone:{v:[0.78,0.30],hostEdges:1,ends:[[1,0],[0,-1]],dims:(G,s)=>{ const be=G.ctr(1,0);
+    return [G.dia(0,0,G.L('Big end Ø',mpCd(s,s.bigPipeOD)),{side:[0,0,-1]}),G.dia(0,-1,G.L('Small end Ø',mpCd(s,s.smallPipeOD)),{side:[0,0,1]}),
+      G.dia(1,0,G.L('Branch Ø',mpCd(s,s.branchPipeOD))),
+      (()=>{ const r0=mpCd(s,s.bigPipeOD)/2, r1=mpCd(s,s.smallPipeOD)/2, H=+s.height||G.hi[2], z=Math.min(H,+s.branchZ||0), n=mpM(mpRight(G,G.sil([0,0,1])),-1);
+        return G.lin(mpM(n,r0),mpA(mpM(n,r0-(r0-r1)*z/H),[0,0,z]),G.L('Branch height',s.branchZ),{along:[0,0,1],side:n,off:0.6,clearAll:true}); })()]; }},
+  teedome:{v:[0.78,0.26],ends:[[1,0]],dims:(G,s)=>{ const bt=G.ctr(1,0);
+    return [G.dia(0,-1,G.L('Dome Ø',s.dia),{ax:[0,0,-1],side:[0,0,-1],off:0.7}),G.dia(1,0,G.L('Branch Ø',mpCd(s,s.branchPipeOD)),{side:[0,0,1]}),
+      G.lin([0,0,bt[2]],bt,G.L('Offset',s.teePos),{along:[1,0,0],side:[0,0,1],off:1.8,clear:G.rows(1,0),ext:'cl'})]; }},
+  teetanktop:{v:[0.78,0.26],ends:[[1,0]],dims:(G,s)=>{ const bt=G.ctr(1,0), H=G.hi[2];
+    return [G.dia(0,-1,G.L('Tank Ø',s.dia),{ax:[0,0,-1],side:[0,0,-1],off:0.7}),G.dia(1,0,G.L('Tee Ø',mpCd(s,s.branchPipeOD)),{side:[0,0,1]}),
+      G.lin([0,0,H],[bt[0],0,H],G.L('Offset',s.teePos),{along:[1,0,0],side:[0,0,1],off:0.6,ext:'cl'})]; }},
+  reducer:{v:[0.78,0.36],ends:[[0,-1]],dims:(G,s)=>{ const n=mpRight(G,G.sil([0,0,1])), c0=G.ctr(0,0), c1=G.ctr(0,-1), r0=mpCd(s,s.bigPipeOD)/2, r1=mpCd(s,s.smallPipeOD)/2;
+    return [G.dia(0,0,G.L('Big end Ø',2*r0),{side:[0,0,-1]}),G.dia(0,-1,G.L('Small end Ø',2*r1),{side:[0,0,1]}),
+      G.lin(mpA(c0,mpM(n,r0)),mpA(c1,mpM(n,r1)),G.L('Height',s.height),{along:[0,0,1],side:n,clearAll:true,off:0.6})]; }}
+});
+MPSPEC.flatback=MPSPEC.reducer;
+MPSPEC.oblique={v:[0.78,0.36],ends:[[0,-1]],dims:(G,s)=>{ const d=MPSPEC.reducer.dims(G,s), c1=G.ctr(0,-1);
+  d.push(G.lin([0,0,c1[2]],c1,G.L('Offset',s.offset),{along:[1,0,0],side:[0,0,1],off:1.9,clear:G.rows(0,-1),ext:'cl'})); return d; }};
+MPSPEC.anglecone={v:[0.78,0.34],ends:[[0,-1]],dims:(G,s)=>{ const c0=G.ctr(0,0), c1=G.ctr(0,-1), n=mpRight(G,G.sil([0,0,1])), tp=mpFront(G,0,-1);
+  return [G.dia(0,0,G.L('Big end Ø',mpCd(s,s.bigPipeOD)),{side:[0,0,-1]}),G.dia(0,-1,G.L('Small end Ø',mpCd(s,s.smallPipeOD))),
+    G.lin(c0,[c0[0],c0[1],c1[2]],G.L('Height',s.height),{along:[0,0,1],side:n,clearAll:true,off:0.6,ext:'cl'}),
+    Object.assign(G.lead(tp,G.L('Tilt',s.topAngle,'°'),0,0),{dir3:mpM(n,-1),len:1.6})]; }};
+MPSPEC.witcheshat={v:[0.78,0.30],dims:(G,s)=>{ const n=mpRight(G,G.sil([0,0,1])), R=mpCd(s,s.pipeOD)/2;
+  return [G.dia(0,0,G.L('Ø',2*R),{side:[0,0,-1]}),G.lin(mpM(n,R),[0,0,+s.height||G.hi[2]],G.L('Height',s.height),{along:[0,0,1],side:n,clearAll:true,off:0.6})]; }};
+const mpSqr=(o)=>({v:[0.78,0.36],ends:[[0,-1]],dims:(G,s)=>{ const lo=G.lo, hi=G.hi, c1=G.ctr(0,-1), r1=mpCd(s,s.pipeOD)/2, cy=(lo[1]+hi[1])/2;
+  const out=[G.lin([lo[0],hi[1],lo[2]],[hi[0],hi[1],lo[2]],G.L(o.sq?'Side':'Width',o.sq?s.side:s.sqW),{along:[1,0,0],side:[0,1,0],off:0.6})];
+  if(!o.sq) out.push(G.lin([hi[0],lo[1],lo[2]],[hi[0],hi[1],lo[2]],G.L('Depth',s.sqD),{along:[0,1,0],side:[1,0,0],off:0.6}));
+  out.push(G.dia(0,-1,G.L('Round Ø',2*r1),{side:[0,0,1]}));
+  out.push(G.lin([hi[0],cy,lo[2]],[c1[0]+r1,c1[1],c1[2]],G.L('Height',s.height),{along:[0,0,1],side:[1,-1,0],off:0.6,clearAll:true}));
+  if(o.off) out.push(G.lin([0,c1[1],c1[2]],c1,G.L('Offset',s.offsetX),{along:[1,0,0],side:[0,0,1],off:1.8,clear:G.rows(0,-1),ext:'cl'}));
+  return out; }});
+MPSPEC.sqround=mpSqr({sq:1}); MPSPEC.rectround=mpSqr({}); MPSPEC.obliqueround=mpSqr({off:1}); MPSPEC.rasqround=mpSqr({}); MPSPEC.oblxform=mpSqr({});
+const mpRot=p=>[p[2],-p[0],p[1]];      // a straight run laid along the picture: its axis to X, the flat on top
+MPSPEC.flatten={v:[0.50,0.42],tf:mpRot,ends:[[0,0],[4,-1]],dims:(G,s)=>{ const parts=G.parts.map(P=>P.i), last=parts[parts.length-1], first=parts[0];
+  const fl=parts.find(i=>{ const f=G.flatAt(i,0); return f&&G.nr(i)===2&&(i!==first&&i!==last); }), tr=parts.length>=3?parts[parts.indexOf(fl!=null?fl:parts[1])-1]:null;
+  const out=[G.dia(last,-1,G.L('Pipe Ø',mpCd(s,s.pipeOD)))];
+  const f=fl!=null?mpMid(G.flatAt(fl,0),G.flatAt(fl,-1)):null;
+  if(f) out.push(Object.assign(G.lead(f,G.L('Flat',s.depth),0,0),{dir3:[0,0,1],len:1.6}));
+  const tp=parts.find(i=>G.rows(i,0).length>40);
+  if(tp!=null) out.push(G.lin(mpLow(G,tp,0),mpLow(G,tp,-1),G.L('Transition',s.transLen),{along:[1,0,0],side:[0,0,-1],clearAll:true,off:0.6}));
+  if(fl!=null&&+s.flatLen>0) out.push(G.lin(mpLow(G,fl,0),mpLow(G,fl,-1),G.L('Flat length',s.flatLen),{along:[1,0,0],side:[0,0,-1],clearAll:true,off:2.4}));
+  return out; }};
+MPSPEC.recess={v:[0.50,0.42],tf:mpRot,ends:[[0,0],[0,-1]],dims:(G,s)=>{ const f=mpMid(G.flatAt(0,0)||G.ctr(0,0),G.flatAt(0,-1)||G.ctr(0,-1));
+  return [G.dia(0,-1,G.L('Pipe Ø',mpCd(s,s.pipeOD))),Object.assign(G.lead(f,G.L('Flat',s.depth),0,0),{dir3:[0,0,1],len:1.6}),
+    G.lin(mpLow(G,0,0),mpLow(G,0,-1),G.L('Length',s.length),{along:[1,0,0],side:[0,0,-1],clearAll:true,off:0.6})]; }};
+MPSPEC.roundtop={v:[0.78,0.42],splits:(G,s)=>{ const R=(+s.dia||0)/2, h=G.hi[2]; return [+s.pieces===1?[[R,0,0],[0,0,h]]:[[R,0,0],[0,0,h],[-R,0,0]]]; },dims:(G,s)=>{ const n=mpRight(G,G.sil([0,0,1])), R=(+s.dia||0)/2;
+  return [G.dia(0,0,G.L('Ø',s.dia),{side:[0,0,-1]}),G.lin(mpM(n,R),[0,0,G.hi[2]],G.L('Rise',G.hi[2]),{along:[0,0,1],side:n,clearAll:true,off:0.6})]; }};
+MPSPEC.tanktop={v:[0.78,0.36],ends:[],splits:(G,s)=>{ const P=G.parts[0]; if(!P) return []; const n=P.R[0].length-1, out=[];
+    for(let i=0;i<n;i++){ const a=P.R[0][i], b=P.R[P.R.length-1][i]; if(mpD(mpS(mpMid(a,b),[0,0,mpMid(a,b)[2]]),G.E)>0) out.push([a,b]); } return out; },dims:(G,s)=>{ const n=mpRight(G,G.sil([0,0,1])), r0=(+s.baseDia||0)/2, r1=(+s.topDia||0)/2;
+  return [G.dia(0,0,G.L('Base Ø',s.baseDia),{side:[0,0,-1]}),G.dia(0,-1,G.L('Top Ø',s.topDia),{side:[0,0,1]}),
+    G.lin(mpM(n,r0),[n[0]*r1,n[1]*r1,+s.height||G.hi[2]],G.L('Height',s.height),{along:[0,0,1],side:n,clearAll:true,off:0.6})]; }};
+MPSPEC.valveend={v:[0.78,0.42],splits:(G,s)=>[[[(+s.boxW||0)/2,0,0],[0,0,G.hi[2]],[-(+s.boxRun||0),0,0]]],dims:(G,s)=>{ const W=+s.boxW||0, run=+s.boxRun||0;
+  return [G.lin([0,-W/2,0],[0,W/2,0],G.L('Round end Ø',W),{along:[0,1,0],side:[1,0,0],clearAll:true,off:0.6}),
+    G.lin([-run,-W/2,0],[0,-W/2,0],G.L('Straight run',run),{along:[1,0,0],side:[0,-1,0],off:0.6}),
+    Object.assign(G.lead([0,0,G.hi[2]],G.L('Rise',G.hi[2]),0,0),{dir3:[0,0,1],len:1.4})]; }};
+const mpFree=(s)=>s.seamMode==='free'||s.splitMode==='free';
+/* the split down each end plate: shop halves part the plates on the centre line (2 wraps + 4 plates) */
+const mpEndMid=(G,ztop,zbot)=>[[[0,G.lo[1],ztop],[0,G.lo[1],zbot]],[[0,G.hi[1],ztop],[0,G.hi[1],zbot]]];
+/* free seams on the end plates: the plates split on the same rays from the centre as the wrap */
+function mpEndRays(prof,c,angles,ys){ const out=[];
+  angles.forEach(t=>{ const L=mpRays(prof,c,[t],0,0)[0]; if(!L) return; const x=L[0][0], z=L[0][2]; ys.forEach(y=>out.push([[c[0],y,c[1]],[x,y,z]])); });
+  return out; }
+/* a circle at height/position, the arc between two clock angles - the round box's ring seams */
+const mpArc=(R,a0,a1,at,horiz)=>{ const out=[]; for(let k=0;k<=24;k++){ const a=(a0+(a1-a0)*k/24)*Math.PI/180, x=R*Math.sin(a), w=R*Math.cos(a); out.push(horiz?[x,at,w]:[x,-w,at]); } return out; };
+/* the square box's seam planner: walls standing round, the girth seams up them, a lid with its seam -
+   the planner's plan (x along the box, y across, front -y) turned onto the picture's box (x across, y along) */
+function mpPlanSplits(G,s){ const d=sbDims(s), H=d.H, P=(px,py,z)=>[-py,px,z], out=[];
+  sbGirths(s).forEach(g=>{ const q=sbPt(s,g); out.push([P(q[0],q[1],0),P(q[0],q[1],H)]); });
+  out.push((s.lidSeam||'frontback')==='frontback'?[P(0,-d.D/2,H),P(0,d.D/2,H)]:[P(-d.W/2,0,H),P(d.W/2,0,H)]);
+  return out; }
+MPSPEC.squarebox={v:[0.78,0.32],hostEdges:1,skip:[2,3],caps:(G)=>mpEnds(G,0),dims:(G,s)=>mpBox(G,s,{L:s.boxL,W:s.boxW,H:s.boxH}),
+  splits:(G,s)=>s.seamMode==='plan'?mpPlanSplits(G,s):[mpCol(G,0,0),mpCol(G,0,-1)].concat(mpEndMid(G,G.hi[2],G.lo[2]))};
+MPSPEC.valvebox={v:[0.78,0.32],hostEdges:1,skip:[2,3],caps:(G)=>mpEnds(G,0),dims:(G,s)=>{ const d=mpBox(G,s,{L:s.boxL,W:s.boxW,H:s.boxH});
+  if(s.topStyle!=='flat') d.push(Object.assign(G.lead([0,0,G.hi[2]],G.L('Rise',s.wsHeight),0,0),{dir3:[0,0,1],len:1.3})); return d; },
+  splits:(G,s)=>{ const c=[0,(+s.boxW||380)/2];
+    return mpFree(s)?mpRays(mpHalfProf(G,0),c,freeSeamAngles(s),G.lo[1],G.hi[1]).concat(mpEndRays(mpHalfProf(G,0),c,freeSeamAngles(s),[G.lo[1],G.hi[1]]))
+      :[mpCol(G,0,0),mpCol(G,0,-1)].concat(mpEndMid(G,G.hi[2],G.lo[2])); }};
+MPSPEC.wsbox={v:[0.78,0.32],hostEdges:1,caps:(G,s)=>{ const W=+s.boxW||300, H=+s.boxH||400, D=Math.min(H-1,+s.shedDepth||40), wall=H-D;
+    const pr=[[-W/2,0],[W/2,0],[W/2,wall],[0,H],[-W/2,wall]]; return [G.lo[1],G.hi[1]].map(y=>pr.map(q=>[q[0],y,q[1]])); },dims:(G,s)=>{ const d=mpBox(G,s,{L:s.boxL,W:s.boxW,H:s.boxH});
+  d.push(Object.assign(G.lead([0,0,G.hi[2]],G.L('Rise',s.shedDepth),0,0),{dir3:[0,0,1],len:1.3})); return d; },
+  splits:(G,s)=>{ const W=+s.boxW||300, H=+s.boxH||400, D=Math.min(H-1,+s.shedDepth||40), wall=H-D;
+    if(s.splitMode==='horiz'){ const drop=Math.max(1,Math.min(wall-1,s.hoodDrop==null?75:+s.hoodDrop)), zb=wall-drop, out=[];
+      [-1,1].forEach(sx=>out.push([[sx*W/2,G.lo[1],zb],[sx*W/2,G.hi[1],zb]],[[sx*W/2,0,0],[sx*W/2,0,zb]]));   // the hood's edge, the band joint mid-side
+      if(+s.bandPieces===4) [G.lo[1],G.hi[1]].forEach(y=>out.push([[0,y,0],[0,y,zb]]));
+      return out; }
+    const c=[0,wall/2];
+    return mpFree(s)?mpRays(mpHalfProf(G,1),c,freeSeamAngles(s),G.lo[1],G.hi[1]).concat(mpEndRays(mpHalfProf(G,1),c,freeSeamAngles(s),[G.lo[1],G.hi[1]]))
+      :[mpCol(G,1,0),mpCol(G,1,-1)].concat(mpEndMid(G,H,0)); }};
+MPSPEC.raisedbox={v:[0.78,0.32],hostEdges:1,dims:(G,s)=>{ const W=+s.boxW||400, run=+s.boxRun||300, L=+s.boxL||300;
+  return [G.lin([0,-W/2,0],[0,W/2,0],G.L('Round end Ø',W),{along:[0,1,0],side:[1,0,0],clearAll:true,off:0.6}),
+    G.lin([-run,-W/2,0],[0,-W/2,0],G.L('Run',run),{along:[1,0,0],side:[0,-1,0],off:0.6}),
+    G.lin([-run,W/2,0],[-run,W/2,L],G.L('Length',L),{along:[0,0,1],side:[-1,1,0],off:0.6})]; },
+  splits:(G,s)=>{ const W=+s.boxW||400, run=+s.boxRun||300, top=G.hi[2], L=+s.boxL||300;
+    return [mpCol(G,0,0),mpCol(G,0,-1),[[W/2,0,L],[0,0,top],[-run,0,L]]]; }};
+MPSPEC.flangebox={v:[0.78,0.30],hostEdges:1,skip:[2,3],caps:(G)=>mpEnds(G,0),dims:(G,s)=>{ const R=(+s.dia||0)/2, n=G.sil([0,1,0]), lo=G.lo, hi=G.hi, d=mpDown(G,n);
+  return [G.lin([n[0]*R,hi[1],n[2]*R],[-n[0]*R,hi[1],-n[2]*R],G.L('Ø',s.dia),{along:n,side:[0,1,0],off:0.6}),
+    G.lin([d[0]*R,lo[1],d[2]*R],[d[0]*R,hi[1],d[2]*R],G.L('Width',s.boxW),{along:[0,1,0],side:d,off:0.6})]; },
+  splits:(G,s)=>{ const R=(+s.dia||0)/2+(+s.simpleEdge||0);
+    return mpFree(s)?mpRays(mpHalfProf(G,0),[0,0],freeSeamAngles(s),G.lo[1],G.hi[1]).concat(mpEndRays(mpHalfProf(G,0),[0,0],freeSeamAngles(s),[G.lo[1],G.hi[1]]))
+      :[mpCol(G,0,0),mpCol(G,0,-1)].concat(mpEndMid(G,R,-R)); }};
+MPSPEC.flatflange={v:[0.78,0.36],caps:(G)=>[G.rows(0,0),G.rows(0,-1)],
+  splits:(G,s)=>{ const r=(+s.dia||0)/2, lo=G.lo[1], hi=G.hi[1];   // the top half (the flat) laps over the round bottom half; the flanges cut across
+    return [[[r,lo,0],[r,hi,0]],[[-r,lo,0],[-r,hi,0]],[[-r,lo,0],[r,lo,0]],[[-r,hi,0],[r,hi,0]]]; },dims:(G,s)=>{ const lo=G.lo, hi=G.hi, R=(+s.dia||0)/2, n=G.sil([0,1,0]), d=mpDown(G,n), f=mpMid(G.flatAt(0,0)||G.ctr(0,0),G.flatAt(0,-1)||G.ctr(0,-1));
+  return [G.dia(0,-1,G.L('Ø',s.dia),{side:[0,1,0]}),
+    G.lin([d[0]*R,lo[1],d[2]*R],[d[0]*R,hi[1],d[2]*R],G.L('Width',s.boxW),{along:[0,1,0],side:d,off:0.6}),
+    Object.assign(G.lead(f,G.L('Flat',s.flatDepth),0,0),{dir3:[0,0,1],len:1.4})]; }};
+MPSPEC.roundbox={v:[0.78,0.32],hostEdges:1,skip:[2,3],caps:(G)=>mpEnds(G,0),tf:p=>[p[0],-p[2],p[1]],tfIf:s=>s.orientation!=='horizontal',dims:(G,s)=>{ const R=(+s.dia||0)/2, hi=G.hi, lo=G.lo, n=mpRight(G,G.sil([0,0,1]));
+  if(s.orientation==='horizontal') return MPSPEC.flangebox.dims(G,Object.assign({},s,{boxW:s.height})).map((d,i)=>i===1?Object.assign(d,{label:G.L('Length',s.height)}):d);
+  return [G.lin([n[0]*R,n[1]*R,hi[2]],[-n[0]*R,-n[1]*R,hi[2]],G.L('Ø',s.dia),{along:n,side:[0,0,1],off:0.6}),
+    G.lin([n[0]*R,n[1]*R,lo[2]],[n[0]*R,n[1]*R,hi[2]],G.L(s.orientation==='horizontal'?'Length':'Height',s.height),{along:[0,0,1],side:n,off:0.6,clearAll:true})]; },
+  splits:(G,s)=>{ const R=(+s.dia||0)/2, hz=s.orientation==='horizontal', A=roundSplitAngles(s), out=[];
+    const e0=hz?G.lo[1]:G.lo[2], e1=hz?G.hi[1]:G.hi[2];
+    A.forEach(t=>{ const a=t*Math.PI/180, x=R*Math.sin(a), w=R*Math.cos(a);
+      out.push(hz?[[x,e0,w],[x,e1,w]]:[[x,-w,e0],[x,-w,e1]]);                                    // along the barrel
+      [e0,e1].forEach(e=>out.push(hz?[[0,e,0],[x,e,w]]:[[0,0,e],[x,-w,e]])); });               // and across the cheeks
+    const n=Math.max(1,Math.min(4,Math.round(+s.ringPieces||1)));
+    if(hz&&n>1&&A.length){ const cs=A.slice().sort((a,b)=>a-b); let topI=0, best=-2;
+      cs.forEach((a0,i)=>{ const a1=i+1<cs.length?cs[i+1]:cs[0]+360, c=Math.cos((a0+a1)/2*Math.PI/180); if(c>best){ best=c; topI=i; } });
+      for(let r=1;r<n;r++){ const y=e0+(e1-e0)*r/n;                                                // ring seams on the lower pieces only - the top one runs the full length
+        cs.forEach((a0,i)=>{ if(i===topI) return; const a1=i+1<cs.length?cs[i+1]:cs[0]+360; out.push(mpArc(R,a0,a1,y,true)); }); } }
+    return out; },
+  /* a watershed top on a standing box: the shallow cone the barrel carries (its rise as the lid's) */
+  cone:(G,s)=>{ if(s.orientation==='horizontal'||!+s.watershed) return null; const R=(+s.dia||0)/2;
+    const rise=s.wsMode==='mm'?(+s.wsHeight||0):R*Math.tan((s.wsMode==='deg'?(+s.wsDeg||0):(+SET.wsAngle||10))*Math.PI/180);
+    return rise>0.5?{R,z:G.hi[2],rise}:null; }};
+MPSPEC.endcap={v:[0.78,0.55],splits:(G,s)=>{ const R=mpCd(s,s.capPipe)/2, h=G.hi[2]; return [h>0.5?[[-R,0,0],[0,0,h],[R,0,0]]:[[-R,0,0],[R,0,0]]]; },dims:(G,s)=>{ const R=mpCd(s,s.capPipe)/2, n=mpRight(G,G.sil([0,0,1]));
+  const d=[G.lin(mpM(n,R),mpM(n,-R),G.L('Ø',2*R),{along:n,side:mpDown(G,mpX(n,[0,0,1])),off:0.7,clearAll:true})];
+  if(s.capStyle==='cone') d.push(Object.assign(G.lead([0,0,G.hi[2]],G.L('Cone','',''),0,0),{dir3:[0,0,1],len:1.3}));
+  return d; }};
+MPSPEC.dome={v:[0.78,0.30],meridians:mpMerid,dims:(G,s)=>{ const n=mpRight(G,G.sil([0,0,1])), R=(+s.dia||0)/2;
+  return mpVessel(G,s,[G.lin(mpM(n,R),[n[0]*R,n[1]*R,G.hi[2]],G.L('Height',s.height),{along:[0,0,1],side:n,clearAll:true,off:0.6})]); }};
+MPSPEC.dishedend={v:[0.78,0.30],meridians:mpMerid,dims:(G,s)=>mpVessel(G,s,[Object.assign(G.lead([0,0,G.hi[2]],G.L('Gores',s.segments,'n'),0,0),{dir3:[0,0,1],len:1.3})])};
+MPSPEC.hemidome={v:[0.78,0.26],meridians:mpMerid,dims:MPSPEC.dishedend.dims};
+MPSPEC.ellipsoidal={v:[0.78,0.30],meridians:mpMerid,dims:(G,s)=>mpVessel(G,s,[Object.assign(G.lead([0,0,G.hi[2]],G.L('Ratio',s.ratio,'r'),0,0),{dir3:[0,0,1],len:1.3})])};
+MPSPEC.torihead={v:[0.78,0.30],meridians:mpMerid,dims:(G,s)=>{ const top=[0,0,G.hi[2]], kn=mpFront(G,0,Math.max(1,Math.round(G.nr(0)*0.12)));
+  return mpVessel(G,s,[Object.assign(G.lead(top,G.L('Crown R',s.crownR),0,0),{dir3:[0,0,1],len:1.3}),
+    +s.knuckleR>0||G.names?Object.assign(G.lead(kn,G.L('Knuckle R',s.knuckleR),0,0),{dir3:mpN([kn[0],kn[1],0]),len:1.3}):null]); }};
+MPSPEC.spherecap={v:[0.78,0.30],meridians:mpMerid,dims:(G,s)=>{ const n=mpRight(G,G.sil([0,0,1])), R=(+s.dia||0)/2;
+  return mpVessel(G,s,[G.lin(mpM(n,R),[n[0]*R,n[1]*R,G.hi[2]],G.L('Rise',s.height),{along:[0,0,1],side:n,clearAll:true,off:0.6})]); }};
+
+/* the home list: a row's picture is drawn when it scrolls near the screen, one a frame so the list never
+   stutters, and kept per look - back to the list is instant. var, not const: applyTheme can run first. */
+var MPCACHE={}, mpIO=null, mpQ=[], mpQrun=false;
+function mpLook(){ return {style:SET.picStyle==='hivis'?'hivis':'steel', theme:document.documentElement.getAttribute('data-theme')==='light'?'light':'dark'}; }
+function mpPaintTile(cv){ if(!cv.isConnected) return; const k=cv.dataset.pic; if(!F[k]) return;
+  const lk=mpLook(), w=cv.clientWidth||150, h=cv.clientHeight||100, dpr=Math.min(3,window.devicePixelRatio||1);
+  const halo=getComputedStyle(cv.closest('.tile')||cv.parentNode).backgroundColor, key=k+'|'+lk.style+'|'+lk.theme+'|'+w+'x'+h+'|'+dpr+'|'+halo;
+  let src=MPCACHE[key];
+  if(src===undefined){ const c=document.createElement('canvas'); src=mpDraw(c,k,Object.assign({},F[k].defaults),{labels:'names',style:lk.style,theme:lk.theme,halo,w,h,dpr})?c:null; MPCACHE[key]=src; }
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height); if(src) ctx.drawImage(src,0,0);
+  cv.dataset.done=lk.style+lk.theme; }
+function mpQueue(cv){ if(mpQ.indexOf(cv)<0) mpQ.push(cv); if(mpQrun) return; mpQrun=true;
+  const step=()=>{ const cv2=mpQ.shift(); if(!cv2){ mpQrun=false; return; } try{ mpPaintTile(cv2); }catch(e){} requestAnimationFrame(step); };
+  requestAnimationFrame(step); }
+function mpHydrate(root){ const cvs=[].slice.call((root||document).querySelectorAll('canvas[data-pic]'));
+  if(!('IntersectionObserver' in window)){ cvs.forEach(mpQueue); return; }
+  if(!mpIO) mpIO=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ mpIO.unobserve(e.target); mpQueue(e.target); } }),{rootMargin:'400px 0px'});
+  cvs.forEach(c=>mpIO.observe(c)); }
+// a theme or look change: redraw what is on show
+function mpRefresh(){ try{ const lk=mpLook(); document.querySelectorAll('canvas[data-pic]').forEach(c=>{ if(c.dataset.done&&c.dataset.done!==lk.style+lk.theme) mpQueue(c); });
+  if(window._mpLive) window._mpLive(); }catch(e){} }
+/* the live picture at the top of a fitting (and the box view): your figures on it, redrawn with every build */
+function mpLiveDraw(kind,s){ const lk=mpLook();
+  const live=document.getElementById('mpLive');
+  if(live&&MPSPEC[kind]&&T3B[kind]){ const card=live.parentNode; mpDraw(live,kind,s,{labels:'values',style:lk.style,theme:lk.theme,halo:getComputedStyle(card).backgroundColor,w:live.clientWidth||320,h:live.clientHeight||180}); }
+  const fd=document.getElementById('fitdiag'); if(!fd) return;
+  if(!MPSPEC[kind]||!T3B[kind]){ try{ fd.innerHTML=fittingDiagram(kind,Object.assign({},s,{__small:1})); }catch(e){ fd.innerHTML=''; } return; }
+  let cv=fd.querySelector('canvas.mpbox'); if(!cv){ fd.innerHTML='<canvas class="mpbox"></canvas>'; cv=fd.firstChild; }
+  const host=fd.closest('.card')||fd;
+  mpDraw(cv,kind,s,{labels:'values',style:lk.style,theme:lk.theme,halo:getComputedStyle(host).backgroundColor,w:cv.clientWidth||360,h:cv.clientHeight||240}); }
 function roundSplitAngles(s){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
   const base = n===2 ? (s.preset==='frontback'?[0,180]:[90,270]) : n===3 ? [90,180,270] : [45,135,225,315];
   const rot=((((+s.splitRot||0)%12)+12)%12)*30;
@@ -13100,7 +13616,7 @@ function allowFor(kind,s){ const A={}; if(!s) return A;
   return A; }
 function printSidecar(kind,s,job,qty){ const fit=F[kind];
   return {inputs:inputsFor(kind,s), allow:allowFor(kind,s), fitting:fit?(fit.name+(fit.sub?' · '+fit.sub:'')):kind, job:job||null, qty:qty||1}; }
-function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.83.0'}; }
+function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.84.0'}; }
 function form(kind, presetParams){
   CUR=()=>form(kind);
   stopFormAnims();
@@ -13218,6 +13734,7 @@ function form(kind, presetParams){
   if(kind==='squarebox'&&s.seamMode==='plan') html+=`<div id="seamplan">${seamPlannerCard(s)}</div>`;
   const VARG=varGroupOf(kind);
   if(VARG) html+=`<div class="card varcard"><label>${VARG.label}</label><div class="seg" data-varsel="1">${VARG.opts.map(o=>`<button data-vk="${o.k}" ${o.k===kind?'class="on"':''}>${o.label}</button>`).join('')}</div></div>`;
+  if(!boxHero&&T3B[kind]&&MPSPEC[kind]) html+=`<div class="card mpcard"><canvas id="mpLive" role="img" aria-label="${esc(fit.name)} with its sizes"></canvas></div>`;
   html+=`<div class="card"><div class="grid2">`;
   html+=fit.fields.filter(f=>f.type!=='seam'&&f.type!=='abcd').filter(f=>!f.onpv).filter(f=>!f.when||f.when(s)).filter(f=>!(SET.sizeMode==='diameter'&&f.k==='insulation')).map(f=>{
     const full=(f.type!=='num'&&f.type!=='pipe');
@@ -13245,7 +13762,7 @@ function form(kind, presetParams){
   if(wide) html+=`</div>${desk?'<div class="coldrag" title="Drag to resize the inputs"></div>':''}<div class="pane-pv${boxHero?'':' pv-stick'}">`;
   else html+=`</div>${actHtml}</div><div class="pane-pv${boxHero?'':' pv-stick'}">`;
   if(boxHero) html+=`<div class="card boxhero">
-    <div class="pvhead boxhead"><span class="k">Box view — all splits</span><span class="v" id="boxsplitlab"></span></div>
+    <div class="pvhead boxhead"><span class="k">The box — sizes and splits</span><span class="v" id="boxsplitlab"></span></div>
     <div class="boxheromain"><div id="fitdiag"></div>${hasSplits?`<div class="boxwheel">${fieldHTML({type:'splitwheel',k:'splitRot',label:'Split position (clock)',compact:true},s)}</div>`:''}</div></div>
     <div class="cutdemote">${previewCard}</div>`;
   else html+=previewCard;
@@ -13752,7 +14269,7 @@ function form(kind, presetParams){
       const mkE=document.getElementById('mkwrap'); if(mkE) mkE.hidden=true;
       const shE=document.getElementById('pvsheets'); if(shE) shE.textContent='\u2014';
       const fdE=document.getElementById('fitdiag');
-      if(fdE){ try{ fdE.innerHTML=fittingDiagram(kind,eff()); }catch(e){ fdE.innerHTML=''; } }
+      try{ mpLiveDraw(kind,eff()); }catch(e){ if(fdE) fdE.innerHTML=''; }
       form._pat=null; form._kit=null;
       return; }
     form._pat=pat;
@@ -13794,7 +14311,8 @@ function form(kind, presetParams){
           ptxt=locked?'sheets: Pro':pl.n+' × '+SET.page.toUpperCase();
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(shown,SET);
-    const fd=document.getElementById('fitdiag'); if(fd) fd.innerHTML=fittingDiagram(kind,{...eff(),__small:1});
+    try{ mpLiveDraw(kind,eff()); }catch(e){}
+    window._mpLive=()=>{ if(document.getElementById('mpLive')||document.getElementById('fitdiag')) mpLiveDraw(kind,eff()); };
     /* ONE WINDOW, TWO JOBS (Craig, 10 Sep: "we can use the live preview
        window to do both"). For t3 fittings the big pane IS the fitting -
        true-scale 3D, orbit with a drag, seam on show while the sizes go in -
@@ -14163,6 +14681,7 @@ function settingsPage(){
     +grp('Look')+`<div class="slist">`
     +row('Theme','Light is easier to read in bright sun. The sun button in the header does the same.',segHTML('sAppear',SET.appearance==='light'?'light':'dark',[['dark','Dark'],['light','Light']]))
     +row('3D fitting','Solid metal hides what is behind it; see-through shows every ring and joint.',segHTML('sShade',SET.shade3d==='xray'?'xray':'solid',[['solid','Solid metal'],['xray','See-through']]))
+    +row('Fitting pictures','The labelled pictures on the list and at the top of each fitting.',segHTML('sPic',SET.picStyle==='hivis'?'hivis':'steel',[['steel','Steel'],['hivis','Hi-vis']]))
     +row('Preview info','Basic shows Ø and circumference; detailed adds mitre angles, ordinates, area and sheets.',segHTML('sDetail',SET.detail?1:0,[[0,'Basic'],[1,'Detailed']]),null,'wideonly')
     +`</div>`
     +grp('Pro &amp; licence')+`<div class="slist">`
@@ -14173,7 +14692,7 @@ function settingsPage(){
     +row('Jobs, settings and licence','Keep a copy off the phone — a lost or wiped phone takes its jobs with it.','<button type="button" class="btn" id="sExport">Export</button><button type="button" class="btn" id="sImport">Restore</button>')
     +`</div><input type="file" id="sImportFile" accept=".json,application/json" class="hide">`
     +grp('About')+`<div class="slist">`
-    +row('Version','',`<span class="val">v4.83.0</span>`,null,'kv')
+    +row('Version','',`<span class="val">v4.84.0</span>`,null,'kv')
     +(BRAND.site?row('Website','',`<a href="https://${BRAND.site}" target="_blank" rel="noopener">${BRAND.site}</a>`,null,'kv'):'')
     +(BRAND.email?row('Support','',`<a href="mailto:${BRAND.email}">${BRAND.email}</a>`,null,'kv'):'')
     +row(esc(BRAND.owner),(BRAND.company?'Company no. '+BRAND.company:'')+(BRAND.office?' · '+BRAND.office:''),'')
@@ -14214,12 +14733,13 @@ function settingsPage(){
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSizeMode').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.sizeMode=b.dataset.v; saveSet();
     const ins=document.getElementById('sIns'); if(ins) ins.disabled=(SET.sizeMode==='diameter'); });
   document.getElementById('sShade').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sShade').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.shade3d=b.dataset.v; saveSet(); });
+  document.getElementById('sPic').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sPic').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.picStyle=b.dataset.v; saveSet(); mpRefresh(); });
   const up=document.getElementById('sUp'); if(up) up.onclick=showUnlock;
   const sr=document.getElementById('sScaleRe'); if(sr) sr.onclick=()=>{ store.set('cm_seen_scale',false); toast('The 100% reminder shows before your next print.'); repage(settingsPage); };
   const lc=document.getElementById('sLicChk'); if(lc) lc.onclick=async()=>{ lc.disabled=true; lc.textContent='Checking…';
     const ok=await refreshLicence(true); toast(ok?'Licence checked':'Could not reach '+BRAND.site+' - try again with signal'); route(); };
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.83.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.84.0',exported:new Date().toISOString(),settings:SET,jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     toast('Backup saved - keep a copy off the phone.'); };   // saveOut revokes its own URL (the old line here threw a ReferenceError 4 s later)
