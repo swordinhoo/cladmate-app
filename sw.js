@@ -1,0 +1,36 @@
+const CACHE = 'turboclad-6074a18a';
+/* three.min.js is in the install list on purpose: the whole promise is that the
+   app works with no signal, and a renderer that only turned up on the second
+   open would break that on the one day it mattered. 132KB gzipped. */
+/* the fonts are listed by tools/build.js in place of the comment, so a build
+   with a new face precaches it; served unbuilt, the comment is nothing */
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './three.min.js', './fonts/barlow-400.woff2', './fonts/barlow-500.woff2', './fonts/barlow-600.woff2', './fonts/barlow-condensed-600.woff2', './fonts/barlow-condensed-700.woff2', './fonts/roboto-mono-500.woff2', './fonts/roboto-mono-600.woff2'];
+self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
+self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+/* Only a real copy of the app goes into the cache. 12 Sep 26, finding 28: the
+   put was unconditional, so a 404/5xx from GitHub Pages (repo renamed, Pages
+   outage, the 404 window mid-deploy) or a followed redirect replaced the
+   cached index.html and was what the installed app showed with no signal. */
+const keep = res => res && res.ok && !res.redirected && res.type === 'basic';
+/* Signal but no throughput ("lie-fi" on site) used to hang the open until the
+   browser gave up. Race the network against a timer: the cache answers, and
+   the real response still lands in the cache when it finally arrives. */
+const NET_MS = 6000;
+self.addEventListener('fetch', e => {
+  const isNav = e.request.mode === 'navigate' || (e.request.destination === 'document');
+  if (isNav) {
+    // network-first for the app itself: always freshest version when online
+    const net = fetch(e.request);
+    net.then(res => { if (keep(res)) { const cp = res.clone(), cp2 = res.clone(); caches.open(CACHE).then(c => { c.put(e.request, cp); c.put('./index.html', cp2); }); } }).catch(() => {});
+    const timer = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), NET_MS));
+    /* a 404/5xx (a Pages outage, a repo rename) is not the app either: it loses the race to the copy saved on
+       the phone, which used to be kept out of the cache but still shown (4.85 audit). Nothing saved yet (the
+       very first open), and the page the server sent is all there is. */
+    const good = net.then(res => { if (!keep(res)) throw res; return res; });
+    e.respondWith(Promise.race([good, timer])
+      .catch(bad => caches.match(e.request).then(r => r || caches.match('./index.html'))
+        .then(r => r || (bad instanceof Response ? bad : undefined))));
+  } else {
+    e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => { if (keep(res)) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); } return res; }).catch(() => caches.match('./index.html'))));
+  }
+});
