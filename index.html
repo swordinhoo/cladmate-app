@@ -4311,7 +4311,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const fb = p.preset === 'frontback';
     if (p.shape === 'round') {
       const base = n === 2 ? (fb ? [0, G / 2] : [G / 4, 3 * G / 4])
-                 : n === 3 ? [G / 4, G / 2, 3 * G / 4]
+                 : n === 3 ? (p.rbThree === 'top' ? [G / 4, G / 2, 3 * G / 4] : [0, G / 4, 3 * G / 4])
                  : [G / 8, 3 * G / 8, 5 * G / 8, 7 * G / 8];
       const rot = (((+p.splitRot || 0) % 12) + 12) % 12 * (G / 12);
       return rot ? base.map(g => ((g + rot) % G + G) % G).sort((a, b) => a - b) : base;
@@ -4426,6 +4426,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const arc = _inPoly(ccw[Math.floor(ccw.length / 2)], V) ? ccw : cw;
     return { cut: [Y.pt].concat(keep, [X.pt], arc.slice(1, -1), [Y.pt]), loose: null };
   }
+  const _r1 = v => Math.round(v * 10) / 10;
+  function _nsW(p) { const w = +(p && p.norsok) || 0; return w > 0 ? Math.max(5, w) : 0; }
+  function _nsCut(r, w, what) {
+    if (!(r > 0) || !(w > 0)) return r;
+    if (!(r - w >= 5)) throw new Error((what || 'Pipe hole') + ' is too small for the ' + _r1(w) + ' mm Norsok fold-out - make it bigger, or turn the Norsok rule off in Settings.');
+    return r - w; }
+  function _nsRing(prim, at, w, n) {
+    const cut = prim.find(q => q.style === 'cut'); if (!cut || !(w > 0)) return;
+    const V = cut.pts, N = n > 0 ? n : 144, inM = f => _inPoly(at(f), V), F = [];
+    for (let i = 0; i <= N; i++) F.push(2 * Math.PI * i / N);
+    const edge = (fi, fo) => { for (let j = 0; j < 40; j++) { const m = (fi + fo) / 2; if (inM(m)) fi = m; else fo = m; } return fi; };
+    const runs = []; let run = null;
+    for (let i = 0; i <= N; i++) { const f = F[i], on = inM(f);
+      if (on && !run) run = i ? [at(edge(f, F[i - 1]))] : [];
+      if (on) run.push(at(f));
+      if (!on && run) { run.push(at(edge(F[i - 1], f))); runs.push(run); run = null; } }
+    if (run) runs.push(run);
+    if (runs.length > 1 && inM(0) && inM(2 * Math.PI)) { const last = runs.pop(); runs[0] = last.concat(runs[0].slice(1)); }
+    runs.filter(r => r.length > 1).forEach(r => prim.push({ style: 'fold', pts: r, note: 'NORSOK FOLD-OUT ' + _r1(w) + ' - FLANGE OUT ON THE MACHINE' }));
+  }
+  const _nsLine = w => `Norsok: the pipe hole is cut ${_r1(w)} mm small all round and flanged out to the pipe size on the machine (the NORSOK FOLD-OUT line) - no snips`;
   function _segOut(a, b, cx, cy, r) {
     const dx = b[0] - a[0], dy = b[1] - a[1], fx = a[0] - cx, fy = a[1] - cy, A = dx * dx + dy * dy, B = 2 * (fx * dx + fy * dy), D = B * B - 4 * A * (fx * fx + fy * fy - r * r);
     if (!(A > 0) || !(D > 0)) return [[a, b]];
@@ -4485,9 +4506,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       }
     }
     let hole = null;
-    if (meta.hole) { const r = meta.hole.dia / 2, cx = meta.hole.ox || 0, cy = meta.hole.oy || 0, h = _holeOut(prim[0].pts, cx, cy, r);
-      if (h) { hole = meta.hole; prim[0].pts = h.cut;
-        if (h.loose) prim.push({ style: 'cut', pts: h.loose });
+    if (meta.hole) { const r = meta.hole.dia / 2, cx = meta.hole.ox || 0, cy = meta.hole.oy || 0, nsw = _nsW(p), h = _holeOut(prim[0].pts, cx, cy, _nsCut(r, nsw)),
+        touch = h || (nsw > 0 && _holeOut(prim[0].pts, cx, cy, r));
+      if (touch) { hole = meta.hole; if (h) { prim[0].pts = h.cut;
+        if (h.loose) prim.push({ style: 'cut', pts: h.loose }); }
+        if (nsw > 0) { hole = Object.assign({ ns: nsw }, hole); _nsRing(prim, f => [cx + r * Math.cos(f), cy + r * Math.sin(f)], nsw); }
         prim.push({ style: 'centre', pts: [[cx - r - 8, cy], [cx + r + 8, cy]] });
         prim.push({ style: 'centre', pts: [[cx, cy - r - 8], [cx, cy + r + 8]] });
         ticks.push({ x: cx, y: cy, label: 'Ø' + meta.hole.dia });
@@ -4497,7 +4520,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { kind: 'box', title: meta.title,
       meta: [meta.desc,
              `Slot flange ${SF} mm round the girth edge - fold out, slot into the wrap's lockform, hammer the lock shut`,
-             meta.splitDesc].concat(hole ? [`Pipe hole Ø${hole.dia}${(hole.ox || hole.oy) ? ' at ' + (hole.ox || 0) + ', ' + (hole.oy || 0) + ' from centre' : ' on centre'}`] : []),
+             meta.splitDesc].concat(hole ? [`Pipe hole Ø${hole.dia}${(hole.ox || hole.oy) ? ' at ' + (hole.ox || 0) + ', ' + (hole.oy || 0) + ' from centre' : ' on centre'}`].concat(hole.ns ? [_nsLine(hole.ns)] : []) : []),
       calc: { girth: span, ext, SF,
         edgeLen: inner.reduce((s, pt, i) => i ? s + Math.hypot(pt[0] - inner[i - 1][0], pt[1] - inner[i - 1][1]) : 0, 0) },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: meta.cutNote };
@@ -4577,9 +4600,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       const f = style === 'lap2' ? 0 : e / 2;
       _lineHoles(holes, n[0] * f, n[1] * f, E[0] + n[0] * f, E[1] + n[1] * f, hp, eg); });
     let hole = null;
-    if (meta.hole) { const r = meta.hole.dia / 2, cx = meta.hole.ox || 0, cy = meta.hole.oy || 0, h = _holeOut(cut, cx, cy, r);
-      if (h) { hole = meta.hole; prim[0].pts = h.cut;
-        if (h.loose) prim.push({ style: 'cut', pts: h.loose });
+    if (meta.hole) { const r = meta.hole.dia / 2, cx = meta.hole.ox || 0, cy = meta.hole.oy || 0, nsw = _nsW(p), h = _holeOut(cut, cx, cy, _nsCut(r, nsw)),
+        touch = h || (nsw > 0 && _holeOut(cut, cx, cy, r));
+      if (touch) { hole = meta.hole; if (h) { prim[0].pts = h.cut;
+        if (h.loose) prim.push({ style: 'cut', pts: h.loose }); }
+        if (nsw > 0) { hole = Object.assign({ ns: nsw }, hole); _nsRing(prim, f => [cx + r * Math.cos(f), cy + r * Math.sin(f)], nsw); }
         prim.push({ style: 'centre', pts: [[cx - r - 8, cy], [cx + r + 8, cy]] });
         prim.push({ style: 'centre', pts: [[cx, cy - r - 8], [cx, cy + r + 8]] });
         ticks.push({ x: cx, y: cy, label: 'Ø' + hole.dia });
@@ -4589,7 +4614,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return { kind: 'box', title: meta.title,
       meta: [meta.desc,
              `Slot flange ${SF} mm round the girth edge - fold out, slot into the wrap's lockform, hammer the lock shut`,
-             meta.splitDesc].concat(hole ? [`Pipe hole Ø${hole.dia}${(hole.ox || hole.oy) ? ' at ' + (hole.ox || 0) + ', ' + (hole.oy || 0) + ' from centre' : ' on centre'} - cut the part on this piece`] : []),
+             meta.splitDesc].concat(hole ? [`Pipe hole Ø${hole.dia}${(hole.ox || hole.oy) ? ' at ' + (hole.ox || 0) + ', ' + (hole.oy || 0) + ' from centre' : ' on centre'} - cut the part on this piece`].concat(hole.ns ? [_nsLine(hole.ns)] : []) : []),
       calc: { girth: span, ext: Math.max(eA, eB), extA: eA, extB: eB, SF,
         edgeLen: inner.reduce((s, pt, i) => i ? s + Math.hypot(pt[0] - inner[i - 1][0], pt[1] - inner[i - 1][1]) : 0, 0) },
       prim, holes, ticks, bbox: bboxOf(prim), cutNote: meta.cutNote };
@@ -5064,16 +5089,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const e = lock ? FE : 0, r = W / 2, tb = ws / r, cb = r / Math.hypot(r, ws);
     const rad = r + e, top = e + H, ph = top + e / cb, topOut = ph - rad * tb, pw = rad + lap, NA = 44;
     const pr = [], hl = [], tk = [];
-    const rho = (+p.holeDia || 0) / 2, xe = lap > 0 ? -lap : 0;
+    const rho = (+p.holeDia || 0) / 2, xe = lap > 0 ? -lap : 0, nsw = rho > 0 ? _nsW(p) : 0, rc = _nsCut(rho, nsw);
     if (rho > 0 && !(rho < r - 5)) throw new Error('Pipe hole is too big for the end plate - keep it at least 10 mm under the width.');
     if (rho > 0 && !(rho < (H - r) * cb - 5)) throw new Error('Pipe hole is too big for the end plate - it would run into the top. Keep it 5 mm clear of the top, or make the box taller.');
-    const notch = rho > Math.abs(xe) ? Math.sqrt(rho * rho - xe * xe) : 0;
+    const notch = rc > Math.abs(xe) ? Math.sqrt(rc * rc - xe * xe) : 0;
     const arc = _arcPts(0, rad, rad, 0, -Math.PI / 2, NA);
-    const leftEdge = notch > 0 ? [[xe, 0], [xe, rad - notch]].concat(_arcPts(0, rad, rho, Math.atan2(-notch, xe), Math.atan2(notch, xe), 48).slice(1, -1), [[xe, rad + notch], [xe, ph]])
+    const leftEdge = notch > 0 ? [[xe, 0], [xe, rad - notch]].concat(_arcPts(0, rad, rc, Math.atan2(-notch, xe), Math.atan2(notch, xe), 48).slice(1, -1), [[xe, rad + notch], [xe, ph]])
       : [[xe, 0], [xe, ph]];
     pr.push({ style: 'cut', pts: leftEdge.concat(ws > 0 && lap > 0 ? [[0, ph]] : [], [[rad, topOut], [rad, rad]])
       .concat(arc.slice(1), lap > 0 ? [[0, 0], [-lap, 0]] : [[0, 0]]) });
-    if (rho > 0 && notch === 0) pr.push({ style: 'cut', pts: _arcPts(0, rad, rho, 0, 2 * Math.PI, 96) });
+    if (rho > 0 && notch === 0) pr.push({ style: 'cut', pts: _arcPts(0, rad, rc, 0, 2 * Math.PI, 96) });
+    if (nsw > 0) _nsRing(pr, f => [rho * Math.cos(f), rad + rho * Math.sin(f)], nsw);
     if (lap > 0) pr.push(...(rho > 0 ? [[[0, 0], [0, rad - rho]], [[0, rad + rho], [0, ph]]] : [[[0, 0], [0, ph]]]).map(q => ({ style: 'fold', pts: q })));
     if (lock) {
     pr.push({ style: 'fold', pts: [[0, top], [r, top - ws]] });
@@ -5092,7 +5118,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                   : `Round bottom radius ${R(rad)}, straight side ${R(wall)}${ws > 0 ? ', watershed peak ' + ws : ''} - plain at its true size`,
              lock ? `${FE} mm fold-out flange on the top, straight and round edges (slots into the wrap lockform); ` + (lap > 0 && full ? `lap ${full} half each: ${lap} on the split edge of every half` : lap > 0 ? `${lap} lap on the split edge - no fold there` : 'no lap on the split')
                   : `The wrapper's ${edgeName.toLowerCase()} turns over onto it; ` + (lap > 0 && full ? `lap ${full} half each: ${lap} on the split edge of every half` : lap > 0 ? `${lap} lap on the split edge` : 'no lap on the split')]
-             .concat(rho > 0 ? [`Pipe hole Ø${R(2 * rho)} on the centre of the round end, cut through the lap as well`] : []),
+             .concat(rho > 0 ? [`Pipe hole Ø${R(2 * rho)} on the centre of the round end, cut through the lap as well`] : [], nsw > 0 ? [_nsLine(nsw)] : []),
       calc: { ph, pw, rad, straight: topOut - rad, holeDia: 2 * rho },
       prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote };
     };
@@ -5172,6 +5198,26 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     return _noDrill(out);
   }
 
+  function _flangeDiscs(p, section) {
+    const lap = p.lap == null ? 13 : +p.lap, half = p.lapMode === 'split' && lap > 0;
+    const K = pmFreeSeamBoxKit(Object.assign({}, p, { section, seamMode: 'free', pieces: 2, seamSpacing: 'half', seam1: 0,
+      edgeType: 'lockform', lockform: +p.lockform || 0, lap, lapMode: half ? 'split' : 'single', sidePipes: [], seamInfo: false }));
+    return K.filter(o => /End Plate/.test(o.title)).map(o => Object.assign(o, { ns: _nsW(p) }));
+  }
+  function _flangeDisc(o, title, cutNote, q) {
+    const R = Math.round, rad = q.D / 2 + q.se, bb = o.bbox, la = q.half ? q.lap / 2 : q.carries ? q.lap : 0, top = q.yF != null ? q.yF : rad;
+    const ticks = [{ x: 0, y: 0, label: '+' }, { x: 0, y: q.sg * (q.hr > 0 ? (q.hr + top) / 2 : top * 0.55), label: 'R ' + R(rad) + (q.yF != null ? ' · flat at ' + R(q.yF) : '') }];
+    if (q.hr > 0) ticks.push({ x: 0, y: q.sg * q.hr * 0.45, label: 'Ø' + R(2 * q.hr) });
+    return { kind: 'pmbox', title,
+      meta: [`Flange disc half ${R(bb.w)} × ${R(bb.h)} - half the flange, one of two ends`,
+             `Radius ${R(rad)}: the box Ø${R(q.D)} ÷ 2 + the ${q.se} mm fold-out round the rim (it knocks into the body's lockform)` + (q.yF != null ? `; cut across at ${R(q.yF)} for the flat, the fold-out along it too` : ''),
+             q.half ? `Laps ${q.lap} half each: ${Math.round(q.lap * 5) / 10} past the split on every half, stopped at the fold line`
+               : !(q.lap > 0) ? 'Lap 0 - the halves butt at the split'
+               : q.carries ? `This half carries the lap ${q.lap} past the split, stopped at the fold line - it goes behind the other half`
+               : 'This half has no lap - the other half\'s lap goes behind it at the split']
+        .concat(q.hr > 0 ? [`Pipe Ø${R(2 * q.hr)} (with its insulation) on the centre of the split (+), half in each half - cut through the laps as well`].concat(o.ns > 0 ? [_nsLine(o.ns)] : []) : []),
+      calc: { rad, hole: 2 * q.hr, lapW: la, w: bb.w, h: bb.h, pw: bb.w, ph: bb.h, yF: q.yF }, prim: o.prim, holes: o.holes, ticks, bbox: bb, cutNote };
+  }
   function pmFlangeBoxKit(p) {
     if (!(p.dia > 0 && p.boxW > 0)) throw new Error('Diameter and width must both be more than 0.');
     const D = p.dia, W = p.boxW, LF = p.lockform, se = p.simpleEdge == null ? 4 : p.simpleEdge;
@@ -5204,27 +5250,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                       : hasLap ? `This half carries the lap ${lap} on both seams - it laps over the plain half`
                       : `Plain half - the lap half laps over this one at both seams`,
                `Half circumference ${R(girth)}, lockform ${LF} both cheek edges`],
-        calc: { girth, width, g, L: D, W }, prim, holes, ticks, bbox: bboxOf(prim), cutNote: half ? 'CUT 2 OFF (halves)' : 'CUT 1 OFF (' + name + ')' };
+        calc: { girth, width, g, L: D, W, half }, prim, holes, ticks, bbox: bboxOf(prim), cutNote: half ? 'CUT 2 OFF (halves)' : 'CUT 1 OFF (' + name + ')' };
     };
     const wrapLap = mkWrap(true, half ? 'half' : 'lap half'), wrapPlain = half ? null : mkWrap(false, 'plain half');
-    const nArc = (rr, n) => 2 * Math.ceil(Math.max(n, Math.PI / (2 * Math.acos(Math.max(-1, 1 - 0.2 / rr)))) / 2);
-    const rad = D / 2 + se, ph = rad + LF, pw = 2 * rad + 25, x0 = (pw - 2 * rad) / 2, NA = nArc(rad, 44);
-    const pr = [], hl = [], tk = [];
-    const arc = _arcPts(x0 + rad, 0, rad, Math.PI, 0, NA);
-    const hr = Math.max(0, +p.plateHole || 0) / 2, cxD = x0 + rad;
+    const hr = Math.max(0, +p.plateHole || 0) / 2;
     if (hr > 0 && !(hr < D / 2 - 5)) throw new Error('Pipe through the ends is too big for the flange disc - keep it under Ø' + Math.floor(2 * (D / 2 - 5)) + ' with its insulation, or make the box bigger.');
-    const nt = hr > 0 ? _arcPts(cxD, 0, hr, 0, Math.PI, nArc(hr, Math.max(16, Math.round(NA * hr / rad)))) : [];
-    pr.push({ style: 'cut', pts: LF > 0 ? [[0, 0]].concat(arc, [[pw, 0], [pw, -LF]], hr > 0 ? [[cxD + hr, -LF]].concat(nt, [[cxD - hr, -LF]]) : [], [[0, -LF], [0, 0]]) : arc.concat(nt, [arc[0]]) });
-    if (LF > 0) { (hr > 0 ? _segOut([x0, 0], [x0 + 2 * rad, 0], cxD, 0, hr) : [[[x0, 0], [x0 + 2 * rad, 0]]]).forEach(sg => pr.push({ style: 'fold', pts: sg }));
-      _lineHoles(hl, x0, -LF / 2, x0 + 2 * rad, -LF / 2, hp, eg); }
-    tk.push({ x: pw / 2, y: hr > 0 ? (hr + rad) / 2 : rad * 0.55, label: 'R ' + R(rad) });
-    if (hr > 0) tk.push({ x: cxD, y: hr * 0.45, label: 'Ø' + R(2 * hr) });
-    tk.push({ x: pw / 2, y: ph - 4, label: R(pw) + ' × ' + R(ph) });
-    const plate = { kind: 'pmbox', title: 'Flange Box  -  Disc (half) 1:1',
-      meta: [`Flange disc ${R(ph)} × ${R(pw)} - half the flange, one of two ends`,
-             `Radius ${R(rad)} (D/2 + simple edge ${se}), lockform ${LF} allowance on the flat edge` + (hr > 0 ? `, cut for the pipe Ø${R(2 * hr)} (with its insulation) on the flat edge` : '')],
-      calc: { rad, ph, pw, hole: 2 * hr }, prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote: 'CUT 4 OFF (2 halves per end)' };
-    const out = [wrapLap, wrapPlain, plate].filter(Boolean);
+    { const need = half ? lap / 2 : lap, room = D / 2;
+      if (lap > 0 && !(need < room)) throw new Error('Lap is too wide for the flange disc: the half disc is only ' + Math.floor(room * 10) / 10 + ' mm deep at the split. Make the lap under '
+        + Math.floor((half ? 2 : 1) * room * 10) / 10 + ' mm' + (half ? ' (half each)' : '') + ', or the box bigger.'); }
+    const PD = _flangeDiscs(Object.assign({}, p, { simpleEdge: se, lap }), 'round'), lapped = !half && lap > 0;
+    const plates = lapped ? [_flangeDisc(PD[0], 'Flange Box  -  Disc (half, lap) 1:1', 'CUT 2 OFF (1 per end)', { D, se, lap, half, carries: true, hr, sg: -1 }),
+                             _flangeDisc(PD[1], 'Flange Box  -  Disc (half, plain) 1:1', 'CUT 2 OFF (1 per end)', { D, se, lap, half, carries: false, hr, sg: 1 })]
+                          : [_flangeDisc(PD[1], 'Flange Box  -  Disc (half) 1:1', 'CUT 4 OFF (2 halves per end)', { D, se, lap, half, hr, sg: 1 })];
+    const out = [wrapLap, wrapPlain].concat(plates).filter(Boolean);
     out.forEach(o => { o.calc.nWraps = 1; o.calc.kitPieces = out.length; if (hr > 0) o.calc.endPipe = { x: 0, z: 0, d: 2 * hr, L: W }; });
     return _noDrill(out);
   }
@@ -5263,28 +5301,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         calc: { girth: top ? topG : botG, width, flat: 2 * c, loss: 2 * r * af - 2 * c, dia: D, W, depth: d },
         prim, holes, ticks, bbox: bboxOf(prim), cutNote: 'CUT 1 OFF' };
     };
-    const nArc = (rr, n) => 2 * Math.ceil(Math.max(n, Math.PI / (2 * Math.acos(Math.max(-1, 1 - 0.2 / rr)))) / 2);
-    const rad = r + se, pw = 2 * rad + 25, x0 = (pw - 2 * rad) / 2, yF = r - d + se, NA = nArc(rad, 44);
-    const hr = Math.max(0, +p.plateHole || 0) / 2, cxD = x0 + rad;
+    { const need = half ? lap / 2 : lap, room = r - d;
+      if (lap > 0 && !(need < room)) throw new Error('Lap is too wide for the flat: the top flange half is only ' + Math.floor(room * 10) / 10 + ' mm deep at the split. Make the lap under '
+        + Math.floor((half ? 2 : 1) * room * 10) / 10 + ' mm' + (half ? ' (half each)' : '') + ', or the flat shallower.'); }
+    const hr = Math.max(0, +p.plateHole || 0) / 2;
     if (hr > 0 && !(hr < r - d - 5)) throw new Error(Math.floor(2 * (r - d - 5)) > 0 ? 'Pipe through the ends is too big for the flange disc - it would run into the flat. Keep it under Ø' + Math.floor(2 * (r - d - 5)) + ' with its insulation.'
       : 'Pipe through the ends: the flat leaves no room for a pipe - take the depth of the flat down.');
-    const mkDisc = (flat) => {
-      const pr = [], hl = [], tk = [];
-      const arc = _arcPts(x0 + rad, 0, rad, Math.PI, 0, NA);
-      let pts = arc.slice();
-      if (flat) { const xa = Math.sqrt(Math.max(0, rad * rad - yF * yF));
-        pts = arc.filter(q => q[1] < yF - 1e-9 && q[0] < x0 + rad).concat([[x0 + rad - xa, yF], [x0 + rad + xa, yF]], arc.filter(q => q[1] < yF - 1e-9 && q[0] > x0 + rad)); }
-      const nt = hr > 0 ? _arcPts(cxD, 0, hr, 0, Math.PI, nArc(hr, Math.max(16, Math.round(NA * hr / rad)))) : [];
-      pr.push({ style: 'cut', pts: LF > 0 ? [[0, 0]].concat(pts, [[pw, 0], [pw, -LF]], hr > 0 ? [[cxD + hr, -LF]].concat(nt, [[cxD - hr, -LF]]) : [], [[0, -LF], [0, 0]]) : pts.concat(nt, [pts[0]]) });
-      if (LF > 0) { (hr > 0 ? _segOut([x0, 0], [x0 + 2 * rad, 0], cxD, 0, hr) : [[[x0, 0], [x0 + 2 * rad, 0]]]).forEach(sg => pr.push({ style: 'fold', pts: sg }));
-        _lineHoles(hl, x0, -LF / 2, x0 + 2 * rad, -LF / 2, hp, eg); }
-      tk.push({ x: pw / 2, y: hr > 0 ? (hr + (flat ? yF : rad)) / 2 : (flat ? yF : rad) * 0.55, label: 'R ' + R(rad) + (flat ? ' · flat at ' + R(yF) : '') });
-      if (hr > 0) tk.push({ x: cxD, y: hr * 0.45, label: 'Ø' + R(2 * hr) });
-      return { kind: 'pmbox', title: 'Flat-sided Flange Box  -  Disc (' + (flat ? 'top half, with the flat' : 'bottom half') + ') 1:1',
-        meta: [`Flange disc half ${R((flat ? yF : rad) + LF)} × ${R(pw)}`,
-               `Radius ${R(rad)} (D/2 + simple edge ${se})` + (flat ? `, cut straight across at ${R(yF)} for the flat` : '') + `, lockform ${LF} allowance on the split edge` + (hr > 0 ? `, cut for the pipe Ø${R(2 * hr)} (with its insulation)` : '')],
-        calc: { rad, pw, yF, hole: 2 * hr }, prim: pr, holes: hl, ticks: tk, bbox: bboxOf(pr), cutNote: 'CUT 2 OFF (1 per end)' };
-    };
+    const PD = _flangeDiscs(Object.assign({}, p, { simpleEdge: se, lap }), 'flat'), yF = r - d + se;
+    const mkDisc = flat => _flangeDisc(PD[flat ? 1 : 0], 'Flat-sided Flange Box  -  Disc (' + (flat ? 'top half, with the flat' : 'bottom half') + ') 1:1', 'CUT 2 OFF (1 per end)',
+      { D, se, lap, half, carries: half || !(lap > 0) ? null : !flat, hr, sg: flat ? 1 : -1, yF: flat ? yF : null });
     const out = [mkWrap(true), mkWrap(false), mkDisc(true), mkDisc(false)];
     out.forEach(o => { o.calc.nWraps = 2; o.calc.kitPieces = out.length; if (hr > 0) o.calc.endPipe = { x: 0, z: 0, d: 2 * hr, L: W }; });
     return _noDrill(out);
@@ -5385,10 +5410,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const arc = (f0, f1) => { const m = Math.max(12, Math.ceil(Math.abs(f1 - f0) / (2 * Math.PI) * 144)), q = []; for (let i = 0; i <= m; i++) q.push(at(f0 + (f1 - f0) * i / m)); return q; };
     return { at, spanP, spanM, phiAt, xsAt, arc, x0, ys, rh };
   }
-  function _sideHoleCut(prim, H, yEdge, inside) {
+  function _sideHoleCut(prim, H, yEdge, inside, Htrim) {
     for (let i = prim.length - 1; i >= 0; i--) { const q = prim[i];
       if (q.style === 'cut' || q.pts.length !== 2 || Math.abs(q.pts[0][1] - q.pts[1][1]) > 1e-9) continue;
-      const xs = H.xsAt(q.pts[0][1]); if (!xs) continue;
+      const xs = (Htrim || H).xsAt(q.pts[0][1]); if (!xs) continue;
       const y = q.pts[0][1], a = Math.min(q.pts[0][0], q.pts[1][0]), b = Math.max(q.pts[0][0], q.pts[1][0]), parts = [];
       if (xs[0] - a > 0.5) parts.push([[a, y], [Math.min(b, xs[0]), y]]); if (b - xs[1] > 0.5) parts.push([[Math.max(a, xs[1]), y], [b, y]]);
       prim.splice(i, 1, ...parts.map(pts => Object.assign({}, q, { pts }))); }
@@ -5403,6 +5428,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     if (Math.hypot(arc[0][0] - P[i][0], arc[0][1] - P[i][1]) > Math.hypot(arc[arc.length - 1][0] - P[i][0], arc[arc.length - 1][1] - P[i][1])) arc = arc.reverse();
     cut.pts = P.slice(0, i + 1).concat(arc, P.slice(i + 1));
   }
+  function _pipeUp(p, wall) { const up = +p.plateHole > 0 || p.keepPipeUp ? (+p.pipeUp || 0) : 0;
+    if (!(Math.abs(up) < wall / 2)) throw new Error('The pipe has to stay inside the walls - move it less than ' + Math.floor(wall / 2) + ' mm up or down.');
+    return up; }
   function pmFreeSeamBoxKit(p) {
     const round = p.section === 'round', R = Math.round, r1 = v => Math.round(v * 10) / 10;
     const lapMode = _lapModeOf(p);
@@ -5415,13 +5443,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       const W = +p.boxW, H = +p.boxH, D = +p.shedDepth, r = W / 2; L = +p.boxL;
       if (!(W > 0 && L > 0)) throw new Error('Width and length must both be more than 0.');
       if (!(D > 0 && D < H)) throw new Error('Watershed height must be more than 0 and less than the height to the ridge.');
-      const beta = Math.atan2(D, r), ridgeG = H + e / Math.cos(beta), cy = (H - D) / 2;
+      const beta = Math.atan2(D, r), ridgeG = H + e / Math.cos(beta), cy = (H - D) / 2 + _pipeUp(p, H - D);
       sec = _freeSection('rect', r, cy, H, H - D, 0); grown = _freeSection('rect', r + e, cy, ridgeG, ridgeG - (r + e) * Math.tan(beta), -e);
       name = 'Watershed Box'; dims = `${R(L)} × ${R(W)} × ${R(H)}, watershed ${R(D)}`;
     } else if (p.section === 'rect') {
       const W = +p.boxW, H = +p.boxH, r = W / 2; L = +p.boxL;
       if (!(W > 0 && H > 0 && L > 0)) throw new Error('Length, width and height must all be more than 0.');
-      sec = _freeSection('rect', r, H / 2, H, H, 0); grown = _freeSection('rect', r + e, H / 2, H + e, H + e, -e);
+      const cy = H / 2 + _pipeUp(p, H);
+      sec = _freeSection('rect', r, cy, H, H, 0); grown = _freeSection('rect', r + e, cy, H + e, H + e, -e);
       name = 'Square Box'; dims = `${R(L)} × ${R(W)} × ${R(H)}`;
     } else if (p.section === 'flat') {
       const D = +p.dia, d = +p.flatDepth, r = D / 2; L = +p.boxW;
@@ -5448,7 +5477,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const ths = _freeSeamAngles(p), n = ths.length;
     const atTop = (h, sc, t) => { if (h) { if (t < 90 && h.s > sc.G / 2) h.s -= sc.G; else if (t > 270 && h.s < sc.G / 2) h.s += sc.G; } return h; };
     const hitN = ths.map(t => atTop(_rayHit(sec, t), sec, t)), hitG = ths.map(t => atTop(_rayHit(grown, t), grown, t));
-    const G = sec.G, width = L + 2 * LF;
+    const G = sec.G, width = L + 2 * LF, nsw = _nsW(p);
     const gd = (a, b) => { const d = (((a - b) % G) + G) % G; return Math.min(d, G - d); };
     const nrmOf = h => { const a0 = sec.P[h.i - 1], a1 = sec.P[h.i], tl = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) || 1; return [-(a1[1] - a0[1]) / tl, (a1[0] - a0[0]) / tl]; };
     const SP = (Array.isArray(p.sidePipes) ? p.sidePipes : []).filter(q => q && +q.d > 0).map((q, i) => {
@@ -5465,7 +5494,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         throw new Error(nm + ' on the ' + r1(th) + '° seam runs over a fold - a pipe comes out of one face. Make it smaller, or move the seam off the corner.');
       if (ths.some((t, j) => j !== k && inSpan(hitN[j].s))) throw new Error(nm + ' runs into the next seam - make it smaller, or move the seams apart.');
       if (!(at - rh >= 5 && L - at - rh >= 5)) throw new Error(nm + ' runs into the end of the box - put its centre ' + Math.ceil(rh + 5) + ' to ' + Math.floor(L - rh - 5) + ' from end A.');
-      return { i, k, th, at, d: +q.d, rh, Rp, Rm, x0: LF + at, pt: hitN[k].pt, n: nrmOf(hitN[k]), nm };
+      return { i, k, th, at, d: +q.d, rh, rc: _nsCut(rh, nsw, nm), Rp, Rm, x0: LF + at, pt: hitN[k].pt, n: nrmOf(hitN[k]), nm };
     });
     SP.forEach((a, i) => SP.forEach((b, j) => { if (j > i && a.k === b.k && Math.abs(a.at - b.at) < a.rh + b.rh + 10) throw new Error(a.nm + ' and ' + b.nm + ' are on top of each other - keep them 10 mm apart.'); }));
     const lapOf = (m, k, end) => lapMode === 'none' ? 0 : lapMode === 'double' ? lap : lapMode === 'split' ? lap / 2 : m % 2 === 0 ? (k % 2 === 0 ? lap : 0) : end ? 0 : lap, lapAt = (k, end) => lapOf(n, k, end);
@@ -5488,10 +5517,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         else prim.push({ style: f.kind === 'tan' ? 'centre' : 'ord', pts: [[0, y], [width, y]] }); });
       const spLines = [];
       SP.forEach(q => { const st = q.k === k, en = q.k === (k + 1) % n;
-        if (st) _sideHoleCut(prim, _sideHole(q.x0, la, q.rh, q.Rp, q.Rm), 0, 1);
-        if (en) _sideHoleCut(prim, _sideHole(q.x0, yT, q.rh, q.Rp, q.Rm), yT + lb, -1);
+        if (st) _sideHoleCut(prim, _sideHole(q.x0, la, q.rc, q.Rp, q.Rm), 0, 1, _sideHole(q.x0, la, q.rh, q.Rp, q.Rm));
+        if (en) _sideHoleCut(prim, _sideHole(q.x0, yT, q.rc, q.Rp, q.Rm), yT + lb, -1, _sideHole(q.x0, yT, q.rh, q.Rp, q.Rm));
         if (st || en) { ticks.push({ x: q.x0, y: st ? la : yT, label: '+' });
           spLines.push(`Side pipe Ø${R(q.d)} out of the ${r1(q.th)}° seam, its centre ${R(q.at)} from end A - ${n === 1 ? 'the whole hole on this piece, half at each edge' : 'half the hole in this piece, half in the piece it joins there'}`); } });
+      if (nsw > 0) { SP.forEach(q => { if (q.k === k) _nsRing(prim, _sideHole(q.x0, la, q.rh, q.Rp, q.Rm).at, nsw);
+        if (q.k === (k + 1) % n) _nsRing(prim, _sideHole(q.x0, yT, q.rh, q.Rp, q.Rm).at, nsw); }); if (spLines.length) spLines.push(_nsLine(nsw)); }
       const runs = [];
       sec.runs.forEach(rn => { for (const off of [0, G]) { const a = Math.max(sa, rn.s0 + off), b = Math.min(sb, rn.s1 + off); if (b - a > 0.5) runs.push({ a, b, label: rn.label }); } });
       runs.sort((x, y) => x.a - y.a);
@@ -5512,17 +5543,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     }
     const pths = n === 1 ? [ths[0], (ths[0] + 180) % 360].sort((a, b) => a - b) : ths, np = pths.length;
     const pN = n === 1 ? pths.map(t => atTop(_rayHit(sec, t), sec, t)) : hitN, pG = n === 1 ? pths.map(t => atTop(_rayHit(grown, t), grown, t)) : hitG;
-    const C = sec.C, rh = (+p.plateHole || 0) / 2;
-    if (rh > 0) { let near = null;
+    const C = sec.C, rhP = (+p.plateHole || 0) / 2, nswP = rhP > 0 ? nsw : 0, rh = _nsCut(rhP, nswP, 'The pipe hole through the ends');
+    if (rhP > 0) { let near = null;
       for (let i = 1; i < sec.P.length; i++) { const a = sec.P[i - 1], b = sec.P[i], ex = b[0] - a[0], ey = b[1] - a[1], l2 = ex * ex + ey * ey;
         const f = l2 > 0 ? Math.max(0, Math.min(1, ((C[0] - a[0]) * ex + (C[1] - a[1]) * ey) / l2)) : 0, q = [a[0] + f * ex, a[1] + f * ey], d = Math.hypot(q[0] - C[0], q[1] - C[1]);
         if (!near || d < near.d) near = { d, q }; }
       const nd = round ? Math.hypot(sec.P[0][0] - C[0], sec.P[0][1] - C[1]) : near.d, room = Math.floor(2 * (nd - 5)), dy = near.q[1] - C[1];
       const lim = ' Keep it under Ø' + room + ' with its insulation';
-      if (!(rh < nd - 5)) throw new Error(round ? 'Pipe hole is too big for the end plate.' + lim + ', or make the box bigger.'
+      if (!(rhP < nd - 5)) throw new Error(round ? 'Pipe hole is too big for the end plate.' + lim + ', or make the box bigger.'
         : p.section === 'flat' ? (room > 0 ? 'Pipe hole is too big for the end plate - it would run into the flat.' + lim + '.' : 'Pipe hole: the flat leaves no room for a pipe - take the depth of the flat down.')
-        : dy > 1e-6 ? 'Pipe hole is too big for the end plate - it would run into the top. Keep it 5 mm clear of the top, or make the box taller.'
-        : dy < -1e-6 && p.section !== 'd' ? 'Pipe hole is too big for the end plate - it would run into the bottom.' + lim + ', or make the walls taller.'
+        : dy > 1e-6 ? (+p.pipeUp > 0 ? 'Pipe hole runs into the top with the pipe moved ' + r1(+p.pipeUp) + ' mm up - move it less far up, or make the box taller.'
+          : 'Pipe hole is too big for the end plate - it would run into the top. Keep it 5 mm clear of the top, or make the box taller.')
+        : dy < -1e-6 && p.section !== 'd' ? (+p.pipeUp < 0 ? 'Pipe hole runs into the bottom with the pipe moved ' + r1(-p.pipeUp) + ' mm down - move it less far down, or make the walls taller.'
+          : 'Pipe hole is too big for the end plate - it would run into the bottom.' + lim + ', or make the walls taller.')
         : 'Pipe hole is too big for the end plate - keep it at least 10 mm under the width.'); }
     for (let k = 0; k < np; k++) {
       const prim = [], holes = [], ticks = [];
@@ -5552,15 +5585,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         : { arc: tbx + 90, pts: [add(C, nB, wb), add(C, nB, rh)] };
       const back = [];
       if (rh > 0) { const m = Math.max(6, Math.ceil((endB.arc - endA.arc) / 4)); for (let j = 1; j < m; j++) back.push(onC(endB.arc + (endA.arc - endB.arc) * j / m, rh)); }
+      const band = !(rh > 0) && !!EA && !!EB && !XA && !XB && Math.abs(tbx - ta - 180) < 1e-6;
       const pts = (rh > 0
         ? endA.pts.concat(EA ? [EA.pt].concat(_secBetween(sec, sEA, A.s), [A.pt]) : [], [Ag.pt], _secBetween(grown, Ag.s, sbG), [Bg.pt],
             EB ? [B.pt].concat(_secBetween(sec, B.s, sEB), [EB.pt]) : [], endB.pts, back, [endA.pts[0]])
-        : [C].concat(EA ? [XA || add(C, nA, wa), EA.pt].concat(_secBetween(sec, sEA, A.s), [A.pt]) : [], [Ag.pt], _secBetween(grown, Ag.s, sbG), [Bg.pt],
-            EB ? [B.pt].concat(_secBetween(sec, B.s, sEB), [EB.pt, XB || add(C, nB, wb)]) : [], [C]))
+        : (band ? [] : [C]).concat(EA ? [XA || add(C, nA, wa), EA.pt].concat(_secBetween(sec, sEA, A.s), [A.pt]) : [], [Ag.pt], _secBetween(grown, Ag.s, sbG), [Bg.pt],
+            EB ? [B.pt].concat(_secBetween(sec, B.s, sEB), [EB.pt, XB || add(C, nB, wb)]) : [], [band ? add(C, nA, wa) : C]))
         .filter((q, i, Q) => !i || Math.hypot(q[0] - Q[i - 1][0], q[1] - Q[i - 1][1]) > 1e-6);
       prim.push({ style: 'cut', pts });
+      if (nswP > 0) _nsRing(prim, f => onC(f * 180 / Math.PI, rhP), nswP);
       if (e > 0) prim.push({ style: 'fold', pts: [A.pt].concat(_secBetween(sec, A.s, sbN), [B.pt]), note: 'EDGE ' + e });
-      const root = th => rh > 0 ? onC(th, rh) : C;
+      const root = th => rh > 0 ? onC(th, rhP) : C;
       const mid = (th, nv, w) => rh > 0 && w / 2 < rh ? add(onC(th, Math.sqrt(rh * rh - w * w / 4)), nv, w / 2) : add(C, nv, w / 2);
       const hA = [], hB = [], ownSide = (hs, X, uv) => { if (!X) return hs; const L = [X[0] - C[0], X[1] - C[1]], lL = Math.hypot(L[0], L[1]), sg = Math.sign(L[0] * uv[1] - L[1] * uv[0]);
         return hs.filter(q => sg * (L[0] * (q[1] - C[1]) - L[1] * (q[0] - C[0])) / lL >= 6); };
@@ -5576,11 +5611,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
                lapMode === 'none' || (half && !(lap > 0)) ? 'Butt joints between the plate pieces'
                  : half ? `Laps ${lap} half each: ${Math.round(lap * 5) / 10} on each piece at every split` : `Laps ${lap} on the split edges as the wrap (${lapMode})`]
                .concat(n === 1 ? [`Split on the wrap's one seam at ${r1(ths[0])}° and straight across at ${r1((ths[0] + 180) % 360)}°, so the ends go on over the pipe`] : [],
-                 rh > 0 ? [`Pipe hole Ø${R(2 * rh)} on the centre (+), cut through the laps as well`] : []),
+                 rh > 0 ? [`Pipe hole Ø${R(2 * rhP)} on the centre (+), cut through the laps as well`].concat(nswP > 0 ? [_nsLine(nswP)] : []) : []),
         calc: { w: bb.w, h: bb.h }, prim, holes, ticks, bbox: bb, cutNote: 'CUT 2 OFF (one each end - turn the second over)' });
     }
     const sp3 = SP.map(q => ({ th: q.th, at: q.at, d: q.d, x: q.pt[0], z: q.pt[1], y: q.at - L / 2, n: q.n }));
-    out.forEach(o => { o.calc.nWraps = n; o.calc.kitPieces = out.length; if (sp3.length) o.calc.sidePipes = sp3; if (rh > 0) o.calc.endPipe = { x: C[0], z: C[1], d: 2 * rh, L }; });
+    out.forEach(o => { o.calc.nWraps = n; o.calc.kitPieces = out.length; if (sp3.length) o.calc.sidePipes = sp3; if (rh > 0) o.calc.endPipe = { x: C[0], z: C[1], d: 2 * rhP, L }; });
     if (p.seamInfo) out[0].calc.seamInfo = { pts: hitN.map(h => h.pt), n: hitN.map(nrmOf), seams: ths, L };
     return _noDrill(out);
   }
@@ -6483,6 +6518,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       sl.overR = p.splitStyle === 'lap1' && overVs(next);
     });
     const order = slices.slice().sort((a, b) => a.up - b.up);
+    const tieTop = horiz && n > 2 && p.rbThree !== 'top' && Math.abs(order[n - 1].up - order[n - 2].up) < 1e-6;
+    const atTop = i => i === n - 1 || (tieTop && i === n - 2);
     const shapeName = p.shape === 'round' ? 'Round Box' : p.shape === 'square' ? 'Square Box' : 'D-Box';
     const styleDesc = +p.splitSize === 0 ? 'Butt joint at the split - no ' + (p.splitStyle === 'flange' ? 'flange' : 'lap') + ', the pieces meet edge to edge'
       : p.splitStyle === 'flange' ? `Split flanges ${p.splitSize} mm fold OUT - pieces bolt/clip face-to-face`
@@ -6492,13 +6529,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const ringN = horiz ? Math.max(1, Math.min(4, Math.round(p.ringPieces || 1))) : 1;
     const jobs = [];
     order.forEach((sl, i) => {
-      const rings = (horiz && i === n - 1) ? 1 : ringN;
+      const rings = (horiz && atTop(i)) ? 1 : ringN;
       for (let r = 0; r < rings; r++) jobs.push({ sl, i, r, rings });
     });
     const TOT = jobs.length;
     jobs.forEach((jb, k) => {
       const i = jb.i, sl = jb.sl;
-      const pos = horiz ? (i === 0 ? 'BOTTOM' : i === n - 1 ? 'TOP' : 'MIDDLE') : ('PIECE ' + (i + 1));
+      const pos = horiz ? (i === 0 ? 'BOTTOM' : atTop(i) ? 'TOP' : 'MIDDLE') : ('PIECE ' + (i + 1));
       const ring = jb.rings > 1 ? `, ring ${jb.r + 1} of ${jb.rings}` : '';
       out.push(_wrapPiece(p, sec, sl.ga, sl.gb, {
         overL: sl.overL, overR: sl.overR,
@@ -6541,7 +6578,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       });
     });
     const sectors = p.shape === 'round' && n > 2;
-    const posOf = sl => { const i = order.indexOf(sl); return horiz ? (i === 0 ? 'bottom' : i === n - 1 ? 'top' : 'middle') : 'piece ' + (i + 1); };
+    const posOf = sl => { const i = order.indexOf(sl); return horiz ? (i === 0 ? 'bottom' : atTop(i) ? 'top' : 'middle') : 'piece ' + (i + 1); };
     const partOf = sl => { const sp = (((sl.gb - sl.ga) % G) + G) % G; return Math.abs(sp - G / 2) < 1e-6 ? 'half' : Math.abs(sp - G / 4) < 1e-6 ? 'quarter' : 'slice'; };
     const cheekSectors = (hole, endName, cutN) => order.map(sl => _cheekSector(p, sec, sl.ga, sl.gb, {
       overA: sl.overL, overB: sl.overR, hole,
@@ -6586,7 +6623,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const fl = p.flange == null || p.flange === '' ? 0 : +p.flange;
     if (!(fl >= 0)) throw new Error('Flange must be 0 or more.');
     const hp = p.holePitch, eg = (isFinite(+p.holeEndGap) && +p.holeEndGap >= 0) ? +p.holeEndGap : 20;
-    const hole = +p.pipeOD > 0 ? _od(p.pipeOD, p.insulation, 0, 'the nozzle pipe') : 0, rh = hole / 2;
+    const hole = +p.pipeOD > 0 ? _od(p.pipeOD, p.insulation, 0, 'the nozzle pipe') : 0, rh = hole / 2, nsw = rh > 0 ? _nsW(p) : 0, rhc = _nsCut(rh, nsw, 'The nozzle pipe hole');
     if (hole && !(hole <= D - 10)) throw new Error(`The pipe hole Ø${R(hole)} is too big for a Ø${R(D)} box - keep it at least 10 mm under the box Ø.`);
     const g = _branchGeom({ mainOD: Dv, branchOD: D, insulation: 0, angle: 90 }), r = g.r, Rv = g.R;
     const hAt = phi => Ls + Rv - g.tInt(phi);
@@ -6653,9 +6690,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       let cut = la > 0 ? [[0, 0]].concat(arc.slice(1, -1), [[pw, 0], [s1, 0], [s1, -la], [s0, -la], [s0, 0], [0, 0]]) : arc.concat([arc[0]]);
       cut = _dedupe(cut);
       let loose = null;
-      if (rh > 0) { const h = _holeOut(cut, cx, 0, rh, 2 * nArc(rh, Math.max(16, Math.round(NA * rh / rad)))); if (h) { cut = h.cut; loose = h.loose; } }
+      if (rh > 0) { const h = _holeOut(cut, cx, 0, rhc, 2 * nArc(rhc, Math.max(16, Math.round(NA * rhc / rad)))); if (h) { cut = h.cut; loose = h.loose; } }
       pr.push({ style: 'cut', pts: cut });
       if (loose) pr.push({ style: 'cut', pts: loose });
+      if (nsw > 0) _nsRing(pr, f => [cx + rh * Math.cos(f), rh * Math.sin(f)], nsw);
       if (la > 0) (rh > 0 ? _segOut([s0, 0], [s1, 0], cx, 0, rh) : [[[s0, 0], [s1, 0]]]).forEach(sg => pr.push({ style: 'fold', pts: sg, note: 'SEAM - LAP ' + r1(la) }));
       tk.push({ x: cx, y: rh > 0 ? (rh + rad) / 2 : rad * 0.55, label: 'R ' + R(rad) });
       if (rh > 0) tk.push({ x: cx, y: rh * 0.45, label: 'Ø' + R(hole) });
@@ -6663,7 +6701,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       const pr0 = { kind: 'nozzlebox', title: 'Nozzle Flange Box  -  Outer End (' + name + ') 1:1',
         meta: [`Outer end, half of Ø${R(2 * rad)}: the box Ø${R(D)} + simple edge ${r1(se)} all round` + (rh > 0 ? `, cut for the pipe Ø${R(hole)}` : ''),
                lapLine + ' - the halves part on the same line as the body',
-               `Plate ${R(pw)} × ${R(rad + la)}`],
+               `Plate ${R(pw)} × ${R(rad + la)}`].concat(nsw > 0 ? [_nsLine(nsw)] : []),
         calc: Object.assign({ rad, pw, ph: rad + la, la }, both), prim: pr, holes: [], ticks: tk, cutNote };
       pr0.bbox = bboxOf(pr); return pr0; };
     const ends = !(lap > 0) ? [mkEnd(0, 'half', 'CUT 2 OFF (the outer end, in halves)', 'Lap 0 - the halves butt on the split')]
@@ -8054,22 +8092,25 @@ addEventListener('error',()=>{ const a=document.getElementById('app'); if(BOOTED
     +'<button type="button" class="btn" id="bfJobs" style="margin-top:8px">Export jobs</button></div>';
   document.getElementById('bfReset').onclick=()=>{ ['cm_settings','cm_sizes','cm_open','cm_drew','cm_recent','cm_desk','cm_sheet'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); };
   document.getElementById('bfJobs').onclick=()=>{ let jobs=[]; try{ jobs=JSON.parse(localStorage.getItem('cm_jobs')||'[]'); }catch(e){}
-    saveOut(new Blob([JSON.stringify({app:BRAND.name,ver:'4.86.0',exported:new Date().toISOString(),jobs},null,1)],{type:'application/json'}), BRAND.name+'_jobs_'+new Date().toISOString().slice(0,10)+'.json'); }; });
+    saveOut(new Blob([JSON.stringify({app:BRAND.name,ver:'4.87.0',exported:new Date().toISOString(),jobs},null,1)],{type:'application/json'}), BRAND.name+'_jobs_'+new Date().toISOString().slice(0,10)+'.json'); }; });
 const LOCALE_PAGE=(()=>{ try{ return /-(US|CA|MX|PH)\b/i.test(navigator.language||'') ? 'letter' : 'a3'; }catch(e){ return 'a3'; } })();
 const INCH_PAGE=p=>p==='letter'||p==='legal'||p==='tabloid';
 let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:LOCALE_PAGE, swage:3, flange:15, nDiv:12, detail:false,
   material:'aluminium', thickness:0.7, sheetW:2500, sheetH:1250, brand:'', canvas:'model', sizeMode:'pipeins',
-  lockform:22.5, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10, shade3d:'solid', picStyle:'steel',
+  lockform:22.5, norsokOn:false, norsokFold:5, slotFlange:10, splitStyle:'lap2', splitSize:50, wsAngle:10, shade3d:'solid', picStyle:'steel',
   lapA:null, lapB:null, swageM:null, swageF:null, holeInset:null, dxfHoles:'circle', dxfHoleDia:4, dxfKerf:0, dxfNicks:true,
   nestLayout:'row', nestSheet:'2500x1250', nestW:2500, nestH:1250, nestGap:8, nestMargin:10, nestGrain:false, nestCommon:true, showPipe:true }, store.get('cm_settings',{}));
 if(SET.lockform===25) SET.lockform=22.5;
-const PATSET=['swage','flange','lockform','splitStyle','splitSize','slotFlange','wsAngle','nDiv','holePitch','lapTotal'];
+const PATSET=['swage','flange','lockform','splitStyle','splitSize','slotFlange','wsAngle','nDiv','holePitch','lapTotal','norsokOn','norsokFold'];
+const SNAPWAS={norsokOn:false};
+const snapHasK=(snap,k)=>(k in snap)||(k in SNAPWAS), snapVal=(snap,k)=>(k in snap)?snap[k]:SNAPWAS[k];
+const itSet=it=>it&&it.set&&typeof it.set==='object'?it.set:{};
 let SETLENS=null;
 function lens(snap){ if(SETLENS){ Object.assign(SET,SETLENS); SETLENS=null; }
-  if(snap){ SETLENS={}; PATSET.forEach(k=>{ if(k in snap){ SETLENS[k]=SET[k]; SET[k]=snap[k]; } }); } }
+  if(snap){ SETLENS={}; PATSET.forEach(k=>{ if(snapHasK(snap,k)){ SETLENS[k]=SET[k]; SET[k]=snapVal(snap,k); } }); } }
 const realSet=()=>SETLENS?Object.assign({},SET,SETLENS):SET;
 function withSet(snap,fn){ if(!snap) return fn(); const was={};
-  PATSET.forEach(k=>{ if(k in snap){ was[k]=SET[k]; SET[k]=snap[k]; } });
+  PATSET.forEach(k=>{ if(snapHasK(snap,k)){ was[k]=SET[k]; SET[k]=snapVal(snap,k); } });
   try{ return fn(); }finally{ Object.assign(SET,was); } }
 function saveSet(){ store.set('cm_settings',realSet()); }
 if(SET.sizeMode==='girth') SET.sizeMode='diameter';
@@ -8088,7 +8129,7 @@ function foldSizeMode(kind,st,from,to){
   st.__sizeMode=to; return st; }
 const cladLab=(lab,w)=>String(lab).replace(/^Pipe\b/,'Cladding '+w).replace(/\bpipe\b/i,'cladding '+w);
 SET.lapA=(+SET.lapTotal||0)/2; SET.lapB=SET.lapA; SET.swageM=+SET.swage||0; SET.swageF=SET.swageM; SET.holeInset=null;
-const SET_LIMITS={ insulation:[0,500], lapTotal:[0,200], holePitch:[5,100], swage:[0,50], lapA:[0,200], lapB:[0,200], swageM:[0,50], swageF:[0,50], dxfHoleDia:[1,50], dxfKerf:[0,10], holeInset:[0,400], flange:[0,100], sheetW:[200,5000], sheetH:[200,5000], nestW:[200,6000], nestH:[200,6000], nestGap:[0,100], nestMargin:[0,200], lockform:[0,100] };
+const SET_LIMITS={ norsokFold:[5,50], insulation:[0,500], lapTotal:[0,200], holePitch:[5,100], swage:[0,50], lapA:[0,200], lapB:[0,200], swageM:[0,50], swageF:[0,50], dxfHoleDia:[1,50], dxfKerf:[0,10], holeInset:[0,400], flange:[0,100], sheetW:[200,5000], sheetH:[200,5000], nestW:[200,6000], nestH:[200,6000], nestGap:[0,100], nestMargin:[0,200], lockform:[0,100] };
 function clampSet(prev){ for(const k in SET_LIMITS){ const [lo,hi]=SET_LIMITS[k], v=parseFloat(SET[k]);
   SET[k]=isFinite(v)?Math.min(hi,Math.max(lo,v)):(prev||SET)[k]; } }
 if(+SET.holePitch>SET_LIMITS.holePitch[1]) SET.holePitch=SET_LIMITS.holePitch[1];
@@ -8234,7 +8275,7 @@ const ownItem=it=>{ const k=tileOf(it.kind,it.params); if(k===it.kind) return it
 const SNAPLIM={nDiv:[3,96], splitSize:[0,500], slotFlange:[0,100], wsAngle:[0.5,80]};
 function snapOf(it){ const set=it.set&&typeof it.set==='object'&&!Array.isArray(it.set)?{}:undefined;
   if(set) PATSET.forEach(k=>{ const v=it.set[k], L=SNAPLIM[k]||SET_LIMITS[k];
-    if(k==='splitStyle'?['lap2','lap1','flange'].indexOf(v)>=0:(typeof v==='number'&&isFinite(v)&&(!L||(v>=L[0]&&v<=L[1])))) set[k]=v; });
+    if(k==='norsokOn'?typeof v==='boolean':k==='splitStyle'?['lap2','lap1','flange'].indexOf(v)>=0:(typeof v==='number'&&isFinite(v)&&(!L||(v>=L[0]&&v<=L[1])))) set[k]=v; });
   return {set, fp:typeof it.fp==='string'&&/^[0-9a-f]{16}$/.test(it.fp)?it.fp:undefined, ver:typeof it.ver==='string'&&it.ver.length<=20?it.ver:undefined}; }
 function cleanJobs(a){ return (Array.isArray(a)?a:[]).filter(j=>j&&typeof j==='object'&&!Array.isArray(j)).map((j,n)=>Object.assign({},j,{
     id:j.id!=null?j.id:Date.now()+n, name:typeof j.name==='string'&&j.name.trim()?j.name:'Job '+(n+1),
@@ -8505,8 +8546,8 @@ const SETNOT={ swage:'recess inctee cross nozzlebox shoetee offtee tangtee eurot
   holePitch:'bendgusset elbowgusset valveend roundtop squarebox valvebox risenvbox bonnetbox risenbbox raisedbox flangebox flatflange nozzlebox roundbox wsbox', nDiv:'bendgusset elbowgusset' };
 
 const FREESEAM=[
-  Object.assign(sego('seamMode','Seams',[{v:'shop',label:'Shop halves'},{v:'free',label:'Free seams'}]),{reflow:1}),
-  Object.assign(segd('pieces','Pieces',[1,2,3,4]),{when:s=>s.seamMode==='free',reflow:1}),
+  Object.assign(sego('seamMode','Seams',[{v:'shop',label:'2 halves'},{v:'free',label:'Choose splits'}]),{reflow:1}),
+  Object.assign(segd('pieces','Pieces',[1,2,3,4]),{when:s=>s.seamMode==='free',reflow:1,oldOnly:[1]}),
   Object.assign(sego('seamSpacing','Seam spacing',[{v:'half',label:'Half bottom'},{v:'equal',label:'Equal'},{v:'own',label:'Set each'}]),{when:s=>s.seamMode==='free'&&+s.pieces>1,reflow:1}),
   Object.assign(num('seam1','Seam 1 at (°, 0 = top centre, clockwise)',0.5),{when:s=>s.seamMode==='free'&&!(s.seamSpacing==='half'&&+s.pieces===2)}),
   Object.assign(num('seam2','Seam 2 at (°)',0.5),{when:s=>s.seamMode==='free'&&s.seamSpacing==='own'&&+s.pieces>=2}),
@@ -8515,8 +8556,10 @@ const FREESEAM=[
 const FREEDEF={seamMode:'shop',pieces:3,seamSpacing:'half',seam1:0,seam2:90,seam3:270,seam4:180};
 const FREESEAM_D=FREESEAM.map(f=>f.k==='seam1'?Object.assign({},f,{label:'Seam 1 at (°, 0 = back centre, clockwise from above)',when:s=>s.seamMode==='free'}):
   f.k==='seamSpacing'?Object.assign({},f,{opts:f.opts.filter(o=>o.v!=='half')}):f);
-const ENDPIPE=when=>{ const w=when||(()=>true); return [{type:'pipe',k:'holePipe',label:'Pipe through the ends',none:true,reflow:1,when:w},
-  Object.assign(num('insulation','Insulation on the pipe (mm)'),{when:s=>w(s)&&+s.holePipe>0})]; };
+const ENDPIPE=(when,up)=>{ const w=when||(()=>true); return [{type:'pipe',k:'holePipe',label:'Pipe through the ends',none:true,noneOld:1,reflow:1,when:w},
+  Object.assign(sego('pipeEnds','Pipe goes through',[{v:'both',label:'Both ends'},{v:'one',label:'One end'}]),{reflow:1,when:s=>w(s)&&+s.holePipe>0}),
+  Object.assign(num('insulation','Insulation on the pipe (mm)'),{when:s=>w(s)&&+s.holePipe>0})]
+  .concat(up?[Object.assign(num('pipeUp','Move the pipe up (+) or down (−) (mm)'),{neg:1,reflow:1,when:s=>w(s)&&+s.holePipe>0})]:[]); };
 const SIDEDEF={sideN:0,sp1Seam:90,sp1At:0,sp1Pipe:60.3,sp1Ins:25,sp2Seam:270,sp2At:0,sp2Pipe:60.3,sp2Ins:25};
 const sideOn=s=>s.seamMode==='free'||s.splitMode==='free';
 const sideLen=(kind,s)=>+((kind==='flangebox'||kind==='flatflange')?s.boxW:s.boxL)||0;
@@ -8580,12 +8623,12 @@ function sideSeat(kind,s,n){ let A=[]; try{ A=F[kind].kit(Object.assign({},s,{si
     let hit=null; for(const t of tries){ s[q]=t[0]; s[aq]=t[1]; if(i===2) s.sp1At=t[2]!=null?t[2]:at1; if(takes(i)){ hit=t; break; } }
     if(!hit){ s[q]=tries[0][0]; s[aq]=tries[0][1]; if(i===2) s.sp1At=at1; } } }
 const LIDDEF={seamMode:'shop',pieces:4,seamSpacing:'equal',seam1:0,seam2:180,seam3:270,seam4:90};
-const edgeSeg=(v,label)=>Object.assign(sego('edgeType','Wrapper end edges',[{v:'lockform',label:'Lockform'},{v,label}]),{reflow:1});
+const edgeSeg=(v,label,w)=>Object.assign(sego('edgeType','Wrapper end edges',[{v:'lockform',label:'Lockform'},{v,label}]),{reflow:1,oldjob:1,when:s=>s.edgeType!=null&&s.edgeType!=='lockform'&&(!w||w(s))});
 const cheekLock=s=>!(s.edgeType==='folded'||s.edgeType==='simple');
 const CHEEK=(k,plain,when,lockOf)=>{ const w=when||(()=>true), lk=lockOf||cheekLock;
   return [Object.assign(num(k,'Cheek fold (mm, folded 90° into the lockform)'),{when:s=>w(s)&&lk(s)}),Object.assign(num(k,plain),{when:s=>w(s)&&!lk(s)})]; };
 const FLANGELOCK=s=>s.seamMode!=='free'||cheekLock(s);
-const edgeAs=v=>s=>{ if(s.edgeType==='folded'||s.edgeType==='simple') s.edgeType=v; return s; };
+const edgeAs=v=>s=>{ if(s.edgeType==='folded'||s.edgeType==='simple') s.edgeType=v; if(s.holePipe==null) s.holePipe=0; return s; };
 const F={
  reducer:{name:'Reducer',sub:'Concentric taper',icon:I.cone,free:true,
   defaults:{swage:3,bigPipeOD:168.3,smallPipeOD:114.3,insulation:25,height:150,pieces:1,lapTotal:50,holePitch:40,holeEndGap:20,seamClock:6,nDiv:12},
@@ -8936,7 +8979,8 @@ const F={
   stats:c=>['Leg \u00d8'+c.OD.toFixed(0),c.angle+'\u00b0 off main \u00b7 '+c.included+'\u00b0 included','Plate '+c.plate.toFixed(0)+' long','Ordinates '+c.hMin.toFixed(0)+'\u2013'+c.hMax.toFixed(0)],
   note:'The breeches piece \u2014 one main splitting into two equal legs. All three the same pipe, axes meeting at a point. Generate prints BOTH wraps: the main once, the branch twice (they are mirror images, so the same template does both \u2014 just flip it over). Lengths are measured to the crotch, the way they are called off: main to the crotch line, branch to the crotch top. Angle is off the MAIN, so 45\u00b0 gives the usual 90\u00b0 fork and 60\u00b0 gives a perfectly symmetrical three-way. This one is closed-form geometry, not a fit \u2014 it reproduces the published trade tables exactly, every ordinate, at both 12 and 24 divisions.'},
  roundbox:{name:'Round Box',sub:'Lockformed barrel + cheeks',icon:I.rbox,
-  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,ringPieces:1,preset:'',splitRot:0,watershed:0,wsMode:'set',wsHeight:50,wsDeg:10,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,splitSize:50,holePitch:60,holeEndGap:20},
+  migrate:s=>{ if(s.rbThree==null) s.rbThree='top'; if(s.wsMode==null) s.wsMode='set'; return s; },
+  defaults:{dia:200,height:300,orientation:'vertical',pieces:2,rbThree:'bottom',ringPieces:1,preset:'',splitRot:0,watershed:0,wsMode:'deg',wsHeight:50,wsDeg:10,insulation:25,holeApipe:0,holeAx:0,holeAy:0,holeBpipe:0,holeBx:0,holeBy:0,splitSize:50,holePitch:60,holeEndGap:20},
   fields:BOXFIELDS([num('dia','Diameter (mm)'),num('height','Height / length (mm)'),num('splitSize','Lap (mm, the total at each split)')]),
   build:s=>rbKit(s)[0],
   kit:s=>rbKit(s),
@@ -8944,15 +8988,15 @@ const F={
   stats:c=>['Wrap '+c.X.toFixed(0)+' × '+(c.sheetH!=null?c.sheetH:c.L+2*SET.lockform).toFixed(0),c.nWraps+' wraps, '+c.kitPieces+' pieces','Lockform '+SET.lockform,'Split '+(c.splitSize!=null?c.splitSize:SET.splitSize)],
   note:'Lockformed construction: the barrel edges carry the lockform allowance, the cheeks slot in and the lock hammers shut. The lap at the splits is set on the box (50 to start). The box comes apart on its splits: in 3 or 4 pieces the cheeks (and a watershed top) are cut on the same lines as the barrel, in to the middle. Watershed on a vertical box makes the top a shallow cone - its fall from Settings, or set a height or fall for this job. On a horizontal box you can also split ALONG the length: the top piece is never cut — it stays one full sheet so there is no seam on the crown — and every lower piece is cut into equal rings that lap over the one before, working from end A.'},
  squarebox:{name:'Square Box',sub:'Shop method · lockformed',icon:I.sbox,
-  defaults:Object.assign({boxL:900,boxW:450,boxH:550,foldedEdge:5,lap:50,lapMode:'split',edgeType:'lockform',holePipe:0,insulation:25,holePitch:60,holeEndGap:20,seamList:'F0.5,B0.5',lidSeam:'frontback',show3d:0},FREEDEF,SIDEDEF),
+  defaults:Object.assign({boxL:900,boxW:450,boxH:550,foldedEdge:5,lap:50,lapMode:'split',edgeType:'lockform',holePipe:114.3,pipeEnds:'both',pipeUp:0,insulation:25,holePitch:60,holeEndGap:20,seamList:'F0.5,B0.5',lidSeam:'frontback',show3d:0},FREEDEF,SIDEDEF),
   migrate:edgeAs('folded'),
-  fields:[Object.assign(sego('seamMode','Seams',[{v:'shop',label:'Shop halves'},{v:'free',label:'Free seams'},{v:'plan',label:'Seam planner (old job)'}]),{reflow:1,when:s=>s.seamMode==='plan'}),
+  fields:[Object.assign(sego('seamMode','Seams',[{v:'shop',label:'2 halves'},{v:'free',label:'Choose splits'},{v:'plan',label:'Seam planner (old job)'}]),{reflow:1,when:s=>s.seamMode==='plan'}),
     Object.assign({},FREESEAM[0],{when:s=>s.seamMode!=='plan'}),
     num('boxL','Length (mm, along the pipe)'),num('boxW','Width (mm, across the pipe)'),num('boxH','Height (mm)'),
     ...CHEEK('foldedEdge','Folded edge (mm)',s=>s.seamMode!=='plan'),
     Object.assign(num('lap','Lap (mm)'),{when:s=>s.seamMode!=='plan'}),
 
-    Object.assign(edgeSeg('folded','Folded edge'),{when:s=>s.seamMode!=='plan'})].concat(ENDPIPE(s=>s.seamMode!=='plan'),FREESEAM.slice(1),SIDEPIPE(s=>s.seamMode!=='plan')),
+    edgeSeg('folded','Folded edge',s=>s.seamMode!=='plan')].concat(ENDPIPE(s=>s.seamMode!=='plan',1),FREESEAM.slice(1),SIDEPIPE(s=>s.seamMode!=='plan')),
   onSet:sideSet('squarebox',1),
   build:s=>sqBuild(s)[0],
   kit:s=>sqBuild(s),
@@ -8962,9 +9006,9 @@ const F={
   stats:c=>c.span!=null
       ?['Wrap '+fmtDim(c.X)+'×'+fmtDim(c.L+2*SET.lockform),c.nWraps+' wraps, '+c.kitPieces+' pieces','Girth '+fmtDim(c.girth||0),'Lockform '+SET.lockform+' · split '+SET.splitSize]
       :['With laps '+fmtDim(c.cutLap)+'×'+fmtDim(c.width),'No laps '+fmtDim(c.girth)+'×'+fmtDim(c.width),c.seams?'Seams '+c.seams.map(t=>Math.round(t)+'°').join(' '):'Girth '+fmtDim(c.girth),c.endEdge||'Lockform '+SET.lockform],
-  note:'A rectangular box round the pipe. Shop halves: two mirror halves, split down the top centre and the bottom centre, each wrap folding 90° at the corners — half-top, side, half-bottom — lockformed on both cheek edges, the end plates halved the same way. Free seams: the box in 2, 3 or 4 pieces, the seams struck from the middle of the end (the pipe’s centre), 0° the top centre, clockwise. Half bottom is the shop 3-way: the sides split level at half height, the bottom U in one piece and the top in two — an upside-down T on the end. Every piece carries half the lap at each joint, the end plates split on the same lines. No drill holes - it is clipped. Lockform from Settings → Sizes.'},
+  note:'A rectangular box round the pipe. 2 halves: two mirror halves, split down the top centre and the bottom centre, each wrap folding 90° at the corners — half-top, side, half-bottom — lockformed on both cheek edges, the end plates halved the same way. Choose splits: the box in 2, 3 or 4 pieces, the seams struck from the middle of the end (the pipe’s centre), 0° the top centre, clockwise. Half bottom is the shop 3-way: the sides split level at half height, the bottom U in one piece and the top in two — an upside-down T on the end. Every piece carries half the lap at each joint, the end plates split on the same lines. No drill holes - it is clipped. Lockform from Settings → Sizes.'},
  valvebox:{name:'Valve Box',sub:'Shop method · D-box · flat top',icon:I.wvbox,
-  defaults:Object.assign({boxL:700,boxW:380,boxH:610,topStyle:'flat',wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:0,insulation:25,holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
+  defaults:Object.assign({boxL:700,boxW:380,boxH:610,topStyle:'flat',wsHeight:45,foldedEdge:6,lap:50,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:114.3,pipeEnds:'both',insulation:25,holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
   migrate:edgeAs('folded'),
   fields:[num('boxL','Length (mm, along the pipe)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),
     ...CHEEK('foldedEdge','Folded edge (mm)'),num('lap','Lap (mm)'),
@@ -8978,7 +9022,7 @@ const F={
   stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),c.seams?'Seams '+c.seams.map(t=>Math.round(t)+'°').join(' '):'Fold '+Math.round(c.foldAng)+'°',c.endEdge||'Lockform '+SET.lockform],
   note:'Shop method: the D-box with a flat top: round bottom, straight sides. Two mirror halves, fold at the marked angle, roll the quarter-round, lockformed cheeks, laps both ends. D-end plates carry the top profile. Pipe through the ends cuts its hole in both D-ends, on the round end’s centre, through the lap. Lockform from Settings. A box with a ridged top to shed the water has its own tile, the Risen Valve Box.'},
  risenvbox:{name:'Risen Valve Box',sub:'Shop method · D-box · watershed top',icon:I.rvbox,
-  defaults:Object.assign({boxL:700,boxW:380,boxH:610,topStyle:'risen',wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:0,insulation:25,holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
+  defaults:Object.assign({boxL:700,boxW:380,boxH:610,topStyle:'risen',wsHeight:45,foldedEdge:6,lap:50,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:114.3,pipeEnds:'both',insulation:25,holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
   migrate:edgeAs('folded'),
   fields:[num('boxL','Length (mm, along the pipe)'),num('boxW','Width (mm)'),num('boxH','Height (mm, to the ridge)'),
     num('wsHeight','Watershed height (mm)'),...CHEEK('foldedEdge','Folded edge (mm)'),num('lap','Lap (mm)'),
@@ -8992,7 +9036,7 @@ const F={
   stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),c.seams?'Seams '+c.seams.map(t=>Math.round(t)+'°').join(' '):'Fold '+Math.round(c.foldAng)+'°',c.endEdge||'Lockform '+SET.lockform],
   note:'Shop method: the D-box with a risen top: round bottom, straight sides, the top ridged to shed the water. The Height is to the ridge. Two mirror halves, fold at the marked angles, roll the quarter-round, lockformed cheeks, laps both ends. D-end plates carry the top profile. Pipe through the ends cuts its hole in both D-ends, on the round end’s centre, through the lap. Lockform from Settings.'},
  bonnetbox:{name:'Valve Box with Bonnet',sub:'Bonnet hole and collar · flat top',icon:I.bonnetbox,
-  defaults:{boxL:700,boxW:380,boxH:610,topStyle:'flat',wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:114.3,insulation:25,bonnetDia:200,collarH:100,bonnetAt:0,holePitch:60,holeEndGap:20,nDiv:12},
+  defaults:{boxL:700,boxW:380,boxH:610,topStyle:'flat',wsHeight:45,foldedEdge:6,lap:50,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:114.3,pipeEnds:'both',insulation:25,bonnetDia:200,collarH:100,bonnetAt:0,holePitch:60,holeEndGap:20,nDiv:12},
   migrate:edgeAs('folded'),
   fields:[num('boxL','Length (mm, along the pipe)'),num('boxW','Width (mm)'),num('boxH','Height (mm)'),
     ...CHEEK('foldedEdge','Folded edge (mm)'),num('lap','Lap (mm)'),
@@ -9006,7 +9050,7 @@ const F={
   stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'Fold '+Math.round(c.foldAng)+'°','Bonnet Ø'+Math.round(c.bonnetDia)+' · collar '+Math.round(c.collarH)+(c.collarLong-c.collarH>=0.5?' to '+Math.round(c.collarLong):''),c.endEdge||'Lockform '+SET.lockform],
   note:'The Valve Box over a valve whose bonnet comes up through the top: the same D-box with a flat top, two mirror halves and the D-end plates, with the bonnet hole cut in the top and a collar to go round the bonnet. Measure the box as the Valve Box, then the bonnet over its lagging and the collar height: on a flat top the collar is the same height all round. The bonnet sits on the top centre, half its hole in each half wrap; leave Bonnet from the left end at 0 to have it in the middle. The collar seam goes on the box centreline, lapped and riveted, with the Tee flat flange from Settings rolled out at its foot to rivet down onto the top. A bonnet within 10 mm of the width, or one that runs off the end, is refused. A box with a ridged top to shed the water has its own tile, the Risen Valve Box with Bonnet.'},
  risenbbox:{name:'Risen Valve Box with Bonnet',sub:'Bonnet hole and collar · watershed top',icon:I.risenbbox,
-  defaults:{boxL:700,boxW:380,boxH:610,topStyle:'risen',wsHeight:45,foldedEdge:6,lap:13,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:114.3,insulation:25,bonnetDia:200,collarH:100,bonnetAt:0,holePitch:60,holeEndGap:20,nDiv:12},
+  defaults:{boxL:700,boxW:380,boxH:610,topStyle:'risen',wsHeight:45,foldedEdge:6,lap:50,simpleEdge:4,lapMode:'split',edgeType:'lockform',holePipe:114.3,pipeEnds:'both',insulation:25,bonnetDia:200,collarH:100,bonnetAt:0,holePitch:60,holeEndGap:20,nDiv:12},
   migrate:edgeAs('folded'),
   fields:[num('boxL','Length (mm, along the pipe)'),num('boxW','Width (mm)'),num('boxH','Height (mm, to the ridge)'),
     num('wsHeight','Watershed height (mm)'),...CHEEK('foldedEdge','Folded edge (mm)'),num('lap','Lap (mm)'),
@@ -9020,17 +9064,17 @@ const F={
   stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'Fold '+Math.round(c.foldAng)+'°','Bonnet Ø'+Math.round(c.bonnetDia)+' · collar '+Math.round(c.collarH)+(c.collarLong-c.collarH>=0.5?' to '+Math.round(c.collarLong):''),c.endEdge||'Lockform '+SET.lockform],
   note:'The Risen Valve Box over a valve whose bonnet comes up through the top: the same D-box with its top ridged to shed the water, two mirror halves and the D-end plates, with the bonnet hole cut in the top and a collar to go round the bonnet. The Height is to the ridge. Measure the box as the Risen Valve Box, then the bonnet over its lagging and the collar height at its shortest, on the ridge line: the collar gets longer down each slope and its foot is cut to sit on both slopes. The bonnet sits on the top centre, half its hole in each half wrap, cut to the slope; leave Bonnet from the left end at 0 to have it in the middle. The collar seam goes on the ridge line, lapped and riveted, with the Tee flat flange from Settings rolled out at its foot to rivet down onto the top. A bonnet within 10 mm of the width, or one that runs off the end, is refused.'},
  flangebox:{name:'Flange Box',sub:'Shop method · round, flanged ends',icon:I.vbox,
-  defaults:Object.assign({dia:234,boxW:567,simpleEdge:4,lap:13,holePipe:0,insulation:25,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
+  defaults:Object.assign({dia:234,boxW:567,simpleEdge:4,lap:50,holePipe:114.3,pipeEnds:'both',insulation:25,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
   migrate:edgeAs('simple'),
   fields:[num('dia','Diameter (mm)'),num('boxW','Length (mm, along the pipe)'),...CHEEK('simpleEdge','Simple edge (mm)',null,FLANGELOCK),num('lap','Lap (mm)')].concat(ENDPIPE(),FREESEAM,[
     
-    Object.assign(edgeSeg('simple','Simple edge'),{when:s=>s.seamMode==='free'})],SIDEPIPE(s=>s.seamMode==='free')),
+    edgeSeg('simple','Simple edge',s=>s.seamMode==='free')],SIDEPIPE(s=>s.seamMode==='free')),
   onSet:sideSet('flangebox',0),
   build:s=>fbKit(s)[0],
   kit:s=>fbKit(s),
-  mini:c=>['Cut '+Math.round(c.seams?c.cutLap:c.g)+' × '+Math.round(c.width),c.seams?(c.pieces>1?c.pieces+' wraps + '+c.pieces+' disc pieces ×2':'1 wrap + 2 disc pieces ×2'):'Lap half + plain half + disc'],
+  mini:c=>['Cut '+Math.round(c.seams?c.cutLap:c.g)+' × '+Math.round(c.width),c.seams?(c.pieces>1?c.pieces+' wraps + '+c.pieces+' disc pieces ×2':'1 wrap + 2 disc pieces ×2'):c.half?'2 halves + half discs':'Lap half + plain half + discs'],
   stats:c=>c.seams?['Cut '+Math.round(c.cutLap)+'×'+Math.round(c.width),'Girth '+Math.round(c.G),'Seams '+c.seams.map(t=>Math.round(t)+'°').join(' '),c.endEdge||'Lockform '+SET.lockform]:['Cut '+Math.round(c.g)+'×'+Math.round(c.width),'Girth '+Math.round(c.girth),'Lockform '+SET.lockform],
-  note:'Shop method: a round spool with a flat flange disc at each end. A lap half and a plain half, half circumference each, lockformed cheeks: the lap half carries the lap on both seams and laps over the plain half. Flange discs split into halves (radius D/2 + the cheek fold), cut 4 off. Lockform from Settings → Sizes.'},
+  note:'Shop method: a round spool with a flat flange disc at each end. Two body halves, half circumference each, lockformed cheeks, each carrying half the lap on both seams. Flange discs split into halves, cut 4 off: each half has the fold-out round its rim (radius D/2 + the fold-out), which knocks into the body\'s lockform, and its half of the lap past the split - nothing else. The pipe through the ends is cut half in each half disc. Lockform from Settings → Sizes.'},
  valveend:{name:'Valve End',sub:'Watershed peaked D lid',icon:I.velid,
   defaults:Object.assign({boxW:775,boxRun:572.5,wsMode:'mm',wsHeight:70,wsDeg:10,simpleEdge:5,holeDia:0,lapTotal:50,lapMode:'split',holePitch:60,holeEndGap:20},LIDDEF),
   migrate:s=>{ if(s.boxRun==null&&s.boxD!=null&&s.boxW>0) s.boxRun=+(+s.boxD-s.boxW/2).toFixed(3);
@@ -9045,7 +9089,7 @@ const F={
   kit:s=>FP.pmValveEndKit(s),
   mini:c=>['Peak rise '+bankR(c.ws)+' · '+c.wsDeg.toFixed(1)+'°',c.free?c.kitPieces+(c.kitPieces>1?' pieces':' piece')+' · seams '+c.seams.map(t=>Math.round(t)+'°').join(' '):c.lapTotal>0?'Lap half + plain half':'Two plain halves'],
   stats:c=>['A:1 '+bankR(c.L),'Rise '+bankR(c.ws)+' · fall '+c.wsDeg.toFixed(1)+'°','C:1 '+bankR(c.C1),'A:C '+bankR(c.AC),'Nose step '+bankR(c.girth)],
-  note:'Shop method: the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Same standard as the Round Top: a LAP HALF carrying the full Lap on both ridge edges as square straps (V-cut apart at the peak, notched where they run into the fold-outs) and a PLAIN half that sits on its seam lines — switch the drawing to Pieces for the pair. One fold-out size, drawn continuously round the whole rim for the lockformer — back, side and nose (the side is tangent to the nose, so there is no break where they meet). Watershed can be set as a height or as a fall in degrees, measured over the nose radius. Free seams cut it in 1 to 4 pieces on lines off the peak, set in degrees from the back centre, clockwise from above: each seam gets one square strap, stopped at the fold-out.'},
+  note:'Shop method: the peaked watershed lid that sheds water off a vertical D / valve box. Developed by triangulation as a half — start at the right-angle triangle A:1 / C:1 / A:C (square at 1), swing B, then step the nose in 30° divisions. Same standard as the Round Top: a LAP HALF carrying the full Lap on both ridge edges as square straps (V-cut apart at the peak, notched where they run into the fold-outs) and a PLAIN half that sits on its seam lines — switch the drawing to Pieces for the pair. One fold-out size, drawn continuously round the whole rim for the lockformer — back, side and nose (the side is tangent to the nose, so there is no break where they meet). Watershed can be set as a height or as a fall in degrees, measured over the nose radius. Choose splits cuts it in 2 to 4 pieces on lines off the peak, set in degrees from the back centre, clockwise from above: each seam gets one square strap, stopped at the fold-out.'},
  roundtop:{name:'Round Top',sub:'Watershed cone lid · round box',icon:I.rtop,
   defaults:{dia:350,wsMode:'mm',wsHeight:50,wsDeg:10,simpleEdge:4,pieces:2,holeDia:0,lapTotal:50,lapMode:'split',holePitch:60,holeEndGap:20,seamSpacing:'equal',seam1:0,seam2:180,seam3:270,seam4:90},
   fields:[num('dia','Diameter (mm)'),
@@ -9092,7 +9136,7 @@ const F={
   stats:c=>['Ø '+c.D.toFixed(0)+' → 2 × '+c.d.toFixed(0),'Lean '+c.lean.toFixed(1)+'° each','Crotch '+c.crotchH.toFixed(0)+' up',c.kitPieces>2?'Each leg in two halves':'Leg A + leg B'],
   note:'The breeches piece: one round splitting into two smaller rounds. Each leg is the cone from the whole base to its own top, cut where it meets the other leg, so the inside lines stop on the crotch - the V where the legs meet. Developed by triangulation from true lengths (the table is in the notes; * = ends on the crotch). Leg A carries a flanged edge along the crotch to join leg B, which is the same leg turned over without it. For three pipes the same size, use the Y Branch.'},
  raisedbox:{name:'Raised-end Box',sub:'D-box up a pipe · Valve End top',icon:I.raisedbox,
-  defaults:Object.assign({boxW:400,boxRun:300,boxL:300,wsMode:'deg',wsHeight:35,wsDeg:10,holeTop:150,holeBot:150,foldedEdge:6,simpleEdge:4,lap:13,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20},LIDDEF),
+  defaults:Object.assign({boxW:400,boxRun:300,boxL:300,wsMode:'deg',wsHeight:35,wsDeg:10,holeTop:150,holeBot:150,foldedEdge:6,simpleEdge:4,lap:50,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20},LIDDEF),
   migrate:edgeAs('folded'),
   fields:[num('boxW','Round end Ø (mm)'),num('boxRun','Straight run (mm)'),num('boxL','Box length (mm)'),
     Object.assign(sego('wsMode','Watershed set by',[{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{reflow:1}),
@@ -9106,20 +9150,20 @@ const F={
   kit:s=>FP.raisedEndBoxKit({...s,lockform:SET.lockform}),
   mini:c=>['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),c.seams?c.pieces+(c.pieces>1?' pieces':' piece')+' round · seams '+c.seams.map(t=>Math.round(t)+'°').join(' '):'Wrap + flat end + raised end'],
   stats:c=>['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),c.endEdge||'Lockform '+SET.lockform],
-  note:'A D valve box standing up a vertical pipe, with the Valve End as its watershed top. The wrap and the flat bottom end are the Valve Box (round end, straight run back, box length), the top is the Valve End lid peaked over the pipe. Pipe holes top and bottom, centred on the round end - the top one is developed on the lid. One lap size for the lot; the lid is a lap half and a plain half, or with the laps Half each two halves the same. Free seams cut the lot - wrap, flat end and lid - in 1 to 4 pieces on the same lines, set in degrees from the back centre, clockwise from above. Lockform from Settings → Sizes.'},
+  note:'A D valve box standing up a vertical pipe, with the Valve End as its watershed top. The wrap and the flat bottom end are the Valve Box (round end, straight run back, box length), the top is the Valve End lid peaked over the pipe. Pipe holes top and bottom, centred on the round end - the top one is developed on the lid. One lap size for the lot; the lid is a lap half and a plain half, or with the laps Half each two halves the same. Choose splits cuts the lot - wrap, flat end and lid - in 2 to 4 pieces on the same lines, set in degrees from the back centre, clockwise from above. Lockform from Settings → Sizes.'},
  flatflange:{name:'Flat-sided Flange Box',sub:'Shop method · flat pressed in the top',icon:I.flatflange,
-  defaults:Object.assign({dia:400,boxW:400,flatDepth:60,simpleEdge:4,lap:13,holePipe:0,insulation:25,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
+  defaults:Object.assign({dia:400,boxW:400,flatDepth:60,simpleEdge:4,lap:50,holePipe:114.3,pipeEnds:'both',insulation:25,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20},FREEDEF,SIDEDEF),
   migrate:edgeAs('simple'),
   fields:[num('dia','Diameter (mm)'),num('boxW','Length (mm, along the pipe)'),num('flatDepth','Depth of the flat (mm)'),...CHEEK('simpleEdge','Simple edge (mm)',null,FLANGELOCK),num('lap','Lap (mm)')].concat(ENDPIPE(),FREESEAM,[
     
-    Object.assign(edgeSeg('simple','Simple edge'),{when:s=>s.seamMode==='free'})],SIDEPIPE(s=>s.seamMode==='free')),
+    edgeSeg('simple','Simple edge',s=>s.seamMode==='free')],SIDEPIPE(s=>s.seamMode==='free')),
   onSet:sideSet('flatflange',0),
   build:s=>ffKit(s)[0],
   kit:s=>ffKit(s),
   mini:c=>c.seams?['Cut '+Math.round(c.cutLap)+' × '+Math.round(c.width),c.pieces>1?c.pieces+' wraps + '+c.pieces+' disc pieces ×2':'1 wrap + 2 disc pieces ×2']:['Ø '+fmtDim(c.dia||0),'Flat '+fmtDim(c.flat||0),'Loss '+(c.loss||0).toFixed(1)],
   stats:c=>c.seams?['Cut '+Math.round(c.cutLap)+'×'+Math.round(c.width),'Girth '+Math.round(c.G),'Seams '+c.seams.map(t=>Math.round(t)+'°').join(' '),'Flat '+(c.flat||0).toFixed(1)]
     :['Top half '+Math.round(c.girth)+'×'+Math.round(c.width),'Flat '+(c.flat||0).toFixed(1),'Loss '+(c.loss||0).toFixed(1),'Lockform '+SET.lockform],
-  note:'The flange box with a flat pressed into the top - to clear something overhead or sit tight under a steel. The top body half carries the flat (a fold each side of it) and laps over the plain round bottom half; the top flange halves are cut straight across at the flat. The girth all round is the round less what the flat loses. Free seams cut the body and both flanges in 1 to 4 pieces on lines from the centre of the circle, set in degrees from the top centre (the middle of the flat), clockwise looking at the end.'},
+  note:'The flange box with a flat pressed into the top - to clear something overhead or sit tight under a steel. The top body half carries the flat (a fold each side of it), the bottom half is plain round; the top flange halves are cut straight across at the flat. Every flange half has the fold-out round its rim, which knocks into the body\'s lockform, and its half of the lap past the split. The girth all round is the round less what the flat loses. Choose splits cuts the body and both flanges in 2 to 4 pieces on lines from the centre of the circle, set in degrees from the top centre (the middle of the flat), clockwise looking at the end.'},
  endcap:{name:'End Cap',sub:'Flat · rim',icon:I.ecap,
   defaults:{capPipe:168.3,insulation:25,capStyle:'flat',holeApipe:0,holeAx:0,holeAy:0,splitSize:50,holePitch:60,holeEndGap:20},
   fields:[{type:'pipe',k:'capPipe',label:'Pipe / vessel it caps'},num('insulation','Insulation (mm)'),
@@ -9143,7 +9187,7 @@ const F={
   stats:c=>['Cap Ø'+(c.dia?fmtDim(c.dia):fmtDim(c.R*2)),'Rim '+SET.slotFlange,'Split '+(c.splitSize!=null?c.splitSize:SET.splitSize)],
   note:'Caps the end of a run or a vessel with a shallow cone that sheds the water, at the watershed pitch: pick the pipe + insulation and the cap comes out at the cladding OD. Rim slot flange locks onto a lockformed pipe end. A pipe comes up through the peak, and its hole spans the split so each half shows its half-moon.'},
  nozzlebox:{name:'Nozzle Flange Box',sub:'Flange box saddled onto a vessel',icon:I.nozzlebox,
-  defaults:{vesselDia:1500,dia:400,boxLen:300,pipeOD:114.3,insulation:25,splitAt:'long',simpleEdge:4,lap:13,lapMode:'split',holePitch:60,holeEndGap:20,nDiv:12},
+  defaults:{vesselDia:1500,dia:400,boxLen:300,pipeOD:114.3,insulation:25,splitAt:'long',simpleEdge:4,lap:50,lapMode:'split',holePitch:60,holeEndGap:20,nDiv:12},
   fields:[num('vesselDia','Vessel Ø (mm, over the cladding)'),num('dia','Box Ø (mm)'),num('boxLen','Length at the shortest side (mm, shell to outer end)'),
     {type:'pipe',k:'pipeOD',label:'Nozzle pipe (the hole in the outer end)',none:true},num('insulation','Insulation on the pipe (mm)'),
     sego('splitAt','Halves split on',[{v:'long',label:'Long sides'},{v:'short',label:'Short sides'}]),
@@ -9155,16 +9199,16 @@ const F={
   note:'A removable flange box over the flange on a vessel nozzle, its inner end cut to sit on the vessel - effectively a tee. Measure the vessel over its cladding, the box Ø, and the box length at its shortest side, from the shell to the outer end - in line with the vessel, where the shell stands highest. Round to the sides it gets longer: the inner edge is cut as a tee\'s saddle, so it sits down on the shell all the way round, with the flange out (Settings) to fold flat onto the cladding. It comes apart in halves: every half carries half the lap on both splits. Split them on the long sides (across the vessel) or the short sides (in line with it). The outer end is two half discs, each with its half of the lap on the split, cut for the pipe (no hole for a blind flange); they knock into the lockform at the outer end (Settings → Sizes). No drill holes - it is clipped. A box as wide as the vessel, or wider, cannot sit on it and is refused.'},
 };
 F.wsbox={name:'Watershed Box',sub:'Shop method · ridged top',icon:I.wshed,
-  defaults:Object.assign({boxL:400,boxW:300,boxH:400,shedDepth:40,foldedEdge:5,lap:50,holePipe:0,insulation:25,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20,splitMode:'mirror',hoodDrop:75,bandPieces:2},FREEDEF,SIDEDEF),
+  defaults:Object.assign({boxL:400,boxW:300,boxH:400,shedDepth:40,foldedEdge:5,lap:50,holePipe:114.3,pipeEnds:'both',pipeUp:0,insulation:25,lapMode:'split',edgeType:'lockform',holePitch:60,holeEndGap:20,splitMode:'mirror',hoodDrop:75,bandPieces:2},FREEDEF,SIDEDEF),
   migrate:edgeAs('folded'),
-  fields:[Object.assign(sego('splitMode','Split',[{v:'mirror',label:'Mirror halves'},{v:'horiz',label:'Horizontal band'},{v:'free',label:'Free seams'}]),{reflow:1}),
+  fields:[Object.assign(sego('splitMode','Split',[{v:'mirror',label:'2 halves'},{v:'horiz',label:'Horizontal band'},{v:'free',label:'Choose splits'}]),{reflow:1}),
     num('boxL','Length (mm, along the pipe)'),num('boxW','Width (mm)'),num('boxH','Height (mm, to the ridge)'),num('shedDepth','Watershed height (mm)'),...CHEEK('foldedEdge','Folded edge (mm)',null,s=>s.splitMode!=='horiz'&&cheekLock(s)),
     num('lap','Lap (mm)'),
     Object.assign(num('hoodDrop','Hood drop over the wall (mm)'),{when:s=>s.splitMode==='horiz'}),
     Object.assign(segd('bandPieces','Bottom band',[2,4]),{when:s=>s.splitMode==='horiz',reflow:1}),
     
-    Object.assign(edgeSeg('folded','Folded edge'),{when:s=>s.splitMode!=='horiz'})]
-    .concat(ENDPIPE(s=>s.splitMode!=='horiz'),FREESEAM.slice(1).map(f=>Object.assign({},f,{when:s=>s.splitMode==='free'&&(!f.when||f.when(Object.assign({},s,{seamMode:'free'})))})),SIDEPIPE(s=>s.splitMode==='free')),
+    edgeSeg('folded','Folded edge',s=>s.splitMode!=='horiz')]
+    .concat(ENDPIPE(s=>s.splitMode!=='horiz',1),FREESEAM.slice(1).map(f=>Object.assign({},f,{when:s=>s.splitMode==='free'&&(!f.when||f.when(Object.assign({},s,{seamMode:'free'})))})),SIDEPIPE(s=>s.splitMode==='free')),
   onSet:(s,k)=>{ sideSet('wsbox',0)(s,k); if(k==='splitMode'&&s.splitMode!=='free'){ s.sideN=0; s.sp1At=0; s.sp2At=0; } },
   build:s=>wsKit(s)[0],
   kit:s=>wsKit(s),
@@ -9174,7 +9218,7 @@ F.wsbox={name:'Watershed Box',sub:'Shop method · ridged top',icon:I.wshed,
   stats:c=>c.splitMode==='horiz'
       ?['Wrap sheet '+Math.round(c.width)+'×'+Math.round(c.cutLap),'Girth '+Math.round(c.girth),'Ridge '+Math.round(c.ridgeFold)+'° · eaves '+Math.round(c.ang)+'°','Slope '+Math.round(c.slope)+' · skirt '+Math.round(c.drop),'Lockform '+c.LF+' · 2 cheeks','Band '+c.nBand+' off, wall '+Math.round(c.wall)]
       :c.seams?['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Seams '+c.seams.map(t=>Math.round(t)+'°').join(' ')]:['With laps '+Math.round(c.cutLap)+'×'+Math.round(c.width),'No laps '+Math.round(c.girth)+'×'+Math.round(c.width),'Fold '+Math.round(c.ang)+'°','Base/wall/slope '+Math.round(c.base)+'/'+Math.round(c.wall)+'/'+Math.round(c.slope)],
-  note:'Mirror halves = the shop program: the wrap folds the slope in — base, 90° fold, wall, fold angle, slope — cut 2 and flip one, plus a lap half and a plain half per end. Horizontal band = cut it round the eaves instead: the whole rise comes as ONE wrap carrying both slopes, the ridge and a skirt, with a lockform up both ends and two gable cheeks knocked into it — same as you build every box. The wall band underneath comes as 2 halves (joints in the middle of each end, in line with the base seam) or 4 quarters, joints landing mid-face. The base comes in two halves, lapped down the middle, and drops in on the band\'s bottom hem. Fit the band first, then the base, then drop the hood on so it laps over.'};
+  note:'2 halves = two mirror halves: the wrap folds the slope in — base, 90° fold, wall, fold angle, slope — cut 2 and flip one, plus a lap half and a plain half per end. Horizontal band = cut it round the eaves instead: the whole rise comes as ONE wrap carrying both slopes, the ridge and a skirt, with a lockform up both ends and two gable cheeks knocked into it — same as you build every box. The wall band underneath comes as 2 halves (joints in the middle of each end, in line with the base seam) or 4 quarters, joints landing mid-face. The base comes in two halves, lapped down the middle, and drops in on the band\'s bottom hem. Fit the band first, then the base, then drop the hood on so it laps over.'};
 F.tanktop={name:'Tank Top',sub:'Segmented cone roof',icon:I.ttop,
   defaults:{baseDia:2500,topDia:500,height:450,segments:12,edge:5,lapTotal:50,holePitch:60,holeEndGap:20},
   fields:[num('baseDia','Base diameter (mm)'),num('topDia','Top opening Ø (mm, 0 = closed)'),num('height','Height (mm)'),num('segments','Segments'),num('edge','Simple edge (mm)')],
@@ -9293,10 +9337,11 @@ function capParams(s){ const D=+s.capPipe+2*(+s.insulation||0);
 function BOXFIELDS(dims){ return dims.concat([
   Object.assign(sego('orientation','Orientation',[{v:'vertical',label:'Vertical'},{v:'horizontal',label:'Horizontal'}]),{reflow:1}),
   Object.assign(segd('pieces','Pieces',[2,3,4]),{reflow:1}),
+  Object.assign(sego('rbThree','3 pieces as',[{v:'bottom',label:'Half bottom'},{v:'top',label:'Half top'}]),{reflow:1,oldjob:1,when:s=>Math.round(+s.pieces||2)===3&&s.rbThree==='top'}),
   Object.assign(sego('ringPieces','Split along the length',[{v:1,label:'Full length'},{v:2,label:'In half'},{v:3,label:'In thirds'}]),{when:s=>s.orientation==='horizontal'}),
-  Object.assign(sego('preset','Split runs',[{v:'',label:'Auto'},{v:'frontback',label:'Face centres'},{v:'sides',label:'Side centres'}]),{when:s=>!(Math.round(+s.pieces||2)>2)}),
+  Object.assign(sego('preset','Split runs',[{v:'',label:'Auto'},{v:'frontback',label:'Face centres'},{v:'sides',label:'Side centres'}]),{oldjob:1,when:s=>!(Math.round(+s.pieces||2)>2)&&!!s.preset}),
   Object.assign(sego('watershed','Top',[{v:0,label:'Flat'},{v:1,label:'Sloped (watershed)'}]),{reflow:1,when:s=>s.orientation!=='horizontal'}),
-  Object.assign(sego('wsMode','Watershed set by',[{v:'set',label:'Settings angle'},{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{reflow:1,when:s=>+s.watershed&&s.orientation!=='horizontal'}),
+  Object.assign(sego('wsMode','Watershed set by',[{v:'set',label:'Settings angle'},{v:'mm',label:'Height (mm)'},{v:'deg',label:'Fall (°)'}]),{oldOnly:['set'],reflow:1,when:s=>+s.watershed&&s.orientation!=='horizontal'}),
   Object.assign(num('wsHeight','Watershed height (mm)'),{when:s=>+s.watershed&&s.orientation!=='horizontal'&&s.wsMode==='mm'}),
   Object.assign(num('wsDeg','Watershed fall (°)',0.5),{when:s=>+s.watershed&&s.orientation!=='horizontal'&&s.wsMode==='deg'}),
   Object.assign(num('insulation','Insulation on the pipe (mm)'),{when:s=>+s.holeApipe>0||+s.holeBpipe>0}),
@@ -9311,13 +9356,24 @@ function boxWsAngle(shape,s,strict){ const R=(+s.dia||0)/2, own=shape==='round'&
   if(shape==='round'&&s.orientation!=='horizontal'&&s.wsMode==='deg'&&+s.wsDeg>0&&+s.wsDeg<80) return +s.wsDeg;
   return SET.wsAngle; }
 const vbHole=s=>+s.holePipe>0?+s.holePipe+2*(+s.insulation||0):0;
+const ONEEND=/(?:pipe|blind) end\)/;
+const endTitle=(t,w)=>{ const b=String(t).replace(/ 1:1$/,''); return (/\)$/.test(b)?b.replace(/\)$/,', '+w+' end)'):b+' ('+w+' end)')+' 1:1'; };
+const oneEnd=s=>s.pipeEnds==='one'&&vbHole(s)>0;
+function endsKit(fn,p,s){ const A=fn(p); if(!oneEnd(s)||!Array.isArray(A)) return A;
+  const B=fn(Object.assign({},p,{holeDia:0,plateHole:0,keepPipeUp:1})), sig=o=>JSON.stringify([o.prim,o.holes]), out=[];
+  if(!Array.isArray(B)||B.length!==A.length) return A;
+  A.forEach((a,i)=>{ const b=B[i]; if(sig(a)===sig(b)) return void out.push(a);
+    const n=+((/CUT (\d+)/.exec(a.cutNote||'')||[])[1])||2, h=Math.max(1,Math.round(n/2)), two=h>1?', '+h+' halves':'';
+    const tag=(o,w,more)=>Object.assign({},o,{title:endTitle(o.title,w),cutNote:'CUT '+h+' OFF (the '+w+' end'+two+more+')'});
+    out.push(tag(a,'pipe',''),tag(b,'blind',/turn the second over/.test(a.cutNote||'')?' - turn it over':'')); });
+  return out; }
 const vbKit=s=>{ const p={...s,wsHeight:s.topStyle==='flat'?0:(+s.wsHeight||0),lockform:SET.lockform,holeDia:vbHole(s),plateHole:vbHole(s),sidePipes:sidePipesOf(s,'valvebox')};
-  return s.seamMode==='free'?FP.pmFreeSeamBoxKit({...p,section:'d'}):FP.pmValveBoxKit(p); };
-const bbKit=s=>FP.valveBonnetBoxKit({...s,wsHeight:s.topStyle==='flat'?0:(+s.wsHeight||0),lockform:SET.lockform,holeDia:vbHole(s),plateHole:vbHole(s),flange:SET.flange});
+  return s.seamMode==='free'?endsKit(q=>FP.pmFreeSeamBoxKit(q),{...p,section:'d'},s):endsKit(q=>FP.pmValveBoxKit(q),p,s); };
+const bbKit=s=>endsKit(q=>FP.valveBonnetBoxKit(q),{...s,wsHeight:s.topStyle==='flat'?0:(+s.wsHeight||0),lockform:SET.lockform,holeDia:vbHole(s),plateHole:vbHole(s),flange:SET.flange},s);
 const HALVES={pieces:2,seamSpacing:'equal',seam1:0};
-const wsKit=s=>s.splitMode==='free'||(s.splitMode!=='horiz'&&vbHole(s)>0)?FP.pmFreeSeamBoxKit({...s,...(s.splitMode==='free'?{}:HALVES),section:'ws',lockform:SET.lockform,plateHole:s.splitMode==='horiz'?0:vbHole(s),sidePipes:sidePipesOf(s,'wsbox')}):FP.watershedBoxKit({...s,lockform:SET.lockform,slotFlange:SET.slotFlange});
-const fbKit=s=>s.seamMode==='free'?FP.pmFreeSeamBoxKit({...s,section:'round',lockform:SET.lockform,plateHole:vbHole(s),sidePipes:sidePipesOf(s,'flangebox')}):FP.pmFlangeBoxKit({...s,lockform:SET.lockform,plateHole:vbHole(s)});
-const ffKit=s=>s.seamMode==='free'?FP.pmFreeSeamBoxKit({...s,section:'flat',lockform:SET.lockform,plateHole:vbHole(s),sidePipes:sidePipesOf(s,'flatflange')}):FP.pmFlatFlangeBoxKit({...s,lockform:SET.lockform,plateHole:vbHole(s)});
+const wsKit=s=>s.splitMode==='free'||(s.splitMode!=='horiz'&&vbHole(s)>0)?endsKit(q=>FP.pmFreeSeamBoxKit(q),{...s,...(s.splitMode==='free'?{}:HALVES),section:'ws',lockform:SET.lockform,plateHole:s.splitMode==='horiz'?0:vbHole(s),sidePipes:sidePipesOf(s,'wsbox')},s):FP.watershedBoxKit({...s,lockform:SET.lockform,slotFlange:SET.slotFlange});
+const fbKit=s=>s.seamMode==='free'?endsKit(q=>FP.pmFreeSeamBoxKit(q),{...s,section:'round',lockform:SET.lockform,plateHole:vbHole(s),sidePipes:sidePipesOf(s,'flangebox')},s):endsKit(q=>FP.pmFlangeBoxKit(q),{...s,lockform:SET.lockform,plateHole:vbHole(s)},s);
+const ffKit=s=>s.seamMode==='free'?endsKit(q=>FP.pmFreeSeamBoxKit(q),{...s,section:'flat',lockform:SET.lockform,plateHole:vbHole(s),sidePipes:sidePipesOf(s,'flatflange')},s):endsKit(q=>FP.pmFlatFlangeBoxKit(q),{...s,lockform:SET.lockform,plateHole:vbHole(s)},s);
 function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulation||0),ox:+x||0,oy:+y||0}:null;
   return Object.assign({},s,{shape,
   watershed:!!(+s.watershed), preset:s.preset||undefined, splitRot:+s.splitRot||0,
@@ -9326,7 +9382,10 @@ function boxParams(shape,s){ const holeOf=(od,x,y)=>+od>0?{dia:+od+2*(+s.insulat
   holeA:holeOf(s.holeApipe,s.holeAx,s.holeAy),
   holeB:holeOf(s.holeBpipe,s.holeBx,s.holeBy)}); }
 const ORDER=['elbow','flatelbow','lobster','flatlobster','reducerbend','bendonbend','inctee','cross','eurotee','teebend','teeoncone','teeflatback','teedome','ybranch','trunnion','teereducer','reducer','flatback','oblique','anglecone','slopecone','witcheshat','sqround','obliqueround','roundtop','valveend','roundbox','squarebox','valvebox','risenvbox','bonnetbox','risenbbox','flangebox','wsbox','endcap','conecap','dome','tanktop','teetanktop','dishedend','hemidome','rectround','rasqround','oblxform','ellipsoidal','torihead','spherecap','shoetee','offtee','tangtee','bendet','weldseg','spacerelbow','bendgusset','elbowgusset','flatten','recess','flatflange','nozzlebox','raisedbox','breeches','flattee'];
-const GROUPS=[{t:'Bends',k:['elbow','flatelbow','spacerelbow','elbowgusset','lobster','flatlobster','reducerbend','bendgusset','bendet','weldseg','bendonbend']},{t:'Tees & Branches',k:['inctee','cross','flattee','shoetee','offtee','tangtee','eurotee','ybranch','breeches','teebend','teeoncone','teeflatback','teedome','teetanktop']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone','slopecone','witcheshat']},{t:'Transitions',k:['sqround','rectround','obliqueround','rasqround','oblxform','flatten','recess']},{t:'Watershed Tops',k:['roundtop','tanktop','valveend']},{t:'Boxes',k:['squarebox','valvebox','risenvbox','bonnetbox','risenbbox','raisedbox','flangebox','flatflange','nozzlebox','roundbox','wsbox','endcap','conecap']},{t:'Vessel Ends',k:['dome','dishedend','hemidome','ellipsoidal','torihead','spherecap']}];
+const NSK=()=>SET.norsokOn?Math.max(5,+SET.norsokFold||5):0;
+['squarebox','valvebox','risenvbox','bonnetbox','risenbbox','raisedbox','flangebox','flatflange','nozzlebox','roundbox','wsbox'].forEach(k=>{ const f=F[k]; if(!f) return;
+  ['build','kit'].forEach(m=>{ const g=f[m]; if(typeof g==='function') f[m]=s=>g(Object.assign({},s,{norsok:NSK()})); }); });
+const GROUPS=[{t:'Bends',k:['elbow','flatelbow','spacerelbow','elbowgusset','lobster','flatlobster','reducerbend','bendgusset','bendet','weldseg','bendonbend']},{t:'Tees & Branches',k:['inctee','cross','flattee','shoetee','offtee','tangtee','eurotee','ybranch','breeches','teebend','teeoncone','teeflatback','teedome','teetanktop']},{t:'Reducers & Cones',k:['reducer','flatback','oblique','anglecone','slopecone','witcheshat']},{t:'Transitions',k:['sqround','rectround','obliqueround','rasqround','oblxform','flatten','recess']},{t:'Watershed Tops',k:['roundtop','tanktop']},{t:'Boxes',k:['squarebox','valvebox','risenvbox','raisedbox','flangebox','flatflange','nozzlebox','roundbox','wsbox','endcap','conecap']},{t:'Vessel Ends',k:['dome','dishedend','hemidome','ellipsoidal','torihead','spherecap']}];
 const BOXKINDS=new Set(GROUPS.find(g=>g.t==='Boxes').k);
 const VARIANTS=[];
 const NALL=new Set(GROUPS.flatMap(g=>g.k).concat(VARIANTS.flatMap(v=>v.members.map(m=>m[0])))).size;
@@ -9695,8 +9754,6 @@ const SYN={ elbow:'two piece mitre cut bend 90 45 pipe miter',
   flattee:'flat sided tee flattened tee recess flat branch flat main clearance wall steel d section tee',
   breeches:'breeches piece trousers pants y piece reducing two legs cone legs crotch bifurcation',
   raisedbox:'raised end box valve box watershed top vertical pipe d box lid hole',
-  bonnetbox:'valve box with bonnet bonnet hole collar spindle stem gland valve top d box sleeve',
-  risenbbox:'risen valve box with bonnet bonnet hole collar spindle stem gland valve top watershed top ridge d box sleeve',
   flatflange:'flat sided flange box flattened flange box flat top clearance',
   nozzlebox:'nozzle flange box flange box on a vessel nozzle box saddle removable box vessel tank column drum',
   shoetee:'shoe tee 45 shoe branch boot tee swept tee equal reducing cheek',
@@ -9715,7 +9772,6 @@ const SYN={ elbow:'two piece mitre cut bend 90 45 pipe miter',
   oblxform:'oblique transformer offset transition duct',
   roundtop:'watershed round top cap weather rain shed',
   tanktop:'tank top cone roof vessel top segmented',
-  valveend:'valve end box cover watershed top',
   dome:'dome head torispherical vessel end gores cap',
   dishedend:'dished end shallow head vessel cap',
   hemidome:'hemispherical dome half ball head vessel cap sphere',
@@ -10791,7 +10847,7 @@ function t3valvebox(s){
   const arc=[], arcMid=[]; for(let i=0;i<=12;i++){ const a=Math.PI/2*i/12; arc.push([r*Math.cos(a),r-r*Math.sin(a)]); arcMid.push([0,r-r*Math.sin(a)]); }
   const ends=[-L/2,L/2], more=[];
   ends.forEach(y=>{ more.push(t3otherCheek(wallE,midE,y), t3noPic(t3halfCheek(arc,arcMid,y)), t3otherCheek(arc,arcMid,y)); });
-  const hd=+s.holePipe>0?+s.holePipe+2*(+s.insulation||0):0, stick=0.2*Math.max(W,H,L), pipes=hd>0?[t3pipe([0,-L/2-stick,r],[0,-L/2,r],hd,0),t3pipe([0,L/2,r],[0,L/2+stick,r],hd,-1)]:[];
+  const hd=+s.holePipe>0?+s.holePipe+2*(+s.insulation||0):0, stick=0.2*Math.max(W,H,L), pipes=hd>0?[t3pipe([0,-L/2-stick,r],[0,-L/2,r],hd,0)].concat(s.pipeEnds==='one'?[]:[t3pipe([0,L/2,r],[0,L/2+stick,r],hd,-1)]):[];
   return t3parts([t3ext(half,-L/2,L/2), t3ext(t3mirX(half),-L/2,L/2), t3halfCheek(wallE,midE,-L/2), t3halfCheek(wallE,midE,L/2)].concat(pipes,more));
 }
 const bbSize=s=>{ const L=Math.max(1,+s.boxL||700), W=Math.max(1,+s.boxW||380), H=Math.max(W/2+1,+s.boxH||610), r=W/2;
@@ -10813,7 +10869,7 @@ function t3bonnetbox(s){
   [-L/2,L/2].forEach(y=>{ more.push(t3otherCheek(wallE,midE,y), t3noPic(t3halfCheek(arc,arcMid,y)), t3otherCheek(arc,arcMid,y)); });
   const ring=z=>{ const o=[]; for(let i=0;i<=T3N;i++){ const a=2*Math.PI*i/T3N, x=rb*Math.sin(a); o.push([x,yc-rb*Math.cos(a),z(x)]); } return o; };
   const collar=t3stations([ring(zAt),ring(()=>H+hc)]), stick=0.2*Math.max(W,H,L);
-  const hd=+s.holePipe>0?+s.holePipe+2*(+s.insulation||0):0, pipes=hd>0?[t3pipe([0,-L/2-stick,r],[0,-L/2,r],hd,0),t3pipe([0,L/2,r],[0,L/2+stick,r],hd,-1)]:[];
+  const hd=+s.holePipe>0?+s.holePipe+2*(+s.insulation||0):0, pipes=hd>0?[t3pipe([0,-L/2-stick,r],[0,-L/2,r],hd,0)].concat(s.pipeEnds==='one'?[]:[t3pipe([0,L/2,r],[0,L/2+stick,r],hd,-1)]):[];
   return t3parts([top(1),top(-1),t3ext(wall,-L/2,L/2),t3ext(t3mirX(wall),-L/2,L/2),t3halfCheek(wallE,midE,-L/2),t3halfCheek(wallE,midE,L/2),
                   collar,t3pipe([0,yc,H+hc],[0,yc,H+hc+stick],2*rb,-1)].concat(pipes,more));
 }
@@ -10868,20 +10924,22 @@ function t3flatflange(s){
 const t3flangebox=s=>t3barrel(Math.max(1,(+s.dia||234)/2),Math.max(1,+s.boxW||567),Math.max(0,+s.simpleEdge||0));
 function roundSplitAngles(s){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
   const fb=(s.preset||(s.orientation==='horizontal'?'sides':'frontback'))==='frontback';
-  const base = n===2 ? (fb?[0,180]:[90,270]) : n===3 ? [90,180,270] : [45,135,225,315];
+  const base = n===2 ? (fb?[0,180]:[90,270]) : n===3 ? (s.rbThree==='top'?[90,180,270]:[0,90,270]) : [45,135,225,315];
   const rot=((((+s.splitRot||0)%12)+12)%12)*30;
   return rot?base.map(a=>(a+rot)%360):base; }
 function rbTopWrap(cs){ const n=cs.length, up=i=>{ const a0=cs[i]*Math.PI/180, a1=(i+1<n?cs[i+1]:cs[0]+360)*Math.PI/180; return (Math.sin(a1)-Math.sin(a0))/(a1-a0); };
   let top=0; for(let i=1;i<n;i++) if(up(i)>=up(top)-1e-9) top=i; return top; }
+function rbTopWraps(cs,s){ const n=cs.length, t=rbTopWrap(cs), up=i=>{ const a0=cs[i]*Math.PI/180, a1=(i+1<n?cs[i+1]:cs[0]+360)*Math.PI/180; return (Math.sin(a1)-Math.sin(a0))/(a1-a0); };
+  return cs.map((c,i)=>i).filter(i=>i===t||(n>2&&s.rbThree!=='top'&&Math.abs(up(i)-up(t))<1e-9)); }
 const rbXY=(s,rho,a,e)=>{ const hz=s.orientation==='horizontal', t=(hz?a:a-25)*Math.PI/180, x=rho*Math.sin(t), w=rho*Math.cos(t); return hz?[x,e,w]:[x,-w,e]; };
 const rbPt=s=>{ const R=Math.max(1,(+s.dia||200)/2); return (a,e)=>rbXY(s,R,a,e); };
 function t3roundbox(s){
   const R=Math.max(1,(+s.dia||200)/2), H=Math.max(1,+s.height||300), hz=s.orientation==='horizontal', P=rbPt(s);
-  const cs=roundSplitAngles(s).slice().sort((a,b)=>a-b), n=cs.length, top=rbTopWrap(cs);
+  const cs=roundSplitAngles(s).slice().sort((a,b)=>a-b), n=cs.length, tops=rbTopWraps(cs,s);
   const rings=hz?Math.max(1,Math.min(4,Math.round(+s.ringPieces||1))):1, parts=[];
   for(let i=0;i<n;i++){ const a0=cs[i], a1=i+1<n?cs[i+1]:cs[0]+360, k=Math.max(2,Math.ceil((a1-a0)/7.5)), arc=[];
     for(let m=0;m<=k;m++) arc.push(a0+(a1-a0)*m/k);
-    const nr=i===top?1:rings;
+    const nr=tops.includes(i)?1:rings;
     for(let r=0;r<nr;r++){ const e0=-H/2+H*r/nr, e1=-H/2+H*(r+1)/nr;
       parts.push(t3stations([arc.map(a=>P(a,e0)),arc.map(a=>P(a,e1))])); } }
   const rise=!hz&&+s.watershed?R*Math.tan(boxWsAngle('round',s)*Math.PI/180):0;
@@ -11161,7 +11219,7 @@ const END3D={squarebox:1,flangebox:1,flatflange:1,wsbox:1};
     let K=null; try{ K=F[k].kit(s); }catch(e){ return g; }
     const c=(K&&K[0]&&K[0].calc)||{}, P=sp?(c.sidePipes||[]):[], E=ep?c.endPipe:null; if(!P.length&&!E) return g;
     const out=g.parts?g:{parts:[g]};
-    if(E){ const st=0.2*Math.max(E.L,3*E.d); out.parts.push(t3pipe([E.x,-E.L/2-st,E.z],[E.x,-E.L/2,E.z],E.d,0),t3pipe([E.x,E.L/2,E.z],[E.x,E.L/2+st,E.z],E.d,-1)); }
+    if(E){ const st=0.2*Math.max(E.L,3*E.d); out.parts.push(t3pipe([E.x,-E.L/2-st,E.z],[E.x,-E.L/2,E.z],E.d,0)); if(s.pipeEnds!=='one') out.parts.push(t3pipe([E.x,E.L/2,E.z],[E.x,E.L/2+st,E.z],E.d,-1)); }
     P.forEach(q=>{ const b=[q.x,q.y,q.z], n=[q.n[0],0,q.n[1]], len=Math.max(60,q.d*0.9);
       out.parts.push(t3pipe(b.map((c,i)=>c-n[i]*2),b.map((c,i)=>c+n[i]*len),q.d,-1)); });
     return out; }; });
@@ -11220,12 +11278,13 @@ const t3obPStrip=(o,C,th,nv,w,hole,t,M)=>{ const u=t3obU(th), O=[C[0]+nv[0]*w,C[
   const r0=t3obRoot(hole,C,u), r1=t3obRoot(hole,O,u), a0=[C[0]+u[0]*r0,C[1]+u[1]*r0], b0=[O[0]+u[0]*r1,O[1]+u[1]*r1];
   const line=(p,q)=>{ const r=[]; for(let i=0;i<=8;i++) r.push(M(p[0]+(q[0]-p[0])*i/8,p[1]+(q[1]-p[1])*i/8,t)); return r; };
   return [line(a0,A.pt),line(b0,B.pt)]; };
-function t3obBox(X,c){ const o=c.path, C=c.C, M=c.M, st=X.st, e=X.eps, pp=c.ppath||o, hole=t3obHole(C,c.rh);
+const t3obEnd=(L,e)=>L.some(o=>ONEEND.test(o.title))?L.filter(o=>!ONEEND.test(o.title)||(e?/blind end\)/:/pipe end\)/).test(o.title)):L;
+function t3obBox(X,c){ const o=c.path, C=c.C, M=c.M, st=X.st, e=X.eps, pp=c.ppath||o, hole0=t3obHole(C,c.rh);
   (c.wraps||[]).forEach(w=>{ const g=t3obSpan(o,C,w.ta,w.tb); if(!g) return;
     X.body(t3obPrism(o,g[0],g[1],c.t0,c.t1,M,st),w.grp,w.kitI,[w.la,w.lb]);
     if(w.la>0) X.strip(t3obPrism(o,g[0]-w.la,g[0],c.t0,c.t1,M,st,C,e),w.grp,w.la);
     if(w.lb>0) X.strip(t3obPrism(o,g[1],g[1]+w.lb,c.t0,c.t1,M,st,C,e),w.grp,w.lb); });
-  (c.plates||[]).forEach(p=>{ const E=c.ends[p.end], g=t3obSpan(pp,C,p.ta,p.tb); if(!g) return;
+  (c.plates||[]).forEach(p=>{ const E=c.ends[p.end], g=t3obSpan(pp,C,p.ta,p.tb), hole=c.oneEnd&&p.end?null:hole0; if(!g) return;
     X.body(t3obFan(pp,C,g[0],g[1],hole,E.t,M,st),p.grp,p.kitI,[p.wa,p.wb]);
     const tb=((p.tb%360)+360)%360, ra=p.ta*Math.PI/180, rb=tb*Math.PI/180, te=E.t+E.sg*e;
     if(p.wa>0) X.strip(t3obPStrip(pp,C,p.ta,[-Math.cos(ra),Math.sin(ra)],p.wa,hole,te,M),p.grp,p.wa);
@@ -11233,18 +11292,18 @@ function t3obBox(X,c){ const o=c.path, C=c.C, M=c.M, st=X.st, e=X.eps, pp=c.ppat
 function t3obShop(X,K,s,c){ const sp=c.fixed?null:t3obSp(s), a=c.seam||0, G=[X.grp(),X.grp()];
   const pick=(E,k,ord)=>E.length>1?E[ord?ord[k]:k]:E[0];
   const wraps=[0,1].map(k=>{ const o=pick(c.WK,k,c.wOrd), l=sp!=null?sp:t3obWL(o); return {ta:a+180*k,tb:a+180*(k+1),la:l,lb:l,kitI:K.indexOf(o),grp:G[k]}; });
-  const plates=[]; c.ends.forEach((E,e)=>[0,1].forEach(k=>{ if(!c.PK.length) return; const o=pick(c.PK,k,c.pOrd), l=c.discs?0:sp!=null?sp:c.plap(o);
+  const plates=[]; c.ends.forEach((E,e)=>[0,1].forEach(k=>{ const PK=t3obEnd(c.PK,e); if(!PK.length) return; const o=pick(PK,k,c.pOrd), l=sp!=null?sp:c.plap(o);
     plates.push({ta:a+180*k,tb:a+180*(k+1),wa:l,wb:l,kitI:K.indexOf(o),grp:G[k],end:e}); }));
-  t3obBox(X,Object.assign({},c,{wraps,plates})); return G; }
+  t3obBox(X,Object.assign({},c,{wraps,plates,oneEnd:c.PK.some(o=>ONEEND.test(o.title))})); return G; }
 function t3obFree(X,K,s,c){ const W=K.filter(o=>/Wrap \d+ of/.test(o.title)), Pl=K.filter(o=>/(End Plate|Flat End) \d+ of/.test(o.title));
   if(!W.length||!W[0].calc.seams) return null; const n=W.length, ths=W[0].calc.seams.slice(), sp=t3obSp(s), mode=t3obMode(s), lap=s.lap==null?13:+s.lap;
   const nx=(A,k)=>A.length===1?A[0]+360:k+1<A.length?A[k+1]:A[0]+360;
   const G=n>1?ths.map(()=>X.grp()):null, gW=G?null:X.grp(null,1);
   const wraps=W.map((o,k)=>({ta:ths[k],tb:nx(ths,k),la:sp!=null?sp:t3obML(o,'start'),lb:sp!=null?sp:t3obML(o,'end'),kitI:K.indexOf(o),grp:G?G[k]:gW}));
   const pth=n===1?[ths[0],(ths[0]+180)%360].sort((a,b)=>a-b):ths, np=pth.length, plates=[];
-  c.ends.forEach((E,e)=>Pl.forEach((o,k)=>{ if(k>=np) return;
+  c.ends.forEach((E,e)=>t3obEnd(Pl,e).forEach((o,k)=>{ if(k>=np) return;
     plates.push({ta:pth[k],tb:nx(pth,k),wa:sp!=null?sp:t3obLapOf(mode,lap,np,k,false),wb:sp!=null?sp:t3obLapOf(mode,lap,np,k,true),kitI:K.indexOf(o),grp:G?G[k]:X.grp(),end:e}); }));
-  t3obBox(X,Object.assign({},c,{wraps,plates})); return G; }
+  t3obBox(X,Object.assign({},c,{wraps,plates,oneEnd:Pl.some(o=>ONEEND.test(o.title))})); return G; }
 
 function t3obLidRows(c,ta,tb){ const T=[], m=Math.max(2,Math.ceil((tb-ta)/3)); for(let i=0;i<=m;i++) T.push(ta+(tb-ta)*i/m);
   (c.cn||[]).forEach(v=>{ for(const w of [v-360,v,v+360]) if(w>ta+1e-6&&w<tb-1e-6) T.push(w); }); T.sort((a,b)=>a-b);
@@ -11272,7 +11331,7 @@ const t3obVeCn=(r,run)=>{ const tc=Math.atan2(r,run)*180/Math.PI; return [tc,90,
 const T3OB={};
 T3OB.squarebox=(X,K,s)=>{ if(s.seamMode==='plan') return t3obPlan(X,K,s);
   const L=Math.max(1,+s.boxL||900), W=Math.max(1,+s.boxW||450), H=Math.max(1,+s.boxH||550);
-  if(s.seamMode==='free'||vbHole(s)>0) return void t3obFree(X,K,s.seamMode==='free'?s:Object.assign({},s,{seamMode:'free'},HALVES),{path:t3obPath([[0,H],[W/2,H],[W/2,0],[-W/2,0],[-W/2,H],[0,H]]),C:[0,H/2],M:t3obMX,t0:-L/2,t1:L/2,ends:[{t:-L/2,sg:-1},{t:L/2,sg:1}],rh:vbHole(s)/2});
+  if(s.seamMode==='free'||vbHole(s)>0) return void t3obFree(X,K,s.seamMode==='free'?s:Object.assign({},s,{seamMode:'free'},HALVES),{path:t3obPath([[0,H],[W/2,H],[W/2,0],[-W/2,0],[-W/2,H],[0,H]]),C:[0,H/2+pipeUpOf(s)],M:t3obMX,t0:-L/2,t1:L/2,ends:[{t:-L/2,sg:-1},{t:L/2,sg:1}],rh:vbHole(s)/2});
   t3obShop(X,K,s,{path:t3obPath([[0,H],[W/2,H],[W/2,0],[-W/2,0],[-W/2,H],[0,H]]),C:[0,H/2],M:t3obMX,t0:-L/2,t1:L/2,ends:[{t:-L/2,sg:-1},{t:L/2,sg:1}],
     WK:K.filter(o=>/Half Wrap/.test(o.title)),PK:K.filter(o=>/End Plate/.test(o.title)),plap:o=>t3obR3(Math.max(0,o.calc.pw-W/2-(o.calc.ph-H)/2))}); };
 T3OB.valvebox=T3OB.risenvbox=(X,K,s)=>{ const L=Math.max(1,+s.boxL||700), W=Math.max(1,+s.boxW||380), H=Math.max(W/2+1,+s.boxH||610), r=W/2;
@@ -11287,8 +11346,8 @@ T3OB.bonnetbox=T3OB.risenbbox=(X,K,s,cl)=>{ const {L,H,r,ws,rb,yc,hc}=bbSize(s),
     const ridge=k?[g1,g1+l]:[g0-l,g0], bot=k?[g0-l,g0]:[g1,g1+l];
     if(l>0){ let n0=0; [[-L/2,yc-rb],[yc+rb,L/2]].forEach(y=>{ if(y[1]-y[0]>1){ const S=X.strip(t3obPrism(o,ridge[0],ridge[1],y[0],y[1],M,st,C,e),G[k],l); if(n0++) S.cont=1; } });
       X.strip(t3obPrism(o,bot[0],bot[1],-L/2,L/2,M,st,C,e),G[k],l); }
-    ends.forEach((E,ei)=>{ const p=pick(PK,k), pl=sp!=null?sp:t3obR3(Math.max(0,p.calc.pw-p.calc.rad)); plates.push({ta:180*k,tb:180*(k+1),wa:pl,wb:pl,kitI:K.indexOf(p),grp:G[k],end:ei}); }); });
-  t3obBox(X,{path:o,C,M,ends,rh:vbHole(s)/2,plates});
+    ends.forEach((E,ei)=>{ const p=pick(t3obEnd(PK,ei),k), pl=sp!=null?sp:t3obR3(Math.max(0,p.calc.pw-p.calc.rad)); plates.push({ta:180*k,tb:180*(k+1),wa:pl,wb:pl,kitI:K.indexOf(p),grp:G[k],end:ei}); }); });
+  t3obBox(X,{path:o,C,M,ends,rh:vbHole(s)/2,plates,oneEnd:PK.some(q=>ONEEND.test(q.title))});
   if(!CK) return; const gC=X.grp(), cl0=+CK.calc.lap||0, laps=sp!=null&&cl0>0?[sp,sp]:[cl0,0];
   X.use(P[6],gC,K.indexOf(CK),laps);
   const zAt=x=>H-ws*Math.abs(x)/r, ring=(a0,a1,top)=>{ const q=[], m=Math.max(2,Math.ceil(Math.abs(a1-a0)/0.08));
@@ -11299,14 +11358,14 @@ T3OB.flangebox=(X,K,s)=>{ const R=Math.max(1,(+s.dia||234)/2), Lb=Math.max(1,+s.
   const c={path:t3obCirc(R,64),ppath:t3obCirc(R+rim,64),C:[0,0],M:t3obMX,t0:-Lb/2,t1:Lb/2,ends:[{t:-Lb/2,sg:-1},{t:Lb/2,sg:1}],rh:vbHole(s)/2};
   if(s.seamMode==='free') t3obFree(X,K,s,c);
   else { const hf=s.lapMode==='split'&&+s.lap>0;
-    t3obShop(X,K,s,Object.assign(c,{fixed:hf?0:1,discs:1,WK:hf?[K[0]]:[K[0],K[1]],PK:[K[hf?1:2]],plap:()=>0})); } };
+    t3obShop(X,K,s,Object.assign(c,{fixed:hf?0:1,WK:hf?[K[0]]:[K[0],K[1]],PK:K.filter(o=>/Disc/.test(o.title)),plap:o=>+o.calc.lapW||0})); } };
 T3OB.flatflange=(X,K,s)=>{ const r=Math.max(1,(+s.dia||400)/2), d=Math.max(1,Math.min(r*0.95,+s.flatDepth||60)), Lb=Math.max(1,+s.boxW||400);
   const c={path:t3obFlat(r,d),C:[0,0],M:t3obMX,t0:-Lb/2,t1:Lb/2,ends:[{t:-Lb/2,sg:-1},{t:Lb/2,sg:1}],rh:vbHole(s)/2};
   if(s.seamMode==='free') t3obFree(X,K,s,c);
-  else t3obShop(X,K,s,Object.assign(c,{seam:90,fixed:s.lapMode==='split'&&+s.lap>0?0:1,discs:1,WK:[K[0],K[1]],wOrd:[1,0],PK:[K[2],K[3]],pOrd:[1,0],plap:()=>0})); };
+  else t3obShop(X,K,s,Object.assign(c,{seam:90,fixed:s.lapMode==='split'&&+s.lap>0?0:1,WK:[K[0],K[1]],wOrd:[1,0],PK:K.filter(o=>/Disc/.test(o.title)),pOrd:[1,0],plap:o=>+o.calc.lapW||0})); };
 T3OB.wsbox=(X,K,s)=>{ const L=Math.max(1,+s.boxL||400), W=Math.max(1,+s.boxW||300), H=Math.max(1,+s.boxH||400), D=Math.max(1,Math.min(H-1,+s.shedDepth||40)), wall=H-D;
   if(s.splitMode==='horiz') return t3obWsH(X,K,s,L,W,H,wall);
-  const c={path:t3obPath([[0,H],[W/2,wall],[W/2,0],[-W/2,0],[-W/2,wall],[0,H]]),C:[0,wall/2],M:t3obMX,t0:-L/2,t1:L/2,ends:[{t:-L/2,sg:-1},{t:L/2,sg:1}],rh:vbHole(s)/2};
+  const c={path:t3obPath([[0,H],[W/2,wall],[W/2,0],[-W/2,0],[-W/2,wall],[0,H]]),C:[0,wall/2+pipeUpOf(s)],M:t3obMX,t0:-L/2,t1:L/2,ends:[{t:-L/2,sg:-1},{t:L/2,sg:1}],rh:vbHole(s)/2};
   if(s.splitMode==='free'||vbHole(s)>0) t3obFree(X,K,s.splitMode==='free'?s:Object.assign({},s,{splitMode:'free'},HALVES),c);
   else t3obShop(X,K,s,Object.assign(c,{WK:K.filter(o=>/Wrap/.test(o.title)),PK:K.filter(o=>/End Plate/.test(o.title)),plap:o=>+o.calc.lp||0})); };
 function t3obWsH(X,K,s,L,W,H,wall){ const drop=Math.max(1,Math.min(wall-1,s.hoodDrop==null?75:+s.hoodDrop)), zb=wall-drop, e=X.eps, M=t3obMX, gH=X.grp();
@@ -11366,7 +11425,7 @@ T3OB.nozzlebox=(X,K,s,cl)=>{ const {Rv,r,Zo,rh,ph0}=nbSize(s), ro=r+Math.max(0,+
   return {hosts:[P[2]].concat(P.filter(q=>q.pipe))}; };
 function t3obRbSplits(s,R,pieces){ const a0=Math.PI/2, a1=Math.PI/2-2*Math.PI, G=R*Math.abs(a1-a0), n=Math.max(2,Math.min(4,Math.round(+pieces||2)));
   const fb=(s.preset||(s.orientation==='horizontal'?'sides':'frontback'))==='frontback';
-  const base=n===2?(fb?[0,G/2]:[G/4,3*G/4]):n===3?[G/4,G/2,3*G/4]:[G/8,3*G/8,5*G/8,7*G/8], rot=(((+s.splitRot||0)%12)+12)%12*(G/12);
+  const base=n===2?(fb?[0,G/2]:[G/4,3*G/4]):n===3?(s.rbThree==='top'?[G/4,G/2,3*G/4]:[0,G/4,3*G/4]):[G/8,3*G/8,5*G/8,7*G/8], rot=(((+s.splitRot||0)%12)+12)%12*(G/12);
   const sp=(rot?base.map(g=>((g+rot)%G+G)%G).sort((a,b)=>a-b):base).map(g=>((g%G)+G)%G).sort((a,b)=>a-b);
   const yAt=g=>{ g=((g%G)+G)%G; const t=Math.max(0,Math.min(1,g/G)); return R*Math.sin(a0+(a1-a0)*t); };
   const upn=(ga,gb)=>{ const span=(((gb-ga)%G)+G)%G; let q=0; for(let i=0;i<=16;i++) q+=yAt(ga+span*i/16); return q/17; };
@@ -11374,7 +11433,8 @@ function t3obRbSplits(s,R,pieces){ const a0=Math.PI/2, a1=Math.PI/2-2*Math.PI, G
 T3OB.roundbox=(X,K,s)=>{ const R=Math.max(1,(+s.dia||200)/2), H=Math.max(1,+s.height||300), hz=s.orientation==='horizontal', e=X.eps, st=SET.splitStyle;
   const {G,sp,upn}=t3obRbSplits(s,R,s.pieces), n=sp.length, sl=sp.map((ga,i)=>{ const gb=sp[(i+1)%n]; return {i,ga,gb:gb>ga?gb:gb+G,up:upn(ga,gb)}; });
   const order=sl.slice().sort((a,b)=>a.up-b.up), ringN=hz?Math.max(1,Math.min(4,Math.round(+s.ringPieces||1))):1, jobs=[];
-  order.forEach((x,i)=>{ const rings=hz&&i===n-1?1:ringN; for(let r=0;r<rings;r++) jobs.push({x,r,rings}); });
+  const tieTop=hz&&n>2&&s.rbThree!=='top'&&Math.abs(order[n-1].up-order[n-2].up)<1e-6;
+  order.forEach((x,i)=>{ const rings=hz&&(i===n-1||(tieTop&&i===n-2))?1:ringN; for(let r=0;r<rings;r++) jobs.push({x,r,rings}); });
   const deg=g=>g*360/G, P=(rho,a,z)=>rbXY(s,rho,a,z), ext=(over,SS)=>st==='flange'?SS:st==='lap2'?SS/2:over?SS:0;
   const arc=(a0,a1,rho,z0,z1)=>{ const m=Math.max(2,Math.ceil(Math.abs(a1-a0)/3.75)), A=[]; for(let i=0;i<=m;i++) A.push(a0+(a1-a0)*i/m); return [A.map(a=>P(rho,a,z0)),A.map(a=>P(rho,a,z1))]; };
   const ln=(f,m)=>{ const o=[]; for(let i=0;i<=m;i++) o.push(f(i/m)); return o; }, grpAt={};
@@ -12559,9 +12619,10 @@ function mpPlanSplits(G,s){ const d=sbDims(s), H=d.H, P=(px,py,z)=>[-py,px,z], o
   sbGirths(s).forEach(g=>{ const q=sbPt(s,g); out.push([P(q[0],q[1],0),P(q[0],q[1],H)]); });
   out.push((s.lidSeam||'frontback')==='frontback'?[P(0,-d.D/2,H),P(0,d.D/2,H)]:[P(-d.W/2,0,H),P(d.W/2,0,H)]);
   return out; }
+const pipeUpOf=s=>+s.holePipe>0?(+s.pipeUp||0):0;
 MPSPEC.squarebox={v:[0.78,0.32],hostEdges:1,skip:[2,3],caps:(G)=>mpEnds(G,0),dims:(G,s)=>mpBox(G,s,{L:s.boxL,W:s.boxW,H:s.boxH}),
   splits:(G,s)=>{ if(s.seamMode==='plan') return mpPlanSplits(G,s);
-    const c=[0,(+s.boxH||550)/2];
+    const c=[0,(+s.boxH||550)/2+pipeUpOf(s)];
     return mpFree(s)?mpRays(mpHalfProf(G,0),c,freeSeamAngles(s),G.lo[1],G.hi[1]).concat(mpEndRays(mpHalfProf(G,0),c,freePlateAngles(s),[G.lo[1],G.hi[1]]))
       :[mpCol(G,0,0),mpCol(G,0,-1)].concat(mpEndMid(G,G.hi[2],G.lo[2])); }};
 MPSPEC.valvebox={v:[0.78,0.32],hostEdges:1,skip:[2,3],caps:(G)=>mpEnds(G,0),dims:(G,s)=>{ const d=mpBox(G,s,{L:s.boxL,W:s.boxW,H:s.boxH});
@@ -12592,7 +12653,7 @@ MPSPEC.wsbox={v:[0.78,0.32],hostEdges:1,caps:(G,s)=>{ const W=+s.boxW||300, H=+s
       out.push([[0,lo,zb],[0,lo,0],[0,hi,0],[0,hi,zb]]);
       if(+s.bandPieces===4) [-1,1].forEach(sx=>out.push([[sx*W/2,0,0],[sx*W/2,0,zb]]));
       return out; }
-    const c=[0,wall/2];
+    const c=[0,wall/2+pipeUpOf(s)];
     return mpFree(s)?mpRays(mpHalfProf(G,1),c,freeSeamAngles(s),G.lo[1],G.hi[1]).concat(mpEndRays(mpHalfProf(G,1),c,freePlateAngles(s),[G.lo[1],G.hi[1]]))
       :[mpCol(G,1,0),mpCol(G,1,-1)].concat(mpEndMid(G,H,0)); }};
 MPSPEC.raisedbox={v:[0.78,0.32],hostEdges:1,dims:(G,s)=>{ const W=+s.boxW||400, run=+s.boxRun||300, L=+s.boxL||300;
@@ -12636,9 +12697,9 @@ MPSPEC.roundbox={v:[0.78,0.32],hostEdges:1,caps:(G,s)=>{ const P=rbPt(s), hz=s.o
     const cn=MPSPEC.roundbox.cone(G,s);
     A.forEach(t=>out.push([ax(e0),P(t,e0),P(t,e1),ax(e1+(cn?cn.rise:0))]));
     const n=Math.max(1,Math.min(4,Math.round(+s.ringPieces||1)));
-    if(hz&&n>1&&A.length){ const cs=A.slice().sort((a,b)=>a-b), topI=rbTopWrap(cs), R=Math.max(1,(+s.dia||200)/2);
+    if(hz&&n>1&&A.length){ const cs=A.slice().sort((a,b)=>a-b), tops=rbTopWraps(cs,s), R=Math.max(1,(+s.dia||200)/2);
       for(let r=1;r<n;r++){ const y=e0+(e1-e0)*r/n;
-        cs.forEach((a0,i)=>{ if(i===topI) return; const a1=i+1<cs.length?cs[i+1]:cs[0]+360; out.push(mpArc(R,a0,a1,y,true)); }); } }
+        cs.forEach((a0,i)=>{ if(tops.includes(i)) return; const a1=i+1<cs.length?cs[i+1]:cs[0]+360; out.push(mpArc(R,a0,a1,y,true)); }); } }
     const Rr=Math.max(1,(+s.dia||200)/2), along=q=>hz?q[1]:q[2];
     const hole=(od,ox,oy,e)=>{ ox=+ox||0; oy=+oy||0; const r=+od>0?Math.min((+od+2*(+s.insulation||0))/2,Rr-Math.hypot(ox,oy)-1):0;
       const on=e===e0?q=>along(q)<=e0+1e-6:q=>along(q)>=e1-1e-6;
@@ -12737,7 +12798,8 @@ function diagRoundBox(s){
       let topI=0,best=-2;
       for(let i=0;i<cs.length;i++){ const a0=cs[i],a1=(i+1<cs.length?cs[i+1]:cs[0]+360),c=Math.cos(((a0+a1)/2)*Math.PI/180); if(c>best){best=c;topI=i;} }
       let lo=1e9,hi=-1e9;
-      for(let i=0;i<cs.length;i++){ if(i===topI) continue;
+      const tops=rbTopWraps(cs,s);
+      for(let i=0;i<cs.length;i++){ if(i===topI||(tops.length>1&&tops.includes(i))) continue;
         const a0=cs[i],a1=(i+1<cs.length?cs[i+1]:cs[0]+360);
         for(let a=a0;a<=a1+0.01;a+=(a1-a0)/8){ const y=-rx*Math.cos(a*Math.PI/180); if(y<lo)lo=y; if(y>hi)hi=y; } }
       if(hi>lo) for(let r=1;r<ringN;r++){ const xr=x0+(x1-x0)*r/ringN;
@@ -12818,7 +12880,7 @@ function sqPlanParams(s){ sbEnsure(s); const d=sbDims(s);
     splitAt:sbGirths(s)})); }
 const sqBuild=s=>s.seamMode==='plan'
   ? FP.boxKit(sqPlanParams(s))
-  : s.seamMode==='free'||vbHole(s)>0 ? FP.pmFreeSeamBoxKit(Object.assign({},s,s.seamMode==='free'?{}:HALVES,{section:'rect',lockform:SET.lockform,plateHole:vbHole(s),sidePipes:sidePipesOf(s,'squarebox')}))
+  : s.seamMode==='free'||vbHole(s)>0 ? endsKit(q=>FP.pmFreeSeamBoxKit(q),Object.assign({},s,s.seamMode==='free'?{}:HALVES,{section:'rect',lockform:SET.lockform,plateHole:vbHole(s),sidePipes:sidePipesOf(s,'squarebox')}),s)
   : FP.pmSquareBoxKit(Object.assign({},s,{lockform:SET.lockform}));
 
 function _svgFit(parts,pts,style){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
@@ -13033,7 +13095,7 @@ function diagWsBox(s){
     parts.push(_ln([mid,sSk],[mid,y1],SEAMST));
   } else {
     parts.push(`<path d="M${sx0} ${syE} L${mid} ${syP} L${sx1} ${syE} Z" fill="${DPAL.gold.f}" stroke="none"/>`);
-    if(s.splitMode==='free'){ const cyv=(y1+syE)/2, half=w/2, pk=syE-syP, ins=(x,y)=>Math.abs(x-mid)<=half&&y<=y1&&y>=syE-pk*(1-Math.abs(x-mid)/half);
+    if(s.splitMode==='free'){ const cyv=(y1+syE)/2-pipeUpOf(s)*sc, half=w/2, pk=syE-syP, ins=(x,y)=>Math.abs(x-mid)<=half&&y<=y1&&y>=syE-pk*(1-Math.abs(x-mid)/half);
       freePlateAngles(s).forEach(t=>parts.push(_ln([mid,cyv],rayOut(mid,cyv,t,ins,4*(h+w)),SEAMST))); }
     else parts.push(_ln([mid,syP],[mid,y1],SEAMST));
   }
@@ -13617,17 +13679,18 @@ function fieldHTML(f,s,after){
     const inp=`<span class="fwrap${u?' hasun':''}"><input type="text" inputmode="decimal" autocomplete="off" data-k="${f.k}" value="${s[f.k]==null&&f.opt?'':s[f.k]}" step="${f.step||1}"${f.opt?' data-opt="1"':''}>${u?`<i class="un">${u}</i>`:''}</span>`;
     if(f.neg) return `${lblHTML(f)}<div class="negrow">${inp}<button type="button" class="negbtn" data-negk="${f.k}" title="Flip direction">±</button></div>`;
     return lblHTML(f)+inp; }
-  if(f.type==='pipe'){ const cur=s[f.k], none=!!f.none&&!(+cur), isc=!none&&!FP.PIPE_CHART.some(p=>p.od==cur);
+  if(f.type==='pipe'){ const cur=s[f.k], nn=!!f.none&&!(f.noneOld&&+cur>0), none=nn&&!(+cur), isc=!none&&!FP.PIPE_CHART.some(p=>p.od==cur);
     if(SET.sizeMode==='diameter'){
       const lbl=cladLab(f.label,'Ø');
-      const ph=f.none?(f.noneHint||'0 = no hole'):'finished outside Ø';
+      const ph=nn?(f.noneHint||'0 = no hole'):'finished outside Ø';
       return `<label>${/mm/.test(lbl)?lbl:lbl+' (mm)'}</label><input type="text" inputmode="decimal" autocomplete="off" data-k="${f.k}" value="${+cur||0}" step="0.1" placeholder="${ph}">`; }
-    return `<label>${f.label}</label><select data-pipe="${f.k}">${f.none?`<option value="0" ${none?'selected':''}>${f.noneLabel||'No hole'}</option>`:''}${FP.PIPE_CHART.map(p=>`<option value="${p.od}" ${(p.od==cur&&!isc)?'selected':''}>${p.inch}" · DN${p.dn} · ${p.od}mm</option>`).join('')}<option value="custom" ${isc?'selected':''}>Custom…</option></select><div data-cuswrap="${f.k}" class="${isc?'':'hide'}"><input type="text" inputmode="decimal" autocomplete="off" data-cus="${f.k}" value="${cur}" step="0.1" style="margin-top:8px"></div>`; }
+    return `<label>${f.label}</label><select data-pipe="${f.k}">${nn?`<option value="0" ${none?'selected':''}>${f.noneLabel||'No hole'}</option>`:''}${FP.PIPE_CHART.map(p=>`<option value="${p.od}" ${(p.od==cur&&!isc)?'selected':''}>${p.inch}" · DN${p.dn} · ${p.od}mm</option>`).join('')}<option value="custom" ${isc?'selected':''}>Custom…</option></select><div data-cuswrap="${f.k}" class="${isc?'':'hide'}"><input type="text" inputmode="decimal" autocomplete="off" data-cus="${f.k}" value="${cur}" step="0.1" style="margin-top:8px"></div>`; }
   if(f.type==='seamsel'){ const A=sideSeams(s), cur=+s[f.k]||0, d=t=>{ const v=Math.abs(t-cur)%360; return Math.min(v,360-v); }; let pick=A[0]; A.forEach(t=>{ if(d(t)<d(pick)) pick=t; });
     return `<label>${f.label}</label><select data-selk="${f.k}">${A.map(t=>`<option value="${t}"${t===pick?' selected':''}>${seamWord(t)}</option>`).join('')}</select>`; }
-  if(f.type==='seg') return `${lblHTML(f)}<div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
+  const optsOf=f=>f.oldOnly?f.opts.filter(o=>{ const v=o&&typeof o==='object'?o.v:o; return !f.oldOnly.some(x=>x==v)||s[f.k]==v; }):f.opts;
+  if(f.type==='seg') return `${lblHTML(f)}<div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${optsOf(f).map(o=>`<button data-v="${o}" ${s[f.k]==o?'class="on"':''}>${o}</button>`).join('')}</div>`;
   if(f.type==='sel') return `${lblHTML(f)}<select data-selk="${f.k}">${f.opts.map(o=>`<option value="${o.v}" ${s[f.k]==o.v?'selected':''}>${o.label}</option>`).join('')}</select>`;
-  if(f.type==='segopt') return `${lblHTML(f)}<div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${f.opts.map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
+  if(f.type==='segopt') return `${lblHTML(f)}<div class="seg" data-seg="${f.k}"${f.reflow?' data-reflow="1"':''}>${optsOf(f).map(o=>`<button data-v="${o.v}" ${s[f.k]==o.v?'class="on"':''}>${o.label}</button>`).join('')}</div>`;
   if(f.type==='abcd'){ const cur=/^[ABCD]$/.test(s[f.k]||'')?s[f.k]:'A';
     const Ro=44, Ri=27, pt=(R,a)=>(20+R*Math.cos(a)).toFixed(1)+' '+(20+R*Math.sin(a)).toFixed(1);
     const a0=Math.PI, a1=1.5*Math.PI;
@@ -13701,7 +13764,7 @@ function allowFor(kind,s){ const A={}; if(!s) return A;
 const NOHOLES={squarebox:1,valvebox:1,risenvbox:1,bonnetbox:1,risenbbox:1,raisedbox:1,flangebox:1,flatflange:1,nozzlebox:1,roundbox:1,wsbox:1,valveend:1,roundtop:1};
 function printSidecar(kind,s,job,qty){ const fit=F[kind];
   return {inputs:inputsFor(kind,s), allow:allowFor(kind,s), fitting:fit?(fit.name+(fit.sub?' · '+fit.sub:'')):kind, name:fit?fit.name:'', job:job||null, qty:qty||1}; }
-function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.86.0'}; }
+function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.87.0'}; }
 function sizeTag(p){ p=p||{}; const n=v=>v!=null&&v!==''&&isFinite(+v)&&+v>0?String(+v):'', ins=n(p.insulation)?'+'+n(p.insulation):'';
   const two=(a,b,j)=>n(a)&&n(b)?n(a)+j+n(b):n(a);
   const sz=p.mainPipeOD?two(p.mainPipeOD,p.branchPipeOD||p.stubPipeOD,'x')+ins : p.trunnionPipeOD?two(p.trunnionPipeOD,p.bendPipeOD,' on ')+ins
@@ -13721,7 +13784,7 @@ function form(kind, presetParams, je){
   if(je===undefined) je=form._je&&form._je.kind===kind?form._je:null;
   flushForm();
   form._je=je;
-  { const ji=je&&jeItem(je); if(ji&&je.chk===undefined) je.chk=itemCheck(ji.it); lens(ji&&!je.today?ji.it.set:null); }
+  { const ji=je&&jeItem(je); if(ji&&je.chk===undefined) je.chk=itemCheck(ji.it); lens(ji&&!je.today?itSet(ji.it):null); }
   CUR=()=>form(kind,null,je); CUR.kind=kind; store.set('cm_open',kind);
   stopFormAnims();
   let kitOpen=false, kitJustOpened=false, activePc=null, plotOnce=true;
@@ -13803,7 +13866,7 @@ function form(kind, presetParams, je){
       <button class="btn ghost" id="shareBtn">${IC.share}<span>Share</span></button>
       <button class="btn ghost" id="dxfBtn"${CNC?'':' title="DXF is part of Workshop"'}>${CNC?IC.dxf:IC.lock}<span>DXF</span>${CNC?'':'<span class="ptag ws">Workshop</span>'}</button>
       <button class="btn ghost" id="jobBtn"${PRO?'':' title="Jobs are part of Pro"'}>${PRO?IC.job:IC.lock}<span>+ Job</span>${PRO?'':'<span class="ptag">Pro</span>'}</button>
-      ${wide?`<div class="laych"><div class="lay"><span class="eb">Sheet layout</span><span class="mono" id="laysum">${SET.sheetW} × ${SET.sheetH}</span></div><button type="button" class="laybtn" id="layBtn" title="Lay every piece out on a sheet for the CNC (DXF)${CNC?'':' - part of Workshop'}"><span class="gl">Lay out on a sheet</span><span class="gs">Lay out</span>${IC.right}</button></div>`:''}${desk?`<button type="button" class="tb sq" id="pvRot" aria-label="Turn the pattern" title="Turn the pattern">${IC.turn}</button>${zoomHtml}`:''}
+      ${desk?`<button type="button" class="tb sq" id="pvRot" aria-label="Turn the pattern" title="Turn the pattern">${IC.turn}</button>${zoomHtml}`:''}
     </div>${store.get('cm_seen_scale',false)?'<div class="scalecap">'+SCALECAP+'</div>':''}</div>`;
   let html=`<div class="workspace${locked?' locked':''}">`;
   if(wide) html+=`<div class="pane-ctl"><div class="colhd"><span class="k">Inputs</span>${desk?'<button type="button" id="colTog" class="coltg" aria-label="Hide the inputs" title="Hide the inputs"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>':''}</div><div class="stat" id="pvstat"></div>`;
@@ -14292,11 +14355,13 @@ function form(kind, presetParams, je){
     pv.classList.toggle('pv3d',in3d); pv.classList.toggle('pvlocked',locked&&!in3d); PVZoom.setDisabled(in3d||locked);
     if(in3d) pv.style.touchAction='none';
     { const lg=document.querySelector('.pvlegend'); if(lg) lg.hidden=in3d; }
+    const allOn=boxHero&&!!fit.kit&&activePc==null&&!kitOpen&&!locked&&!in3d;
+    if(allOn&&!form._kit){ try{ form._kit=fit.kit(eff()); }catch(e){ form._kit=null; } }
     if(in3d) t3mount(pv,kind,eff(),Math.max(300,Math.min(560,pv.clientWidth-24)));
-    else pv.innerHTML=locked?lockedSvg(FP.svgPreview(shown,600)):FP.svgPreview(shown,600);
+    else pv.innerHTML=locked?lockedSvg(FP.svgPreview(shown,600)):FP.svgPreview(allOn&&form._kit?kitSheet(form._kit,pv.clientWidth/Math.max(120,(pv.parentElement||pv).clientHeight)):shown,600);
     if(!in3d) document.querySelectorAll('.pvlegend .lgc').forEach(c=>{ c.hidden=BOXKINDS.has(kind)&&!pv.querySelector('.ly-'+c.dataset.ly); });
     { const mkw=document.getElementById('mkwrap'), mkb=document.getElementById('mkbody');
-      if(mkw&&mkb&&!locked){ let mk=null; try{ mk=markoutHTML(shown); }catch(e){}
+      if(mkw&&mkb&&!locked){ let mk=null; try{ if(!allOn) mk=markoutHTML(shown); }catch(e){}
         mkw.hidden=!mk; mkb.innerHTML=mk||''; } }
     if(plotOnce){ plotOnce=false; pv.classList.add('plot');
       clearTimeout(form._plotT); form._plotT=setTimeout(()=>pv.classList.remove('plot'),1400); }
@@ -14310,7 +14375,7 @@ function form(kind, presetParams, je){
     let kitN=0; if(fit.kit&&activePc==null&&!locked){ let ks=form._kit; if(!ks){ try{ ks=fit.kit(eff()); }catch(e){ ks=null; } }
       if(ks&&ks.length>1) kitN=ks.reduce((a,p)=>a+plan(p,SET.page).n,0); }
     const pvs=document.getElementById('pvsheets'),
-          ptxt=locked?'sheets: Pro':kitN?'this piece '+pl.n+' · kit '+kitN+' × '+SET.page.toUpperCase():pl.n+' × '+SET.page.toUpperCase();
+          ptxt=locked?'sheets: Pro':kitN&&allOn?'kit '+kitN+' × '+SET.page.toUpperCase():kitN?'this piece '+pl.n+' · kit '+kitN+' × '+SET.page.toUpperCase():pl.n+' × '+SET.page.toUpperCase();
     if(pvs.textContent!==ptxt){ pvs.textContent=ptxt; }
     const ms=FP.materialStats(shown,SET);
     try{ mpLiveDraw(kind,eff()); }catch(e){}
@@ -14389,7 +14454,7 @@ function form(kind, presetParams, je){
     if(bsl){ const n=Math.max(2,Math.min(4,Math.round(+s.pieces||2)));
       const desc={2:'2-way · two halves',3:'3-way · one half + two quarters',4:'4-way · four quarters'}[n];
       bsl.textContent=(fit.fields.some(f=>f.k==='pieces')?desc:'');
-      if(FREEKINDS[kind]) bsl.textContent=(s.seamMode==='free'||(kind==='wsbox'&&s.splitMode==='free'))?(()=>{ const a=freeSeamAngles(s); return a.length+(a.length>1?'-way':' piece')+(s.seamSpacing==='half'&&a.length>1?' · '+{2:'top + bottom halves',3:'half bottom + two tops',4:'two tops + two bottoms'}[a.length]:'')+' · seams '+a.map(t=>Math.round(t)+'°').join(', '); })():(kind==='wsbox'?(s.splitMode==='horiz'?'hood + band':'mirror halves'):'shop halves');
+      if(FREEKINDS[kind]) bsl.textContent=(s.seamMode==='free'||(kind==='wsbox'&&s.splitMode==='free'))?(()=>{ const a=freeSeamAngles(s); return a.length+(a.length>1?'-way':' piece')+(s.seamSpacing==='half'&&a.length>1?' · '+{2:'top + bottom halves',3:'half bottom + two tops',4:'two tops + two bottoms'}[a.length]:'')+' · seams '+a.map(t=>Math.round(t)+'°').join(', '); })():(kind==='wsbox'?(s.splitMode==='horiz'?'hood + band':'2 halves'):'2 halves');
       if(kind==='squarebox'&&s.seamMode==='plan'){ const np=sbPieceList(s).length;
         bsl.textContent=np?(np+'-way · '+sbGirths(s).length+' seams'):'tap two seams to split it'; }
       if(fit.fields.some(f=>f.k==='ringPieces')&&s.orientation==='horizontal'){ const rn=Math.max(1,Math.min(4,Math.round(+s.ringPieces||1)));
@@ -14424,6 +14489,30 @@ function form(kind, presetParams, je){
         out+=`<span class="chip gold">whole fitting ${area.toFixed(2)} m² · ${n} piece${n===1?'':'s'}</span>`; } }
     return out; }
   function kitCaption(p){ return FP.pieceName(p)||(p.title||'').replace(/\s*1:1\s*$/,'').trim(); }
+  function kitSheet(K,aspect){ const ps=(K||[]).filter(p=>p&&p.prim&&p.prim.length&&p.bbox&&p.bbox.w>0);
+    if(ps.length<2) return ps[0]||K[0];
+    const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const big=Math.max(...ps.map(p=>Math.max(p.bbox.w,p.bbox.h))), gap=0.1*big, lab=0.07*big, A=Math.max(0.3,Math.min(8,+aspect||1.3));
+    const rows=rw=>{ let x=0, W=0, H=0, rh=0; ps.forEach(p=>{ const b=p.bbox; if(x>0&&x+b.w>rw+1e-9){ H+=rh+gap; x=0; rh=0; } x+=b.w+gap; W=Math.max(W,x-gap); rh=Math.max(rh,b.h+lab); }); return {W,H:H+rh}; };
+    let rowW=Infinity, best=-1, run=0;
+    ps.forEach(p=>{ run+=(run?gap:0)+p.bbox.w; const r=rows(run), sc=Math.min(A/r.W,1/r.H); if(sc>best){ best=sc; rowW=run; } });
+    rowW=Math.max(rowW,...ps.map(p=>p.bbox.w));
+    const prim=[], holes=[], ticks=[], names=[]; let x=0, y=0, rowH=0;
+    ps.forEach(p=>{ const b=p.bbox; if(x>0&&x+b.w>rowW+1e-9){ x=0; y-=rowH+gap; rowH=0; }
+      const dx=x-b.x0, dy=y-lab-b.y1, m=/CUT (\d+)/.exec(p.cutNote||'');
+      p.prim.forEach(pr=>prim.push(Object.assign({},pr,{pts:pr.pts.map(q=>[q[0]+dx,q[1]+dy])})));
+      (p.holes||[]).forEach(h=>holes.push([h[0]+dx,h[1]+dy].concat(h.slice(2))));
+      (p.ticks||[]).forEach(t=>ticks.push(Object.assign({},t,{x:t.x+dx,y:t.y+dy})));
+      names.push({x:x+b.w/2,y:y-lab*0.2,room:b.w+0.8*gap,p,k:names.length,n:m?m[1]:''});
+      x+=b.w+gap; rowH=Math.max(rowH,b.h+lab); });
+    let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+    prim.forEach(pr=>pr.pts.forEach(q=>{ x0=Math.min(x0,q[0]); y0=Math.min(y0,q[1]); x1=Math.max(x1,q[0]); y1=Math.max(y1,q[1]); }));
+    y1=Math.max(y1,0);
+    const px=576/Math.max(1e-9,x1-x0), fits=(t,r)=>t.length*4.9+4<=r*px;
+    const short=t=>t.replace(/End Plate/g,'Plate').replace(/ of \d+/g,'').replace(/pipe end/g,'pipe').replace(/blind end/g,'blind').replace(/\bhalf\b/g,'½').replace(/[(),]/g,' ').replace(/\s+/g,' ').trim();
+    names.forEach(o=>{ const full=kitCaption(o.p)+(o.n?' · cut '+o.n:''), sh=short(kitCaption(o.p))+(o.n?' ×'+o.n:'');
+      ticks.push({x:o.x,y:o.y,label:esc(fits(full,o.room)?full:fits(sh,o.room)?sh:String(o.k+1))}); });
+    return {kind:'kitsheet',title:'Every piece',prim,holes,ticks,bbox:{x0,y0,x1,y1,w:x1-x0,h:y1-y0}}; }
   const isTemplate=p=>/Hole Cut Out|\bHole in the\b/i.test((p&&p.title)||'')||/^MARK OUT/i.test((p&&p.cutNote)||'');
   const blankOf=p=>{ let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9; ((p&&p.prim)||[]).filter(q=>q.style==='cut'||q.style==='mitre').forEach(q=>q.pts.forEach(t=>{ if(t[0]<x0) x0=t[0]; if(t[0]>x1) x1=t[0]; if(t[1]<y0) y0=t[1]; if(t[1]>y1) y1=t[1]; }));
     return x1>x0?Math.round(x1-x0)+' × '+Math.round(y1-y0):''; };
@@ -14597,21 +14686,21 @@ function setSnap(kind,params){ const seen={}, real=SET, st=F[kind]?jobState(kind
   SET=new Proxy(real,{get:(t,k)=>{ if(PATSET.indexOf(k)>=0) seen[k]=1; return t[k]; }});
   try{ r=itemBuild(kind,params,st); }finally{ SET=real; }
   const set={}; PATSET.forEach(k=>{ if(seen[k]) set[k]=SET[k]; });
-  return Object.assign({ver:'4.86.0', set}, r&&r.ps?{fp:FP.cutPrint(r.ps)[0]}:{}); }
-function itemCheck(it){ const out={diff:[], moved:false}; if(!it||!F[it.kind]||!it.set) return out;
-  const now=realSet(), key=r=>r.ps?FP.cutPrint(r.ps).join(' '):'x '+r.err;
-  const saved=withSet(it.set,()=>itemBuild(it.kind,it.params)); if(!saved.ps) return out;
-  if(it.fp&&it.ver!=='4.86.0'&&FP.cutPrint(saved.ps)[0]!==it.fp) out.moved=true;
+  return Object.assign({ver:'4.87.0', set}, r&&r.ps?{fp:FP.cutPrint(r.ps)[0]}:{}); }
+function itemCheck(it){ const out={diff:[], moved:false}; if(!it||!F[it.kind]) return out;
+  const now=realSet(), key=r=>r.ps?FP.cutPrint(r.ps).join(' '):'x '+r.err, snap=itSet(it);
+  const saved=withSet(snap,()=>itemBuild(it.kind,it.params)); if(!saved.ps) return out;
+  if(it.fp&&it.ver!=='4.87.0'&&FP.cutPrint(saved.ps)[0]!==it.fp) out.moved=true;
   const was=key(saved);
-  Object.keys(it.set).forEach(k=>{ if(now[k]===it.set[k]) return;
-    if(key(withSet(Object.assign({},it.set,{[k]:now[k]}),()=>itemBuild(it.kind,it.params)))!==was) out.diff.push(k); });
+  Object.keys(snap).concat(Object.keys(SNAPWAS).filter(k=>!(k in snap))).forEach(k=>{ if(now[k]===snapVal(snap,k)) return;
+    if(key(withSet(Object.assign({},snap,{[k]:now[k]}),()=>itemBuild(it.kind,it.params)))!==was) out.diff.push(k); });
   return out; }
-const SETWORD={swage:'swage', flange:'tee flat flange', lockform:'lockform', splitSize:'lap at the splits', slotFlange:'rim slot flange', holePitch:'hole pitch', lapTotal:'lap', wsAngle:'watershed angle'};
-function setWord(k,v,bare){ if(k==='splitStyle') return ({lap2:'split laps each side',lap1:'50/0 split laps',flange:'split flanges'})[v]||String(v);
+const SETWORD={norsokFold:'Norsok fold-out', swage:'swage', flange:'tee flat flange', lockform:'lockform', splitSize:'lap at the splits', slotFlange:'rim slot flange', holePitch:'hole pitch', lapTotal:'lap', wsAngle:'watershed angle'};
+function setWord(k,v,bare){ if(k==='norsokOn') return 'Norsok '+(v?'on':'off'); if(k==='splitStyle') return ({lap2:'split laps each side',lap1:'50/0 split laps',flange:'split flanges'})[v]||String(v);
   if(k==='nDiv') return v+' ordinates';
   return (bare?'':SETWORD[k]+' ')+v+(k==='wsAngle'?'°':''); }
 const andList=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
-const setSaid=(it,diff)=>andList(diff.map(k=>setWord(k,it.set[k])))+' - your Settings now say '+andList(diff.map(k=>setWord(k,realSet()[k],diff.length===1)))+'.';
+const setSaid=(it,diff)=>andList(diff.map(k=>setWord(k,snapVal(itSet(it),k))))+' - your Settings now say '+andList(diff.map(k=>setWord(k,realSet()[k],diff.length===1)))+'.';
 const savedOn=it=>+it.ts>0?' on '+new Date(+it.ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'';
 const itemTag=it=>{ const d=describe(Object.assign({},it,{qty:1})).split(' · ')[0]; return it.name+(d?' '+d:''); };
 const REPRINT={print:{title:'Before you print', today:'Print with today’s Settings', saved:'Print as saved', now:'Print as it is now', ask:'Print as it is now?'},
@@ -14628,7 +14717,7 @@ function reprint(items,verb,go){ const W=REPRINT[verb], said=[], moved=[];
   return m; }
 function jeNoteHtml(je){ const ji=jeItem(je), c=je.chk; if(!ji||!c||!(c.diff.length||c.moved)) return '';
   const it=ji.it, L=[];
-  if(c.diff.length) L.push(je.today?'Using today’s Settings, '+andList(c.diff.map(k=>setWord(k,realSet()[k])))+'. It was saved with '+andList(c.diff.map(k=>setWord(k,it.set[k])))+'.'
+  if(c.diff.length) L.push(je.today?'Using today’s Settings, '+andList(c.diff.map(k=>setWord(k,realSet()[k])))+'. It was saved with '+andList(c.diff.map(k=>setWord(k,snapVal(itSet(it),k))))+'.'
     :'Saved with '+setSaid(it,c.diff)+' It prints as saved.');
   if(c.moved) L.push('It cuts differently from when you saved it'+savedOn(it)+' - '+BRAND.name+' was updated. It prints as it is now.');
   return `<div class="hint" id="jeSetNote" style="margin-top:8px;text-align:left;border-left:3px solid var(--warn);padding-left:8px">${L.map(esc).join('<br>')}${c.diff.length?`<br><button type="button" class="btn ghost" id="jeSetBtn" style="margin-top:6px">${je.today?'Use the saved Settings':'Use today’s Settings'}</button>`:''}</div>`; }
@@ -14719,7 +14808,7 @@ function jobDetail(id){
         <div class="btnrow" style="margin-top:0"><button type="button" class="btn ghost" id="delNo">Keep it</button><button type="button" class="btn primary" id="delYes" style="background:var(--danger);color:#fff">Remove</button></div>`);
       d.querySelector('#delNo').onclick=()=>d.close();
       d.querySelector('#delYes').onclick=()=>{ job.items.splice(i,1); saveJobs(); d.remove(); repage(()=>jobDetail(id)); }; }; });
-  const itemKit=(it,today)=>withSet(today?null:it.set,()=>itemBuild(it.kind,it.params));
+  const itemKit=(it,today)=>withSet(today?null:itSet(it),()=>itemBuild(it.kind,it.params));
   const shortBy=(bad,rest,go)=>{ if(!bad.length) return go();
     const can=bad.find(b=>F[b.it.kind]);
     const m=modal(`${mhead(bad.length===1?'A fitting will not build':bad.length+' fittings will not build')}
@@ -14737,7 +14826,7 @@ function jobDetail(id){
     const pats=[], bad=[], sides=[];
     for(const it of job.items){ const r=itemKit(it,today); if(r.err){ bad.push({it, err:r.err}); continue; }
       const q=it.qty||1;
-      const side=withSet(today?null:it.set,()=>printSidecar(it.kind, r.p, {name:job.name, note:it.note||''}, q));
+      const side=withSet(today?null:itSet(it),()=>printSidecar(it.kind, r.p, {name:job.name, note:it.note||''}, q));
       r.ps.forEach(pt=>{ pt.print=side; });
       sides.push(side); pats.push(...r.ps); }
     sides.forEach((sd,i)=>{ sd.pack={n:i+1, of:sides.length}; });
@@ -14759,7 +14848,7 @@ function jobDetail(id){
 }
 function describe(it){ const fit=F[it&&it.kind], q=(it.qty||1)>1?'×'+it.qty+' · ':'';
   if(!fit) return q+'Not in this version of the app';
-  const s=withSet(it.set,()=>setInto(it.kind,jobState(it.kind,JSON.parse(JSON.stringify(it.params||{})))));
+  const s=withSet(itSet(it),()=>setInto(it.kind,jobState(it.kind,JSON.parse(JSON.stringify(it.params||{})))));
   const on=f=>f&&f.k&&f.type!=='hd'&&(!f.when||f.when(s)), pipes=fit.fields.filter(f=>on(f)&&f.type==='pipe'&&!f.none&&!/^sp\dPipe$/.test(f.k));
   const lead=pipes.length?pipes.map(f=>'Ø'+fmtDim(+s[f.k]||0)).join(' / ')+(FIN()?'':' +'+(+s.insulation||0)+'mm'):'';
   const rest=fit.fields.filter(f=>on(f)&&!pipes.includes(f)&&!(f.k==='insulation'&&(pipes.length||FIN()))).map(f=>{ try{ return fmtField(f,s); }catch(e){ return ''; } });
@@ -14794,6 +14883,8 @@ function settingsPage(){
     +row('Swage per edge','Added to each swaged edge, male and female, at every bend, lobster and cone joint.',num('sSwage',SET.swage,'Swage per edge'),'sSwage')
     +row('Tee flat flange','The lip rolled out on a branch saddle to rivet onto the main, instead of a swage.',num('sFlange',SET.flange,'Tee flat flange'),'sFlange')
     +row('Lockform','Extra metal on each box edge for the lockform pocket - the 5-6 mm folded edge of the other piece slots into it.',num('sLock',SET.lockform,'Lockform'),'sLock')
+    +row('Norsok spec','On: the pipe holes in a box (end plates, discs, cheeks and the seams) are cut the fold-out small and flanged out to the pipe size on the machine - a cut line and a fold line, no snips. Lids and end caps stay plain. Off: plain holes. A job keeps what it was saved with.',segHTML('sNorsok',SET.norsokOn?1:0,[[0,'Off'],[1,'On']]))
+    +row('Norsok fold-out','How far the hole flanges out. 5 mm is the least.',num('sNsk',SET.norsokFold,'Norsok fold-out'),'sNsk')
     +row('Ordinate divisions','12 is the trade standard; 24 for big diameters.',segHTML('sDiv',SET.nDiv==24?24:12,[[12,'12'],[24,'24']]))
     +`</div>`
     +grp('Look')+`<div class="slist">`
@@ -14810,7 +14901,7 @@ function settingsPage(){
     +row('Jobs, settings and licence','Keep a copy off the phone — a lost or wiped phone takes its jobs with it.','<button type="button" class="btn" id="sExport">Export</button><button type="button" class="btn" id="sImport">Restore</button>')
     +`</div><input type="file" id="sImportFile" accept=".json,application/json" class="hide">`
     +grp('About')+`<div class="slist">`
-    +row('Version','',`<span class="val">v4.86.0</span>`,null,'kv')
+    +row('Version','',`<span class="val">v4.87.0</span>`,null,'kv')
     +(SITE_URL?row('Website','',`<a href="${SITE_URL}" target="_blank" rel="noopener">${BRAND.site}</a>`,null,'kv'):'')
     +(BRAND.email?row('Support','',`<a href="mailto:${BRAND.email}">${BRAND.email}</a>`,null,'kv'):'')
     +(STORE||isNative()||navigator.standalone===true||matchMedia('(display-mode: standalone)').matches?''
@@ -14837,6 +14928,7 @@ function settingsPage(){
     SET.lapA=SET.lapTotal/2; SET.lapB=SET.lapTotal/2; SET.swageM=SET.swage; SET.swageF=SET.swage; SET.holeInset=null;
     SET.flange     = rdk('sFlange','flange');
     SET.lockform   = rdk('sLock',  'lockform');
+    SET.norsokFold = rdk('sNsk',   'norsokFold');
     SET.sheetW     = rdk('sSW',    'sheetW');
     SET.sheetH     = rdk('sSH',    'sheetH');
     const b=document.getElementById('sBrand'); if(b&&!b.disabled) SET.brand=b.value;
@@ -14845,6 +14937,7 @@ function settingsPage(){
   app.querySelectorAll('input[inputmode="decimal"]').forEach(selectOnFocus);
   document.getElementById('sPage').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sPage').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.page=b.dataset.v; saveSet(); });
   document.getElementById('sDetail').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDetail').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.detail=b.dataset.v==='1'; saveSet(); });
+  document.getElementById('sNorsok').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sNorsok').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.norsokOn=b.dataset.v==='1'; saveSet(); });
   document.getElementById('sDiv').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sDiv').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.nDiv=+b.dataset.v; saveSet(); });
   document.getElementById('sAppear').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sAppear').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); SET.appearance=b.dataset.v; applyTheme(); saveSet(); route(); });
   document.getElementById('sSizeMode').querySelectorAll('button').forEach(b=>b.onclick=()=>{ document.getElementById('sSizeMode').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); { const from=sizeModeNow(); SET.sizeMode=b.dataset.v; const to=sizeModeNow();
@@ -14859,7 +14952,7 @@ function settingsPage(){
   { const ib=document.getElementById('sInstall'); if(ib) ib.onclick=async()=>{ const ev=window._installEvt; if(!ev) return;
     ev.prompt(); const r=await ev.userChoice; if(r.outcome==='accepted'){ toast('Installing - check your home screen.'); window._installEvt=null; const sr=ib.closest('.srow'); if(sr) sr.remove(); } }; }
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.86.0',exported:new Date().toISOString(),settings:realSet(),jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.87.0',exported:new Date().toISOString(),settings:realSet(),jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     toast('Backup saved - keep a copy off the phone.'); };
