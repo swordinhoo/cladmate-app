@@ -3825,14 +3825,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     const { lapA, lapB } = _allow(p), ND = _nd(p.nDiv, 24), gap = +p.holeEndGap || 0;
     if (!(R > 0)) throw new Error('Bend radius R must be more than 0.');
     if (!(A > 0 && A <= Math.PI / 2 + 1e-9)) throw new Error('Bend angle must be more than 0 and no more than 90 degrees.');
-    if (!(n >= 2)) throw new Error('Segments must be 2 or more (2 = 1 middle gore + 2 halves).');
+    if (!(n >= 2)) throw new Error('Segments must be 2 or more (2 = 1 middle + 2 half gores).');
     const T = R * Math.tan(A / 2), L = CL - T, t = Math.tan(A / (2 * n));
     if (!(L >= 0)) throw new Error('Centre to face is too short: it must be at least ' + T.toFixed(0) + ' (R × tan of half the angle) so the straight reaches the bend.');
-    if (!(R < Math.PI * a / 2)) throw new Error('Bend radius R is too big for Bend ET - it is the tight bend. At R ' + R.toFixed(0) + ' on Ø' + od.toFixed(0) + ' use the Lobster Back.');
+    if (!(R < Math.PI * a / 2)) throw new Error('Bend radius R is too big for the Tight Radius Bend. At R ' + R.toFixed(0) + ' on Ø' + od.toFixed(0) + ' use the Lobster Back.');
     const side = Math.PI * a / 2, rho = x => R + a * Math.cos(x / a);
     if (!(rho(side + Math.max(lapA, lapB)) > 0)) throw new Error('Bend radius R is too tight for a ' + Math.max(lapA, lapB).toFixed(0) + ' lap on each edge: the gores run out past the side. Take R up or the Lap down.');
     const xL = -(side + lapA), xR = side + lapB, NS = 240;
-    const head = `Bend ET  Ø${od.toFixed(0)}  R ${R.toFixed(0)}  ${(A * 180 / Math.PI).toFixed(0)}°  CL ${CL.toFixed(0)}  ${n} segments (${n - 1} + 2 halves)`;
+    const head = `Tight Radius Bend  Ø${od.toFixed(0)}  R ${R.toFixed(0)}  ${(A * 180 / Math.PI).toFixed(0)}°  CL ${CL.toFixed(0)}  ${n} segments (${n - 1} middles + 2 half gores)`;
     const sideHoles = (holes, top) => [-side, side].forEach(x => { const h = top(x), span = h - 2 * gap; if (span <= 0) return;
       const k = _nH(span, p.holePitch); for (let i = 0; i <= k; i++) holes.push([x, gap + span * i / k]); });
     const ticksOf = (top, from) => { const pr = [], tk = []; for (let k = 0; k <= ND / 2; k++) { const x = -side + 2 * side * k / (ND / 2), h = top(x);
@@ -3847,7 +3847,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     [-side, side].forEach(x => mp.push({ style: 'fold', pts: [[x, -w(x)], [x, w(x)]], note: 'SIDE - OVERLAP' }));
     const mt = ticksOf(w, x => -w(x)); mp.push(...mt.pr);
     const mh = []; [-side, side].forEach(x => { const h = 2 * w(x) - 2 * gap; if (h <= 0) return; const k = _nH(h, p.holePitch); for (let i = 0; i <= k; i++) mh.push([x, -w(x) + gap + h * i / k]); });
-    const ms = { kind: 'bendet', title: 'Bend ET  -  Middle Gore (back half) 1:1', cutNote: 'CUT ' + (n - 1) + ' OFF',
+    const ms = { kind: 'bendet', title: 'Tight Radius Bend  -  Middle Gore (back half) 1:1', cutNote: 'CUT ' + (n - 1) + ' OFF',
       meta: [head, `Back half of a middle gore: half the girth + overlap ${lapA} / ${lapB}. Swage ${sw} on both wavy edges.`],
       calc: { od, R, CL, A: A * 180 / Math.PI, n, part: 'ms', girth: Math.PI * od, plate: xR - xL, edge: w(xL) },
       prim: mp, holes: mh, ticks: mt.tk.map(q => Object.assign(q, { label: (q.y).toFixed(1) })), bbox: bboxOf(mp) };
@@ -3860,7 +3860,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     [-side, side].forEach(x => sp.push({ style: 'fold', pts: [[x, 0], [x, hs(x)]], note: 'SIDE - OVERLAP' }));
     const st = ticksOf(hs, () => 0); sp.push(...st.pr);
     const sh = []; sideHoles(sh, hs);
-    const sf = { kind: 'bendet', title: 'Bend ET  -  Starter / Finisher (back half) 1:1', cutNote: 'CUT 2 OFF',
+    const sf = { kind: 'bendet', title: 'Tight Radius Bend  -  Starter / Finisher (back half) 1:1', cutNote: 'CUT 2 OFF',
       meta: [head, `Back half of each leg: ${L.toFixed(0)} straight from the face, then the half gore. Overlap ${lapA} / ${lapB}.`],
       calc: { od, R, CL, part: 'sf', straight: L, edge: hs(xL) }, prim: sp, holes: sh, ticks: st.tk, bbox: bboxOf(sp) };
 
@@ -3885,7 +3885,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     [-side, side].forEach(x => ep.push({ style: 'fold', pts: [[x, 0], [x, top(x)]], note: 'SIDE - OVERLAP' }));
     const et = ticksOf(top, () => 0); ep.push(...et.pr);
     const eh = []; sideHoles(eh, top);
-    const el = { kind: 'bendet', title: 'Bend ET  -  Throat (EL) 1:1', cutNote: 'CUT 2 OFF',
+    const el = { kind: 'bendet', title: 'Tight Radius Bend  -  Throat 1:1', cutNote: 'CUT 2 OFF',
       meta: [head, `Inner half of each leg to the sharp mitre. Throat point ${(CL - a + sw).toFixed(1)}, side ${(CL + sw).toFixed(1)} up from the face. Cheek corner: arc R + overlap.`],
       calc: { od, R, CL, part: 'el', creep: CL - a - R, sideH: L, twIn: xR - twR[0], twUp: twR[1], arcR: R + lapB },
       prim: ep, holes: eh, ticks: et.tk, bbox: bboxOf(ep) };
@@ -8092,7 +8092,7 @@ addEventListener('error',()=>{ const a=document.getElementById('app'); if(BOOTED
     +'<button type="button" class="btn" id="bfJobs" style="margin-top:8px">Export jobs</button></div>';
   document.getElementById('bfReset').onclick=()=>{ ['cm_settings','cm_sizes','cm_open','cm_drew','cm_recent','cm_desk','cm_sheet'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); };
   document.getElementById('bfJobs').onclick=()=>{ let jobs=[]; try{ jobs=JSON.parse(localStorage.getItem('cm_jobs')||'[]'); }catch(e){}
-    saveOut(new Blob([JSON.stringify({app:BRAND.name,ver:'4.87.0',exported:new Date().toISOString(),jobs},null,1)],{type:'application/json'}), BRAND.name+'_jobs_'+new Date().toISOString().slice(0,10)+'.json'); }; });
+    saveOut(new Blob([JSON.stringify({app:BRAND.name,ver:'4.88.0',exported:new Date().toISOString(),jobs},null,1)],{type:'application/json'}), BRAND.name+'_jobs_'+new Date().toISOString().slice(0,10)+'.json'); }; });
 const LOCALE_PAGE=(()=>{ try{ return /-(US|CA|MX|PH)\b/i.test(navigator.language||'') ? 'letter' : 'a3'; }catch(e){ return 'a3'; } })();
 const INCH_PAGE=p=>p==='letter'||p==='legal'||p==='tabloid';
 let SET = Object.assign({ insulation:25, lapTotal:50, holePitch:60, page:LOCALE_PAGE, swage:3, flange:15, nDiv:12, detail:false,
@@ -8653,14 +8653,14 @@ const F={
   stats:c=>['Big Ø'+c.bigOD.toFixed(0)+' → small Ø'+c.smallOD.toFixed(0),'Cone '+Math.round(c.R0)+' to the big end · '+c.Adeg.toFixed(1)+'°','Check corner '+Math.round(Math.abs(c.Sx))+' × '+Math.round(c.Sy),c.pieces+' pieces, joints '+c.thDeg.toFixed(1)+'°',
     c.ctfWant!=null?'Centre to face '+Math.round(c.ctfBig)+' big end · '+Math.round(c.ctfSmall)+' small end':'Ends '+Math.round(c.apart)+' apart, faces level'].concat(c.endPlus>0?['End pieces '+c.endPlus.toFixed(1)+' longer on the centre line']:[]),
   note:'A lobster bend that gets smaller as it goes round, from the big end to the small end. It is cut from one cone, so every piece is a different size and prints on its own sheet - cut 1 off each, the long side to the back of the bend. Every other piece goes on turned half round; with the seam off the throat and the back, a turned piece’s seam sits a few degrees out, and its sheet says where, so the seams meet at every joint. Segments counts the joints, as on the lobster: a half piece at each end and full ones between. Bend type says where it sits, as on the lobster: on A and B the big end is the top end, on C and D the bottom end, and the letter decides which edge of every piece is rolled male and which female, so every joint sheds the water. It is set out to go together true - both ends on the centre radius and the joints turning the full bend angle. On a cone steep for its bend the two end pieces come out longer, so the small end piece does not run out.'},
- bendet:{name:'Bend ET',sub:'Tight radius · mitred throat',icon:I.bendet,
-  defaults:{pipeOD:219.1,insulation:25,centreRadius:100,bendDeg:90,centreToFace:300,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:24},
-  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Bend radius R (mm)'),num('bendDeg','Bend angle (°)',0.1),num('centreToFace','Centre to face CL (mm)'),num('segments','Segments (4 = 3 + 2 halves)')],
+ bendet:{name:'Tight Radius Bend',sub:'Lobster back · mitred throat',icon:I.bendet,
+  defaults:{pipeOD:114.3,insulation:25,centreRadius:102,bendDeg:90,centreToFace:200,segments:4,lapTotal:50,holePitch:60,holeEndGap:20,nDiv:24},
+  fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),num('centreRadius','Bend radius R (mm)'),num('bendDeg','Bend angle (°)',0.1),num('centreToFace','Centre to face CL (mm)'),num('segments','Segments (4 = 3 middles + 2 half gores)')],
   build:s=>FP.bendETKit({...s,swage:SET.swage})[1],
   kit:s=>FP.bendETKit({...s,swage:SET.swage}),
   mini:c=>['Ø '+fmtDim(c.od),'R '+fmtDim(c.R),'CL '+fmtDim(c.CL)],
   stats:c=>['Clad Ø'+c.od.toFixed(0),'R '+c.R.toFixed(0)+' · CL '+c.CL.toFixed(0),c.n+' segments','Plate '+c.plate.toFixed(0)],
-  note:'The bend on a radius too tight for a lobster\'s throat. The BACK half is lobster gores on radius R; the THROAT half is each leg\'s inner half run on to a sharp mitre. Every plate is half the girth plus the overlap each side. Generate prints three patterns: the starter / finisher (straight + half gore, cut 2), the middle gore (cut segments - 1) and the throat EL (cut 2), whose cheek corner is trimmed to an arc of R + overlap, closed by the laps. Swage from Settings on every joint edge.'},
+  note:'The bend on a radius too tight for a lobster\'s throat. The BACK half is lobster gores on radius R; the THROAT half is each leg\'s inner half run on to a sharp mitre. Every plate is half the girth plus the overlap each side. Generate prints three patterns: the starter / finisher (straight + half gore, cut 2), the middle gore (cut segments - 1) and the throat (cut 2), whose cheek corner is trimmed to an arc of R + overlap, closed by the laps. Swage from Settings on every joint edge.'},
  weldseg:{name:'Welded Bend',sub:'Sized off the pipe · every piece',icon:I.weldseg,
   defaults:{bendHand:'A',pipeOD:219.1,insulation:25,backLen:294,throatLen:150,midCount:2,endThroatA:100,endThroatB:100,lapTotal:50,holePitch:60,holeEndGap:20,seamFromThroat:90,nDiv:12,recessDepth:0,recessAt:'back'},
   fields:[pipe('pipeOD','Pipe size'),num('insulation','Insulation (mm)'),{type:'hd',label:'Middle segment',sub:'measured on the cladding'},num('backLen','Back length (mm)'),num('throatLen','Throat length (mm)'),num('midCount','Middle segments in the bend'),{type:'hd',label:'End pieces',sub:'at the throat, joint to the end of the bend'},num('endThroatA','Starter (mm)'),num('endThroatB','Finisher (mm)'),{type:'abcd',k:'bendHand',label:'Bend type — where it sits'},num('recessDepth','Flat depth (mm, 0 = none)'),Object.assign(sego('recessAt','Flat on the',[{v:'back',label:'Back'},{v:'side',label:'Side'},{v:'throat',label:'Throat'}]),{when:s=>+s.recessDepth>0}),FAST],
@@ -9744,7 +9744,7 @@ const SYN={ elbow:'two piece mitre cut bend 90 45 pipe miter',
   teedome:'tee on dome branch on a dished head vessel nozzle',
   offtee:'offset tee off centre eccentric branch tee 90 offset to main',
   tangtee:'tangent tee tangential branch flush side tee 90 off centre',
-  bendet:'bend et tight radius short radius lobster mitred throat segmented bend',
+  bendet:'tight radius bend short radius lobster mitred throat segmented bend',
   weldseg:'welded bend segment segmented bend mitre measured back throat site pipe bend gore starter finisher',
   spacerelbow:'elbow spacer section spacer band spool piece stretched elbow oval mitre',
   bendgusset:'bend gusset piece throat gusset segmented lobster back half',
@@ -13764,7 +13764,7 @@ function allowFor(kind,s){ const A={}; if(!s) return A;
 const NOHOLES={squarebox:1,valvebox:1,risenvbox:1,bonnetbox:1,risenbbox:1,raisedbox:1,flangebox:1,flatflange:1,nozzlebox:1,roundbox:1,wsbox:1,valveend:1,roundtop:1};
 function printSidecar(kind,s,job,qty){ const fit=F[kind];
   return {inputs:inputsFor(kind,s), allow:allowFor(kind,s), fitting:fit?(fit.name+(fit.sub?' · '+fit.sub:'')):kind, name:fit?fit.name:'', job:job||null, qty:qty||1}; }
-function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.87.0'}; }
+function printOpts(){ return {page:SET.page, orient:'auto', brand:(PRO&&SET.brand)||undefined, date:new Date(), version:'4.88.0'}; }
 function sizeTag(p){ p=p||{}; const n=v=>v!=null&&v!==''&&isFinite(+v)&&+v>0?String(+v):'', ins=n(p.insulation)?'+'+n(p.insulation):'';
   const two=(a,b,j)=>n(a)&&n(b)?n(a)+j+n(b):n(a);
   const sz=p.mainPipeOD?two(p.mainPipeOD,p.branchPipeOD||p.stubPipeOD,'x')+ins : p.trunnionPipeOD?two(p.trunnionPipeOD,p.bendPipeOD,' on ')+ins
@@ -14686,11 +14686,11 @@ function setSnap(kind,params){ const seen={}, real=SET, st=F[kind]?jobState(kind
   SET=new Proxy(real,{get:(t,k)=>{ if(PATSET.indexOf(k)>=0) seen[k]=1; return t[k]; }});
   try{ r=itemBuild(kind,params,st); }finally{ SET=real; }
   const set={}; PATSET.forEach(k=>{ if(seen[k]) set[k]=SET[k]; });
-  return Object.assign({ver:'4.87.0', set}, r&&r.ps?{fp:FP.cutPrint(r.ps)[0]}:{}); }
+  return Object.assign({ver:'4.88.0', set}, r&&r.ps?{fp:FP.cutPrint(r.ps)[0]}:{}); }
 function itemCheck(it){ const out={diff:[], moved:false}; if(!it||!F[it.kind]) return out;
   const now=realSet(), key=r=>r.ps?FP.cutPrint(r.ps).join(' '):'x '+r.err, snap=itSet(it);
   const saved=withSet(snap,()=>itemBuild(it.kind,it.params)); if(!saved.ps) return out;
-  if(it.fp&&it.ver!=='4.87.0'&&FP.cutPrint(saved.ps)[0]!==it.fp) out.moved=true;
+  if(it.fp&&it.ver!=='4.88.0'&&FP.cutPrint(saved.ps)[0]!==it.fp) out.moved=true;
   const was=key(saved);
   Object.keys(snap).concat(Object.keys(SNAPWAS).filter(k=>!(k in snap))).forEach(k=>{ if(now[k]===snapVal(snap,k)) return;
     if(key(withSet(Object.assign({},snap,{[k]:now[k]}),()=>itemBuild(it.kind,it.params)))!==was) out.diff.push(k); });
@@ -14901,7 +14901,7 @@ function settingsPage(){
     +row('Jobs, settings and licence','Keep a copy off the phone — a lost or wiped phone takes its jobs with it.','<button type="button" class="btn" id="sExport">Export</button><button type="button" class="btn" id="sImport">Restore</button>')
     +`</div><input type="file" id="sImportFile" accept=".json,application/json" class="hide">`
     +grp('About')+`<div class="slist">`
-    +row('Version','',`<span class="val">v4.87.0</span>`,null,'kv')
+    +row('Version','',`<span class="val">v4.88.0</span>`,null,'kv')
     +(SITE_URL?row('Website','',`<a href="${SITE_URL}" target="_blank" rel="noopener">${BRAND.site}</a>`,null,'kv'):'')
     +(BRAND.email?row('Support','',`<a href="mailto:${BRAND.email}">${BRAND.email}</a>`,null,'kv'):'')
     +(STORE||isNative()||navigator.standalone===true||matchMedia('(display-mode: standalone)').matches?''
@@ -14952,7 +14952,7 @@ function settingsPage(){
   { const ib=document.getElementById('sInstall'); if(ib) ib.onclick=async()=>{ const ev=window._installEvt; if(!ev) return;
     ev.prompt(); const r=await ev.userChoice; if(r.outcome==='accepted'){ toast('Installing - check your home screen.'); window._installEvt=null; const sr=ib.closest('.srow'); if(sr) sr.remove(); } }; }
   document.getElementById('sExport').onclick=()=>{
-    const data={app:BRAND.name,ver:'4.87.0',exported:new Date().toISOString(),settings:realSet(),jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
+    const data={app:BRAND.name,ver:'4.88.0',exported:new Date().toISOString(),settings:realSet(),jobs:JOBS,pro:PRO,proExp:store.get('cm_pro_exp',null),proCode:store.get('cm_pro_code',null)};
     const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     saveOut(blob, BRAND.name+'_backup_'+new Date().toISOString().slice(0,10)+'.json');
     toast('Backup saved - keep a copy off the phone.'); };
